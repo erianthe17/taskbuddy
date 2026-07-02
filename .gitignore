@@ -141,3 +141,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#ai and agents
+AGENTS*
+CLAUDE*
+.claude/*
