@@ -1,0 +1,231 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+:root {
+  --bg-main: #0f1117;
+  --bg-sidebar: linear-gradient(180deg, #1a1d27 0%, #141620 100%);
+  --bg-header: #141620;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-md: rgba(255, 255, 255, 0.08);
+  --text-white: #ffffff;
+  --text-muted: #6b7280;
+  --text-light: #9ca3af;
+  --indigo: #6366f1;
+  --indigo-light: #a5b4fc;
+  --indigo-dark: rgba(99, 102, 241, 0.15);
+  --violet: #8b5cf6;
+  --green: #22c55e;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --card-bg: rgba(255, 255, 255, 0.04);
+  --card-border: rgba(255, 255, 255, 0.07);
+  --input-bg: rgba(255, 255, 255, 0.06);
+  --panel-bg: #1a1d27;
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --chip-bg: rgba(255, 255, 255, 0.05);
+  --track-bg: rgba(255, 255, 255, 0.08);
+  --success-text: #4ade80;
+  --danger-text: #f87171;
+  --warning-text: #fbbf24;
+  --sidebar-w: 228px;
+  --sidebar-collapsed-w: 60px;
+}
+
+/* Light mode overrides */
+[data-theme="light"] {
+  --bg-main: #f3f4f6;
+  --bg-sidebar: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+  --bg-header: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-md: rgba(0, 0, 0, 0.12);
+  --text-white: #111827;
+  --text-muted: #6b7280;
+  --text-light: #374151;
+  --indigo-dark: rgba(99, 102, 241, 0.1);
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.08);
+  --input-bg: rgba(0, 0, 0, 0.04);
+  --panel-bg: #ffffff;
+  --panel-border: rgba(0, 0, 0, 0.12);
+  --chip-bg: rgba(0, 0, 0, 0.05);
+  --track-bg: rgba(0, 0, 0, 0.08);
+  --success-text: #16a34a;
+  --danger-text: #dc2626;
+  --warning-text: #b45309;
+  color-scheme: light;
+}
+
+[data-theme="light"] body {
+  background: var(--bg-main);
+  color: var(--text-white);
+}
+
+/* Light-mode text remaps, scoped to the app shell — the login page keeps its
+   always-dark design, so its `text-white` must stay literally white. */
+[data-theme="light"] .app-shell {
+  --indigo-light: #4f46e5;
+}
+[data-theme="light"] .app-shell .text-white {
+  color: var(--text-white);
+}
+[data-theme="light"] .app-shell .text-indigo-300 {
+  color: #4f46e5;
+}
+[data-theme="light"] .app-shell .text-green-400 {
+  color: #16a34a;
+}
+[data-theme="light"] .app-shell .text-violet-300 {
+  color: #7c3aed;
+}
+[data-theme="light"] .app-shell .hover\:text-gray-300:hover {
+  color: #111827;
+}
+[data-theme="light"] .app-shell .hover\:bg-white\/5:hover,
+[data-theme="light"] .app-shell .hover\:bg-white\/10:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+}
+[data-theme="light"] .badge-processing {
+  color: #4f46e5;
+}
+[data-theme="light"] .badge-refunded {
+  background: #fef3c7;
+  color: #b45309;
+}
+[data-theme="light"] .data-table th {
+  background: rgba(0, 0, 0, 0.02);
+}
+[data-theme="light"] .data-table td {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .data-table tr:hover td {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Sidebar transition */
+aside.sidebar {
+  transition: width 0.2s ease, transform 0.2s ease;
+}
+
+.sidebar-label {
+  transition: opacity 0.15s ease, width 0.15s ease;
+}
+
+/* Content area margin — 0 on mobile (sidebar is off-canvas), sidebar width on lg+ */
+.content-area {
+  margin-left: 0;
+  transition: margin-left 0.2s ease;
+}
+@media (min-width: 1024px) {
+  .content-area {
+    margin-left: var(--sidebar-w);
+  }
+  .content-area.sidebar-collapsed {
+    margin-left: var(--sidebar-collapsed-w);
+  }
+}
+
+/* Kept in @layer base so Tailwind v4 utilities (p-*, m-*, mb-auto…) still win.
+   Unlayered, this universal reset would override every layered utility. */
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg-main);
+  color: var(--text-white);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 99px;
+}
+
+/* Nav badge */
+.nav-badge {
+  margin-left: auto;
+  background: var(--red);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 999px;
+  min-width: 17px;
+  height: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+/* Status badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9.8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-pending { background: #fef3c7; color: #b45309; }
+.badge-approved { background: #dcfce7; color: #15803d; }
+.badge-rejected { background: #fee2e2; color: #dc2626; }
+.badge-active { background: #dcfce7; color: #15803d; }
+.badge-banned { background: #fee2e2; color: #dc2626; }
+.badge-suspended { background: #fef3c7; color: #b45309; }
+.badge-completed { background: #dcfce7; color: #15803d; }
+.badge-processing { background: rgba(99, 102, 241, 0.2); color: var(--indigo-light); }
+.badge-refunded { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.badge-cancelled { background: #fee2e2; color: #dc2626; }
+
+/* Table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.4px;
+}
+.data-table th {
+  text-align: left;
+  padding: 9px 13px;
+  font-size: 9.8px;
+  font-weight: 600;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--card-border);
+}
+.data-table td {
+  padding: 0 13px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  height: 53px;
+  vertical-align: middle;
+}
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+.data-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
