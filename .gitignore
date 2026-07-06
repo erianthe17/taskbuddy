@@ -142,6 +142,15 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# MONOREPO — build output & deps in any workspace (apps/*, packages/*)
+# The anchored patterns above (e.g. /.next/, /node_modules) only match the repo
+# root, so nested app build artifacts must be ignored explicitly at any depth.
+**/node_modules/
+**/.next/
+**/out/
+**/dist/
+**/build/
+
 #ai and agents
 AGENTS*
 CLAUDE*
