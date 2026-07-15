@@ -1,23 +1,58 @@
-"""TaskBuddy recommendation model service — PLACEHOLDER.
+"""TaskBuddy recommendation model service.
 
-The trained Random Forest (rf-a-v1) is still under development. This stub
-locks in the /score API contract (BACKEND_SCHEMA.md §8–§9) so the backend
-flow can run end-to-end today; swap `score_records` for the real model later
-(see README.md).
+Serves the trained Random Forest pipeline (see train_model.py). The /score
+contract matches BACKEND_SCHEMA.md §8: 14 raw feature columns per
+job–provider pair; all preprocessing happens inside the persisted pipeline.
 """
 
+import json
+import logging
 import os
+from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+import joblib
+import pandas as pd
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-MODEL_VERSION = "stub-v0"
+logger = logging.getLogger("uvicorn.error")
 
-app = FastAPI(title="TaskBuddy Recommendation Service (stub)", version=MODEL_VERSION)
+BASE_DIR = Path(__file__).resolve().parent.parent
+MODEL_PATH = Path(os.getenv("MODEL_PATH", BASE_DIR / "model" / "rf-a-v1.joblib"))
+
+state: dict = {"pipeline": None, "meta": {}}
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    if MODEL_PATH.exists():
+        state["pipeline"] = joblib.load(MODEL_PATH)
+        meta_path = MODEL_PATH.parent / f"{MODEL_PATH.stem}.meta.json"
+        if meta_path.exists():
+            state["meta"] = json.loads(meta_path.read_text())
+        logger.info(
+            "Loaded model %s from %s",
+            state["meta"].get("model_version", MODEL_PATH.stem),
+            MODEL_PATH,
+        )
+    else:
+        # Fail fast at scoring time, not silently: /score returns 503 and
+        # /health reports model_loaded=false until an artifact is provided.
+        logger.error("Model artifact not found at %s — run train_model.py", MODEL_PATH)
+    yield
+
+
+app = FastAPI(title="TaskBuddy Recommendation Service", lifespan=lifespan)
+
+
+def model_version() -> str:
+    return state["meta"].get("model_version", MODEL_PATH.stem)
 
 
 class FeatureRecord(BaseModel):
-    """One job–provider pair. Field names must match the ML training columns exactly."""
+    """One job–provider pair. Field names must match the training columns exactly
+    — the pipeline selects DataFrame columns by name."""
 
     skills_match: int = Field(ge=0, le=1)
     distance_km: float
@@ -44,35 +79,32 @@ class ScoreResponse(BaseModel):
     scores: list[float]
 
 
-def score_records(records: list[FeatureRecord]) -> list[float]:
-    """Deterministic heuristic standing in for pipeline.predict_proba(df)[:, 1].
-
-    Produces a sane, stable ranking: category match and rating help,
-    distance and slow response time hurt. Clamped to (0, 1).
-    """
-    scores = []
-    for r in records:
-        score = 0.30
-        score += 0.25 * r.skills_match
-        score += 0.06 * (r.provider_avg_rating - 3.0)          # -0.12 .. +0.12
-        score -= 0.01 * min(r.distance_km, 30.0)               # up to -0.30
-        score -= 0.02 * min(r.provider_response_time_hrs, 10)  # up to -0.20
-        score += 0.005 * min(r.provider_completed_jobs, 40)    # up to +0.20
-        score += 0.004 * min(r.provider_years_experience, 25)  # up to +0.10
-        scores.append(round(min(max(score, 0.01), 0.99), 5))
-    return scores
-
-
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_version": MODEL_VERSION}
+    loaded = state["pipeline"] is not None
+    return {
+        "status": "ok" if loaded else "degraded",
+        "model_loaded": loaded,
+        "model_version": model_version() if loaded else None,
+        "trained_at": state["meta"].get("trained_at"),
+    }
 
 
 @app.post("/score", response_model=ScoreResponse)
 def score(request: ScoreRequest) -> ScoreResponse:
+    if state["pipeline"] is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Model artifact not loaded — train and deploy model/rf-a-v1.joblib",
+        )
+    if not request.records:
+        return ScoreResponse(model_version=model_version(), scores=[])
+
+    df = pd.DataFrame([record.model_dump() for record in request.records])
+    probabilities = state["pipeline"].predict_proba(df)[:, 1]
     return ScoreResponse(
-        model_version=MODEL_VERSION,
-        scores=score_records(request.records),
+        model_version=model_version(),
+        scores=[round(float(p), 5) for p in probabilities],
     )
 
 
