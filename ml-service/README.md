@@ -1,46 +1,81 @@
-# TaskBuddy ML Service (placeholder)
+# TaskBuddy ML Service
 
-FastAPI service that scores job–provider pairs for the recommendation engine.
-**The trained Random Forest is still under development** — this stub returns
-heuristic scores (`model_version: "stub-v0"`) using the exact same API contract,
-so the backend works end-to-end today and the real model drops in later without
-any backend changes.
+FastAPI service that scores job–provider pairs for the recommendation engine
+using the trained **Random Forest** pipeline (`rf-a-v1`) — the winner of the
+model comparison experiment (~0.81 accuracy / ~0.88 ROC-AUC over 100
+group-aware splits).
 
-## Run
+The backend calls `POST /score` with 14 raw features per pair; all
+preprocessing (ordinal encoding, TF-IDF → SVD for the two Taglish text
+features) happens **inside the persisted sklearn pipeline**, so this service
+receives raw values and returns hire probabilities.
+
+## Setup & run
+
+Use the project-local virtual environment — it pins one interpreter so bare
+`pip`/`uvicorn` always hit the right Python (machines with multiple Pythons
+otherwise install packages into the wrong one). `.venv/` is gitignored.
 
 ```bash
 cd ml-service
 python -m venv .venv
-.venv\Scripts\activate        # Windows (source .venv/bin/activate on macOS/Linux)
+.venv\Scripts\activate                # Windows (source .venv/bin/activate on macOS/Linux)
 pip install -r requirements.txt
+python train_model.py                 # produces model/rf-a-v1.joblib (~2 MB)
 uvicorn app.main:app --port 8000
 ```
 
-Health check: `GET http://localhost:8000/health`
+Training expects `taskbuddy_synthetic_dataset.csv` in this folder (40k rows;
+**not** committed to git — get it from the team drive / TaskBuddy ML repo).
+The model artifact `model/rf-a-v1.joblib` **is** committed, so serving and
+deploys work without the dataset.
 
-## API contract
+## Training (`train_model.py`)
+
+1. Validates the dataset has the 14 feature columns + `is_recommended` + `job_id`.
+2. Runs a **group-aware holdout sanity check** (split by `job_id` so candidates
+   of one job never straddle train/test) and warns if metrics fall notably
+   below the experiment baseline.
+3. Refits the pipeline on **all rows** (evaluation is settled; production
+   scoring benefits from every labeled example) and saves:
+   - `model/rf-a-v1.joblib` — the full preprocessing+RF pipeline
+   - `model/rf-a-v1.meta.json` — version, date, metrics, hyperparams, library versions
+
+Pipeline: `ColumnTransformer` (passthrough numerics, `OrdinalEncoder`
+categoricals, per-text `TfidfVectorizer(sublinear_tf=True)` →
+`TruncatedSVD(20)`) → `RandomForestClassifier(n_estimators=50, max_depth=10,
+max_features='sqrt', min_samples_split=5, class_weight='balanced')`.
+
+**scikit-learn is pinned exactly** in `requirements.txt` — joblib artifacts
+are only guaranteed to load under the sklearn version that trained them.
+If you bump sklearn, retrain and recommit the artifact in the same change.
+
+## API
+
+### `GET /health`
+
+```json
+{ "status": "ok", "model_loaded": true, "model_version": "rf-a-v1", "trained_at": "..." }
+```
+
+If the artifact is missing, `status` is `degraded`, `model_loaded` is `false`,
+and `/score` returns **503** (fail fast — no silent fallback scoring; the
+backend leaves the job in `recommending` and can re-trigger manually).
 
 ### `POST /score`
 
-Request — one record per job–provider pair, with **exactly** the 14 raw feature
-columns the model was trained on (BACKEND_SCHEMA.md §8; the backend builds these
-via the `fn_job_provider_features` SQL function):
+Request — one record per pair, **exactly** these 14 fields (names match the
+training columns; the backend builds them via `fn_job_provider_features`):
 
 ```json
 {
   "records": [
     {
-      "skills_match": 1,
-      "distance_km": 3.42,
-      "provider_avg_rating": 4.5,
-      "provider_completed_jobs": 12,
-      "provider_availability": 1,
-      "job_idle_duration_hrs": 0.17,
-      "provider_response_time_hrs": 1.25,
-      "provider_years_experience": 4.0,
-      "hour_posted": 14,
-      "provider_skill_category": "Plumbing",
-      "day_of_week": "Monday",
+      "skills_match": 1, "distance_km": 3.42, "provider_avg_rating": 4.5,
+      "provider_completed_jobs": 12, "provider_availability": 1,
+      "job_idle_duration_hrs": 0.17, "provider_response_time_hrs": 1.25,
+      "provider_years_experience": 4.0, "hour_posted": 14,
+      "provider_skill_category": "Plumbing", "day_of_week": "Monday",
       "job_urgency": "urgent",
       "job_description": "Tumutulo yung gripo sa kusina...",
       "provider_bio": "Licensed plumber po ako, 4 years na..."
@@ -49,43 +84,32 @@ via the `fn_job_provider_features` SQL function):
 }
 ```
 
-Response — scores in the same order as the request records:
+Response (scores in request order, ~200 ms typical):
 
 ```json
-{ "model_version": "stub-v0", "scores": [0.7342] }
+{ "model_version": "rf-a-v1", "scores": [0.81909] }
 ```
 
-## Replacing the stub with the trained model
+## Retraining & versioning
 
-When the TaskBuddy ML model is ready:
+- When enough real labeled rows accumulate (schema §13 export from
+  `recommendation_candidates`), retrain on them — **exclude runs with
+  `model_version` = `'stub-v0'`** and keep the group-aware split by `job_id`.
+- Bump the version (`rf-a-v2`, ...): change `MODEL_VERSION` in
+  `train_model.py`, retrain, commit the new artifact, and set the `MODEL_PATH`
+  env var if the filename changes. `recommendation_runs.model_version` records
+  which model produced every run, so results remain traceable.
 
-1. Fit the winning pipeline on the full `taskbuddy_synthetic_dataset.csv`
-   (drop the `hire_probability` audit column):
-   shared `ColumnTransformer` (passthrough numerics, `OrdinalEncoder` for the
-   3 categoricals, per-text-column `TfidfVectorizer(sublinear_tf=True)` →
-   `TruncatedSVD(n_components=20, random_state=42)`) followed by
-   `RandomForestClassifier(n_estimators=50, max_depth=10, max_features='sqrt',
-   min_samples_split=5, class_weight='balanced', random_state=42)`.
-2. Save it: `joblib.dump(pipeline, "model/rf-a-v1.joblib")`.
-3. Add `scikit-learn`, `pandas`, `joblib` to `requirements.txt`.
-4. In `app/main.py`, load the artifact at startup and replace `score_records`
-   with `pipeline.predict_proba(pd.DataFrame([r.model_dump() for r in records]))[:, 1]`
-   — the pipeline selects columns **by name**, so the field names above must not change.
-5. Set `MODEL_VERSION = "rf-a-v1"`.
+## Deploy (Render)
 
-Runs scored by this stub are recorded with `model_version = 'stub-v0'` in
-`recommendation_runs`, so they can be excluded from future retraining exports.
+Second free web service on the same repo as the backend:
 
-## Deploy
+- **Root Directory:** `ml-service`
+- **Build:** `pip install -r requirements.txt`
+- **Start:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 
-The backend is already deployed on Render (https://taskbuddy-1d48.onrender.com),
-so the natural home for this service is a **second free Render web service from
-the same repo** with *Root Directory* = `ml-service`. Start command:
-
-```
-uvicorn app.main:app --host 0.0.0.0 --port $PORT
-```
-
-Then set `ML_SERVICE_URL` to this service's URL in the backend's Render
-environment variables (Dashboard → taskbuddy backend → Environment) — the
-backend's status page ML dot turns green once it connects.
+The committed artifact deploys with the repo — no training on Render. Then set
+`ML_SERVICE_URL` to this service's URL in the backend's Render environment;
+the backend status page's ML dot turns green once connected. (Free-tier note:
+let this service spin down when idle — keep-alive only the backend, or two
+always-on free services will exhaust Render's 750 monthly instance hours.)
