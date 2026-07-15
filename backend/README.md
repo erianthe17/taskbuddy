@@ -26,14 +26,16 @@ mobile / web ──REST──► backend/ (NestJS, :3000)
                      Supabase (Postgres + Auth + RLS)
                           ▲
                           │  POST /score (14 features per pair → probabilities)
-                     ml-service/ (FastAPI, :8000 — currently a stub)
+                     ml-service/ (FastAPI — Random Forest rf-a-v1)
 ```
 
 - **Supabase** provides Postgres (schema, triggers, RLS) and Auth (signup/login → JWTs).
 - **NestJS** is the only thing the frontends talk to (besides token refresh, which
   also goes through it). It enforces authorization in code and owns all DB writes.
-- **ml-service** is a stateless scorer. It is currently a **placeholder**
-  (`model_version: stub-v0`) — see [`../ml-service/README.md`](../ml-service/README.md).
+- **ml-service** is a stateless scorer serving the trained **Random Forest
+  `rf-a-v1`** (0.82 accuracy / 0.88 ROC-AUC holdout). Deployed at
+  <https://taskbuddy-ml-service.onrender.com> — see
+  [`../ml-service/README.md`](../ml-service/README.md).
 
 ### The matching flow
 
@@ -86,16 +88,21 @@ npm install
 npm run start:dev       # http://localhost:3000
 ```
 
-### 3. ML service (stub)
+### 3. ML service
 
 ```bash
 cd ml-service
+python -m venv .venv
+.venv\Scripts\activate        # Windows (source .venv/bin/activate on macOS/Linux)
 pip install -r requirements.txt
 uvicorn app.main:app --port 8000
 ```
 
-The API works without it, but recommendation runs will fail until it's up
-(jobs still reach `recommending`; use the manual trigger endpoint to retry).
+The committed model artifact (`ml-service/model/rf-a-v1.joblib`) is served as-is
+— no training step needed. The API works without the service running, but
+recommendation runs will fail until it's up (jobs still reach `recommending`;
+use the manual trigger endpoint to retry). Full details:
+[`../ml-service/README.md`](../ml-service/README.md).
 
 ## For frontend developers
 
@@ -222,10 +229,12 @@ curl -X POST $API/jobs -H "Authorization: Bearer $TOKEN" -H "Content-Type: appli
   the top 8 providers receive `recommendation_invite` notifications.
 - Feature vectors come from the `fn_job_provider_features(job_id)` SQL function —
   14 raw features per pair, names matching the ML training CSV exactly.
+- Scoring is done by the trained **Random Forest `rf-a-v1`** in ml-service
+  (`recommendation_runs.model_version` records which model produced each run).
 - Every scored pair is snapshotted in `recommendation_candidates`; when the job
   closes, `was_hired` is backfilled, turning production data into retraining rows.
-  Export query: see `BACKEND_SCHEMA.md` §13 (exclude `model_version = 'stub-v0'` runs).
-- The scorer is currently a **placeholder** — swap-in instructions are in
+  Export query: see `BACKEND_SCHEMA.md` §13 — **exclude `model_version = 'stub-v0'`
+  rows** (produced by the early placeholder scorer). Retraining/versioning guide:
   [`../ml-service/README.md`](../ml-service/README.md).
 
 ## Project layout

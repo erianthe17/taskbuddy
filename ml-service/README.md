@@ -10,6 +10,12 @@ preprocessing (ordinal encoding, TF-IDF → SVD for the two Taglish text
 features) happens **inside the persisted sklearn pipeline**, so this service
 receives raw values and returns hire probabilities.
 
+> **🚀 Deployed instance:** live at **https://taskbuddy-ml-service.onrender.com**
+> — status page: <https://taskbuddy-ml-service.onrender.com/> · JSON health:
+> <https://taskbuddy-ml-service.onrender.com/health>. The deployed backend's
+> `ML_SERVICE_URL` points here. (Free tier: first request after idle takes
+> ~30–60 s while the instance wakes.)
+
 ## Setup & run
 
 Use the project-local virtual environment — it pins one interpreter so bare
@@ -51,6 +57,11 @@ are only guaranteed to load under the sklearn version that trained them.
 If you bump sklearn, retrain and recommit the artifact in the same change.
 
 ## API
+
+### `GET /` — status page
+
+Minimalist browser status page (same style as the backend's): service state,
+model version, training rows, holdout metrics, uptime.
 
 ### `GET /health`
 
