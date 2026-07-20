@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, Shadows, Sizes } from '../constants/designTokens';
+import { Colors, Shadows, Sizes } from '../constants/theme';
 import { HOScreen } from '../types/navigation';
 
 interface HOBottomNavBarProps {

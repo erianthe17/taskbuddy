@@ -9,7 +9,7 @@ import {
   KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 
 const SKILL_OPTIONS = ['General Cleaning', 'Deep Cleaning', 'Painting', 'Plumbing', 'Electrical', 'Landscaping', 'Moving', 'Carpentry'];
 

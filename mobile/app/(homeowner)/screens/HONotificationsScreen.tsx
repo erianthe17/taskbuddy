@@ -17,12 +17,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import {
+  ArrowLeft,
+  BellRing,
+  CircleCheckBig,
+  CircleDollarSign,
+  MessageCircle,
+  Star,
+  Trophy,
+} from 'lucide-react-native';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 
 const NOTIFICATIONS = [
   {
     id: '1',
-    icon: '✅',
+    icon: CircleCheckBig,
     iconBg: '#F0FDF4',
     title: 'Job Accepted',
     message: 'Juan dela Cruz has accepted your Home Deep Clean request.',
@@ -32,7 +41,7 @@ const NOTIFICATIONS = [
   },
   {
     id: '2',
-    icon: '💬',
+    icon: MessageCircle,
     iconBg: '#EFF6FF',
     title: 'New Message',
     message: 'Maria Santos sent you a message regarding your Office Cleaning job.',
@@ -42,7 +51,7 @@ const NOTIFICATIONS = [
   },
   {
     id: '3',
-    icon: '💰',
+    icon: CircleDollarSign,
     iconBg: '#FFF7ED',
     title: 'Payment Processed',
     message: 'Your payment of ₱850 for Home Deep Clean has been processed.',
@@ -52,7 +61,7 @@ const NOTIFICATIONS = [
   },
   {
     id: '4',
-    icon: '⭐',
+    icon: Star,
     iconBg: '#FFFBEB',
     title: 'Rate Your Experience',
     message: 'How was Rosa Villanueva\'s Airbnb Turnover service? Leave a review.',
@@ -62,7 +71,7 @@ const NOTIFICATIONS = [
   },
   {
     id: '5',
-    icon: '🎉',
+    icon: Trophy,
     iconBg: '#F5F3FF',
     title: 'Welcome to TaskBuddy!',
     message: 'Your account is set up. Start posting jobs and find the best service providers.',
@@ -97,7 +106,7 @@ export default function HONotificationsScreen({ onBack }: HONotificationsProps) 
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
-            <Text style={styles.backIcon}>←</Text>
+            <ArrowLeft size={20} color={Colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Notifications</Text>
           {unreadCount > 0 ? (
@@ -133,7 +142,7 @@ export default function HONotificationsScreen({ onBack }: HONotificationsProps) 
                 )}
               >
                 <View style={[styles.notifIcon, { backgroundColor: notif.iconBg }]}>
-                  <Text style={styles.notifIconText}>{notif.icon}</Text>
+                  <notif.icon size={20} color={Colors.brandDark} />
                 </View>
                 <View style={styles.notifContent}>
                   <View style={styles.notifTitleRow}>

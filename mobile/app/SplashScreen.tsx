@@ -1,19 +1,39 @@
-import React from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 export default function SplashScreen() {
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const fadeOut = Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 400,
+      useNativeDriver: true,
+    });
+
+    const timer = setTimeout(() => {
+      fadeOut.start();
+    }, 1800);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [fadeAnim]);
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
-      <View style={styles.container}>
-        <View style={styles.logoBox}>
-          <View style={styles.logoCircle} />
-          <Text style={styles.logoText}>TaskBuddy</Text>
+    <Animated.View style={[styles.safeArea, { opacity: fadeAnim }]}>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <View style={styles.container}>
+          <View style={styles.logoBox}>
+            <View style={styles.logoCircle} />
+            <Text style={styles.logoText}>TaskBuddy</Text>
+          </View>
+          <Text style={styles.tagline}>Hire with confidence, pay with ease.</Text>
         </View>
-        <Text style={styles.tagline}>Hire with confidence, pay with ease.</Text>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </Animated.View>
   );
 }
 

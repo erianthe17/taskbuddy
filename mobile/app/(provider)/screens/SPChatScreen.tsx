@@ -9,7 +9,7 @@ import {
   FlatList, KeyboardAvoidingView, Platform,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
-import { Colors, Radii, Sizes, Spacing } from '../../../src/constants/designTokens';
+import { Colors, Radii, Sizes, Spacing } from '../../../src/constants/theme';
 
 interface Message { id: string; text: string; sent: boolean; time: string; }
 

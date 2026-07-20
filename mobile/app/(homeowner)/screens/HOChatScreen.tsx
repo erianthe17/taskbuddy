@@ -21,7 +21,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Paperclip,
+  Phone,
+  Sparkles,
+} from 'lucide-react-native';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 
 interface Message {
   id: string;
@@ -75,7 +82,7 @@ export default function HOChatScreen({ onBack }: HOChatScreenProps) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
-          <Text style={styles.backIcon}>←</Text>
+          <ArrowLeft size={20} color={Colors.white} />
         </TouchableOpacity>
         <View style={styles.headerAvatar}>
           <Text style={styles.headerAvatarText}>JD</Text>
@@ -88,13 +95,13 @@ export default function HOChatScreen({ onBack }: HOChatScreenProps) {
           </View>
         </View>
         <TouchableOpacity style={styles.callBtn} activeOpacity={0.8}>
-          <Text style={styles.callIcon}>📞</Text>
+          <Phone size={18} color={Colors.white} />
         </TouchableOpacity>
       </View>
 
       {/* Job reference card */}
       <View style={styles.jobRef}>
-        <Text style={styles.jobRefIcon}>🧹</Text>
+        <Sparkles size={18} color={Colors.brandTeal} />
         <Text style={styles.jobRefText}>Home Deep Clean · May 13, 2026</Text>
         <TouchableOpacity activeOpacity={0.8}>
           <Text style={styles.jobRefLink}>View Job</Text>
@@ -120,7 +127,7 @@ export default function HOChatScreen({ onBack }: HOChatScreenProps) {
         {/* Input bar */}
         <View style={styles.inputBar}>
           <TouchableOpacity style={styles.attachBtn} activeOpacity={0.8}>
-            <Text style={styles.attachIcon}>📎</Text>
+            <Paperclip size={20} color={Colors.brandDark} />
           </TouchableOpacity>
           <TextInput
             style={styles.chatInput}
@@ -137,7 +144,7 @@ export default function HOChatScreen({ onBack }: HOChatScreenProps) {
             activeOpacity={0.85}
             disabled={!text.trim()}
           >
-            <Text style={styles.sendBtnText}>➤</Text>
+            <ArrowRight size={16} color={Colors.white} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

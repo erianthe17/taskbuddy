@@ -32,18 +32,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Colors } from '../../../src/constants/theme';
 
-// ─── Design tokens (inline for self-contained screen) ─────────────────────────
-const C = {
-  brandDark: '#063D4D',
-  brandTeal: '#096E8B',
-  brandCyan: '#0AA2CB',
-  muted: '#9099B8',
-  white: '#FFFFFF',
-  error: '#E03434',
-  googleText: '#757575',
-  background: '#FFFFFF',
-} as const;
+const C = Colors;
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface LoginScreenProps {

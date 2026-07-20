@@ -26,13 +26,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Colors } from '../../../src/constants/theme';
 
 const C = {
-  brandDark: '#063D4D',
-  brandTeal: '#096E8B',
-  white: '#FFFFFF',
+  ...Colors,
   bg: '#F8FAFC',
-  muted: '#9099B8',
   dark: '#1E1E1E',
   slate: '#757575',
   mutedBorder: 'rgba(144,153,184,0.3)',

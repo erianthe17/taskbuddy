@@ -17,7 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 import { SPScreen } from '../../../src/types/navigation';
 
 const FILTERS = ['All', 'Active', 'Upcoming', 'Completed'];

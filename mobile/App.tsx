@@ -12,10 +12,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import * as ExpoSplashScreen from 'expo-splash-screen';
 
 // ── Auth screens ──────────────────────────────────────────────────────────────
+import SplashScreenComponent from './app/SplashScreen';
 import OnboardingScreen from './app/(auth)/screens/OnboardingScreen';
 import LoginScreen from './app/(auth)/screens/LoginScreen';
+import ForgotPasswordScreen from './app/(auth)/screens/ForgotPasswordScreen';
 import RegisterScreen from './app/(auth)/screens/RegisterScreen';
 
 // ── Homeowner screens ─────────────────────────────────────────────────────────
@@ -55,10 +58,12 @@ import supabase from './src/lib/supabase';
 // Root app state
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AuthState = 'onboarding' | 'login' | 'register' | 'authenticated';
+ExpoSplashScreen.preventAutoHideAsync().catch(() => {});
+
+type AuthState = 'splash' | 'onboarding' | 'login' | 'forgotPassword' | 'register' | 'authenticated';
 
 export default function App() {
-  const [authState, setAuthState] = useState<AuthState>('onboarding');
+  const [authState, setAuthState] = useState<AuthState>('splash');
   const [role, setRole] = useState<Role>(DEFAULT_ROLE);
 
   // ── HO navigation state ───────────────────────────────────────────────────
@@ -72,7 +77,7 @@ export default function App() {
 
   // ── HO helpers ────────────────────────────────────────────────────────────
   const hoNavigate = (screen: HOScreen) => {
-    const TAB_SCREENS: HOScreen[] = ['Home', 'My Jobs', 'Wallet', 'Profile', 'Create Job'];
+    const TAB_SCREENS: HOScreen[] = ['Home', 'My Jobs', 'Wallet', 'Profile'];
     if (TAB_SCREENS.includes(screen)) {
       setHOTab(screen);
       setHOScreen(screen);
@@ -101,6 +106,15 @@ export default function App() {
   const hoBack = () => {
     setHOScreen(hoTab);
   };
+
+  useEffect(() => {
+    const splashTimer = setTimeout(() => {
+      setAuthState('onboarding');
+      ExpoSplashScreen.hideAsync().catch(() => {});
+    }, 2200);
+
+    return () => clearTimeout(splashTimer);
+  }, []);
 
   // ── Supabase auth listener (preserved, non-blocking) ──────────────────────
   useEffect(() => {
@@ -156,6 +170,10 @@ export default function App() {
   // Auth flow
   // ─────────────────────────────────────────────────────────────────────────
 
+  if (authState === 'splash') {
+    return <SplashScreenComponent />;
+  }
+
   if (authState === 'onboarding') {
     return (
       <OnboardingScreen
@@ -181,7 +199,16 @@ export default function App() {
           setSPScreen('Dashboard');
         }}
         onSignUp={() => setAuthState('register')}
-        onForgotPassword={() => {}}
+        onForgotPassword={() => setAuthState('forgotPassword')}
+      />
+    );
+  }
+
+  if (authState === 'forgotPassword') {
+    return (
+      <ForgotPasswordScreen
+        onBackToLogin={() => setAuthState('login')}
+        onResetPassword={() => setAuthState('login')}
       />
     );
   }

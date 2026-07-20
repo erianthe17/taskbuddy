@@ -18,21 +18,30 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import {
+  CreditCard,
+  LogOut,
+  Bell,
+  ChevronRight,
+  Pencil,
+  Settings,
+  Wallet as WalletIcon,
+} from 'lucide-react-native';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 import { HOScreen } from '../../../src/types/navigation';
 
 const STATS = [
   { label: 'Jobs Posted', value: '12' },
   { label: 'Balance', value: '₱250' },
-  { label: 'Avg Rating', value: '4.9 ⭐' },
+  { label: 'Avg Rating', value: '4.9' },
 ];
 
-const MENU_ITEMS: { label: string; icon: string; subtitle: string; screen: HOScreen | null }[] = [
-  { label: 'Edit Profile', icon: '✏️', subtitle: 'Update your personal info', screen: 'Edit Profile' },
-  { label: 'Payment Methods', icon: '💳', subtitle: 'Manage cards & billing', screen: 'Wallet' },
-  { label: 'Notifications', icon: '🔔', subtitle: 'Alerts & preferences', screen: 'Notifications' },
-  { label: 'App Settings', icon: '⚙️', subtitle: 'Preferences & display', screen: 'Settings' },
-  { label: 'Logout', icon: '🚪', subtitle: 'Sign out of your account', screen: null },
+const MENU_ITEMS: { label: string; icon: typeof Pencil; subtitle: string; screen: HOScreen | null }[] = [
+  { label: 'Edit Profile', icon: Pencil, subtitle: 'Update your personal info', screen: 'Edit Profile' },
+  { label: 'Payment Methods', icon: CreditCard, subtitle: 'Manage cards & billing', screen: 'Wallet' },
+  { label: 'Notifications', icon: Bell, subtitle: 'Alerts & preferences', screen: 'Notifications' },
+  { label: 'App Settings', icon: Settings, subtitle: 'Preferences & display', screen: 'Settings' },
+  { label: 'Logout', icon: LogOut, subtitle: 'Sign out of your account', screen: null },
 ];
 
 interface ProfileProps {
@@ -53,7 +62,7 @@ export default function Profile({ onNavigate, onLogout }: ProfileProps) {
             onPress={() => onNavigate('Settings')}
             activeOpacity={0.8}
           >
-            <Text style={styles.settingsBtnIcon}>⚙️</Text>
+            <Settings size={18} color={Colors.white} />
           </TouchableOpacity>
         </View>
 
@@ -115,7 +124,7 @@ export default function Profile({ onNavigate, onLogout }: ProfileProps) {
               activeOpacity={0.8}
             >
               <View style={styles.menuIcon}>
-                <Text style={styles.menuIconText}>{item.icon}</Text>
+                <item.icon size={20} color={Colors.brandDark} />
               </View>
               <View style={styles.menuTextGroup}>
                 <Text style={[styles.menuLabel, item.label === 'Logout' && styles.menuLabelLogout]}>
@@ -123,7 +132,7 @@ export default function Profile({ onNavigate, onLogout }: ProfileProps) {
                 </Text>
                 <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
               </View>
-              <Text style={styles.menuArrow}>›</Text>
+              <ChevronRight size={20} color={Colors.muted} />
             </TouchableOpacity>
           ))}
         </View>
