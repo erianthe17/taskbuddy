@@ -18,14 +18,25 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import {
+  ArrowDownLeft,
+  ArrowLeft,
+  ArrowUpRight,
+  ArrowRightLeft,
+  Building2,
+  CircleDollarSign,
+  Home,
+  Package,
+  Wallet,
+} from 'lucide-react-native';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 
 const TRANSACTIONS = [
-  { id: '1', title: 'Home Deep Clean', type: 'debit', amount: '₱850', date: 'May 13, 2026', status: 'Completed', icon: '🧹' },
-  { id: '2', title: 'Added via GCash', type: 'credit', amount: '+₱500', date: 'May 12, 2026', status: 'Successful', icon: '💳' },
-  { id: '3', title: 'Office Cleaning', type: 'debit', amount: '₱685', date: 'May 10, 2026', status: 'In Progress', icon: '🏢' },
-  { id: '4', title: 'Added via Maya', type: 'credit', amount: '+₱1,000', date: 'May 8, 2026', status: 'Successful', icon: '💰' },
-  { id: '5', title: 'Airbnb Turnover', type: 'debit', amount: '₱895', date: 'May 7, 2026', status: 'Completed', icon: '🏠' },
+  { id: '1', title: 'Home Deep Clean', type: 'debit', amount: '₱850', date: 'May 13, 2026', status: 'Completed', icon: Package },
+  { id: '2', title: 'Added via GCash', type: 'credit', amount: '+₱500', date: 'May 12, 2026', status: 'Successful', icon: CircleDollarSign },
+  { id: '3', title: 'Office Cleaning', type: 'debit', amount: '₱685', date: 'May 10, 2026', status: 'In Progress', icon: Building2 },
+  { id: '4', title: 'Added via Maya', type: 'credit', amount: '+₱1,000', date: 'May 8, 2026', status: 'Successful', icon: CircleDollarSign },
+  { id: '5', title: 'Airbnb Turnover', type: 'debit', amount: '₱895', date: 'May 7, 2026', status: 'Completed', icon: Home },
 ];
 
 interface HOWalletScreenProps {
@@ -46,7 +57,7 @@ export default function HOWalletScreen({ onBack }: HOWalletScreenProps) {
         <View style={styles.heroTopRow}>
           {onBack && (
             <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
-              <Text style={styles.backIcon}>←</Text>
+              <ArrowLeft size={20} color={Colors.white} />
             </TouchableOpacity>
           )}
           <Text style={styles.heroTitle}>Wallet</Text>
@@ -59,17 +70,17 @@ export default function HOWalletScreen({ onBack }: HOWalletScreenProps) {
           <Text style={styles.balanceAmount}>₱250.00</Text>
           <View style={styles.quickActions}>
             <TouchableOpacity style={styles.quickActionBtn} activeOpacity={0.8}>
-              <Text style={styles.quickActionIcon}>⬆️</Text>
+              <ArrowUpRight size={22} color={Colors.white} />
               <Text style={styles.quickActionText}>Add Money</Text>
             </TouchableOpacity>
             <View style={styles.actionDivider} />
             <TouchableOpacity style={styles.quickActionBtn} activeOpacity={0.8}>
-              <Text style={styles.quickActionIcon}>⬇️</Text>
+              <ArrowDownLeft size={22} color={Colors.white} />
               <Text style={styles.quickActionText}>Withdraw</Text>
             </TouchableOpacity>
             <View style={styles.actionDivider} />
             <TouchableOpacity style={styles.quickActionBtn} activeOpacity={0.8}>
-              <Text style={styles.quickActionIcon}>🔄</Text>
+              <ArrowRightLeft size={22} color={Colors.white} />
               <Text style={styles.quickActionText}>Transfer</Text>
             </TouchableOpacity>
           </View>
@@ -117,7 +128,7 @@ export default function HOWalletScreen({ onBack }: HOWalletScreenProps) {
         {filtered.map((txn) => (
           <View key={txn.id} style={styles.txnCard}>
             <View style={styles.txnIcon}>
-              <Text style={styles.txnIconText}>{txn.icon}</Text>
+              <txn.icon size={22} color={Colors.brandDark} />
             </View>
             <View style={styles.txnInfo}>
               <Text style={styles.txnTitle}>{txn.title}</Text>

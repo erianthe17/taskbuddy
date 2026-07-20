@@ -21,17 +21,30 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BrushCleaning,
+  CheckCircle2,
+  Hammer,
+  Leaf,
+  Palette,
+  Package,
+  Sparkles,
+  Wrench,
+  Zap,
+} from 'lucide-react-native';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 
 const SERVICES = [
-  { label: 'General Cleaning', icon: '🧹', desc: 'Regular household cleaning' },
-  { label: 'Deep Cleaning', icon: '🫧', desc: 'Thorough intensive cleaning' },
-  { label: 'Painting', icon: '🎨', desc: 'Interior & exterior painting' },
-  { label: 'Plumbing', icon: '🔧', desc: 'Pipes, fixtures & repairs' },
-  { label: 'Electrical', icon: '⚡', desc: 'Wiring & electrical work' },
-  { label: 'Moving', icon: '📦', desc: 'Local & long-distance moving' },
-  { label: 'Landscaping', icon: '🌿', desc: 'Garden & lawn maintenance' },
-  { label: 'Carpentry', icon: '🪵', desc: 'Wood work & furniture' },
+  { label: 'General Cleaning', icon: BrushCleaning, desc: 'Regular household cleaning' },
+  { label: 'Deep Cleaning', icon: Sparkles, desc: 'Thorough intensive cleaning' },
+  { label: 'Painting', icon: Palette, desc: 'Interior & exterior painting' },
+  { label: 'Plumbing', icon: Wrench, desc: 'Pipes, fixtures & repairs' },
+  { label: 'Electrical', icon: Zap, desc: 'Wiring & electrical work' },
+  { label: 'Moving', icon: Package, desc: 'Local & long-distance moving' },
+  { label: 'Landscaping', icon: Leaf, desc: 'Garden & lawn maintenance' },
+  { label: 'Carpentry', icon: Hammer, desc: 'Wood work & furniture' },
 ];
 
 interface HOCreateJobScreenProps {
@@ -76,7 +89,7 @@ export default function HOCreateJobScreen({ onBack, onSuccess }: HOCreateJobScre
       <View style={styles.screen}>
         <View style={styles.successScreen}>
           <View style={styles.successIcon}>
-            <Text style={styles.successIconText}>✅</Text>
+            <CheckCircle2 size={44} color={Colors.brandTeal} />
           </View>
           <Text style={styles.successTitle}>Job Posted!</Text>
           <Text style={styles.successSubtitle}>
@@ -113,7 +126,7 @@ export default function HOCreateJobScreen({ onBack, onSuccess }: HOCreateJobScre
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.8}>
-            <Text style={styles.backIcon}>←</Text>
+            <ArrowLeft size={20} color={Colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Post a Job</Text>
           <View style={{ width: 40 }} />
@@ -144,7 +157,7 @@ export default function HOCreateJobScreen({ onBack, onSuccess }: HOCreateJobScre
                   onPress={() => setSelectedService(svc.label)}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.serviceIcon}>{svc.icon}</Text>
+                  <svc.icon size={28} color={selectedService === svc.label ? Colors.brandTeal : Colors.brandDark} />
                   <Text style={[styles.serviceLabel, selectedService === svc.label && styles.serviceLabelActive]}>
                     {svc.label}
                   </Text>
@@ -200,7 +213,7 @@ export default function HOCreateJobScreen({ onBack, onSuccess }: HOCreateJobScre
               onPress={() => setIsUrgent((u) => !u)}
               activeOpacity={0.85}
             >
-              <Text style={styles.urgentIcon}>🚨</Text>
+              <AlertTriangle size={18} color={isUrgent ? Colors.brandTeal : Colors.slate} />
               <View style={styles.urgentInfo}>
                 <Text style={[styles.urgentLabel, isUrgent && styles.urgentLabelActive]}>Mark as Urgent</Text>
                 <Text style={styles.urgentDesc}>Get faster responses — providers are notified immediately</Text>

@@ -12,7 +12,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { Colors, Radii, Spacing, Sizes } from '../constants/designTokens';
+import { Colors, Radii, Spacing, Sizes } from '../constants/theme';
 
 interface AppHeaderProps {
   title: string;

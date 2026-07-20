@@ -1,32 +1,30 @@
 /**
- * designTokens.ts
+ * theme.ts
  *
- * Shared design tokens extracted from Figma file:
- * https://www.figma.com/design/mmOfuHNXIgRQ4FiAvYVksS/UI-UX-Designs--Copy-
- *
- * These tokens cover the TaskBuddy mobile app's complete design system.
- * Reference these whenever building new screens to stay pixel-faithful to the Figma.
+ * Shared design tokens and palette for the TaskBuddy mobile app.
+ * This is the single source of truth for colors, typography, spacing,
+ * radii, shadows, and sizing values used throughout the screens.
  */
 
 // ─── Color palette ───────────────────────────────────────────────────────────
 
 export const Colors = {
   // Brand
-  brandDark: '#063D4D',     // dark teal — headings, hero backgrounds
-  brandTeal: '#096E8B',     // primary accent — buttons, links
-  brandCyan: '#0AA2CB',     // lighter teal — blob accents, logo bg
-  brandCyanLight: '#99DEF1', // very light cyan — logo accent lines
+  brandDark: '#063D4D',
+  brandTeal: '#096E8B',
+  brandCyan: '#0AA2CB',
+  brandCyanLight: '#99DEF1',
 
   // Neutrals
   white: '#FFFFFF',
-  background: '#F1F5F9',    // screen background (light blue-gray)
-  backgroundAlt: '#F8FAFC', // alternate bg (slightly lighter)
+  background: '#F1F5F9',
+  backgroundAlt: '#F8FAFC',
   cardBg: '#FFFFFF',
-  muted: '#9099B8',         // placeholders, subtitles
+  muted: '#9099B8',
   mutedLight: 'rgba(144, 153, 184, 0.25)',
   divider: 'rgba(144, 153, 184, 0.4)',
-  slate: '#64748B',         // secondary text
-  slateLight: '#94A3B8',    // muted text
+  slate: '#64748B',
+  slateLight: '#94A3B8',
 
   // Semantic
   error: '#E03434',
@@ -47,7 +45,7 @@ export const Colors = {
   heroStart: '#063D4D',
   heroEnd: '#096E8B',
 
-  // Logo background colors (from figma logo component)
+  // Logo background colors
   logoBg: '#0AA2CB',
   logoAccent: '#096F8B',
   logoSkin: '#FFEECF',
@@ -180,8 +178,8 @@ export const Typography = {
 // ─── Spacing ─────────────────────────────────────────────────────────────────
 
 export const Spacing = {
-  screenH: 20,       // Figma screens use 20px horizontal padding
-  screenHLg: 30,     // Login screen uses 30px
+  screenH: 20,
+  screenHLg: 30,
   inputH: 16,
   inputV: 12,
   fieldGap: 18,
@@ -194,16 +192,16 @@ export const Spacing = {
 
 export const Radii = {
   input: 8,
-  button: 24,       // primary button
-  buttonSm: 16,     // smaller buttons
-  card: 24,         // job/wallet cards
-  cardLg: 30,       // larger cards
-  chip: 999,        // pill / status chips
+  button: 24,
+  buttonSm: 16,
+  card: 24,
+  cardLg: 30,
+  chip: 999,
   gestureBar: 12,
   avatar: 12,
-  navBar: 0,        // nav bar is rectangular
-  header: 24,       // hero header bottom radius
-  logo: 10,         // logo rect radius
+  navBar: 0,
+  header: 24,
+  logo: 10,
 } as const;
 
 // ─── Shadows ──────────────────────────────────────────────────────────────────
@@ -259,3 +257,9 @@ export const Sizes = {
   iconMd: 24,
   iconLg: 32,
 } as const;
+
+// ─── Backward-compatible alias export for older color consumers ─────────────
+
+export const colors = {
+  ...Colors,
+};

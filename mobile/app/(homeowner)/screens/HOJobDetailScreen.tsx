@@ -19,7 +19,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import {
+  ArrowLeft,
+  CalendarDays,
+  ChevronRight,
+  CircleAlert,
+  Clock3,
+  MapPin,
+  MessageCircle,
+  MoreHorizontal,
+  ShieldCheck,
+  Star,
+  Wrench,
+} from 'lucide-react-native';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 import { HOScreen } from '../../../src/types/navigation';
 
 interface HOJobDetailScreenProps {
@@ -36,11 +49,11 @@ export default function HOJobDetailScreen({ onBack, onNavigate }: HOJobDetailScr
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
-            <Text style={styles.backIcon}>←</Text>
+            <ArrowLeft size={20} color={Colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Job Details</Text>
           <TouchableOpacity style={styles.moreBtn} activeOpacity={0.8}>
-            <Text style={styles.moreIcon}>⋯</Text>
+            <MoreHorizontal size={18} color={Colors.white} />
           </TouchableOpacity>
         </View>
 
@@ -68,14 +81,17 @@ export default function HOJobDetailScreen({ onBack, onNavigate }: HOJobDetailScr
             </View>
             <View style={styles.providerInfo}>
               <Text style={styles.providerName}>Juan dela Cruz</Text>
-              <Text style={styles.providerRating}>⭐ 4.8 · 47 jobs completed</Text>
+              <View style={styles.providerRatingRow}>
+                <Star size={12} color={Colors.slate} fill={Colors.slate} />
+                <Text style={styles.providerRating}>4.8 · 47 jobs completed</Text>
+              </View>
             </View>
             <TouchableOpacity
               style={styles.chatBtn}
               onPress={() => onNavigate('Chat')}
               activeOpacity={0.8}
             >
-              <Text style={styles.chatBtnIcon}>💬</Text>
+              <MessageCircle size={16} color={Colors.white} />
               <Text style={styles.chatBtnText}>Chat</Text>
             </TouchableOpacity>
           </View>
@@ -85,14 +101,14 @@ export default function HOJobDetailScreen({ onBack, onNavigate }: HOJobDetailScr
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Job Details</Text>
           {[
-            { icon: '🔧', label: 'Service', value: 'Deep Cleaning' },
-            { icon: '📍', label: 'Location', value: 'Brgy. Sabang, Lipa City, Batangas' },
-            { icon: '📅', label: 'Date', value: 'May 13, 2026' },
-            { icon: '🕙', label: 'Time', value: '10:00 AM' },
-            { icon: '📝', label: 'Description', value: '3-bedroom apartment, full deep clean including bathroom and kitchen' },
+            { icon: Wrench, label: 'Service', value: 'Deep Cleaning' },
+            { icon: MapPin, label: 'Location', value: 'Brgy. Sabang, Lipa City, Batangas' },
+            { icon: CalendarDays, label: 'Date', value: 'May 13, 2026' },
+            { icon: Clock3, label: 'Time', value: '10:00 AM' },
+            { icon: ChevronRight, label: 'Description', value: '3-bedroom apartment, full deep clean including bathroom and kitchen' },
           ].map((item) => (
             <View key={item.label} style={styles.detailRow}>
-              <Text style={styles.detailIcon}>{item.icon}</Text>
+              <item.icon size={18} color={Colors.brandTeal} />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{item.label}</Text>
                 <Text style={styles.detailValue}>{item.value}</Text>
@@ -119,7 +135,7 @@ export default function HOJobDetailScreen({ onBack, onNavigate }: HOJobDetailScr
             <Text style={styles.payTotalValue}>₱840</Text>
           </View>
           <View style={styles.escrowNote}>
-            <Text style={styles.escrowIcon}>🔒</Text>
+            <ShieldCheck size={16} color="#22C55E" />
             <Text style={styles.escrowText}>Payment held in escrow until job completion</Text>
           </View>
         </View>
@@ -151,7 +167,10 @@ export default function HOJobDetailScreen({ onBack, onNavigate }: HOJobDetailScr
           onPress={() => onNavigate('Chat')}
           activeOpacity={0.85}
         >
-          <Text style={styles.chatFullBtnText}>💬 Open Chat with Provider</Text>
+          <View style={styles.chatFullBtnContent}>
+            <MessageCircle size={16} color={Colors.white} />
+            <Text style={styles.chatFullBtnText}>Open Chat with Provider</Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -159,7 +178,10 @@ export default function HOJobDetailScreen({ onBack, onNavigate }: HOJobDetailScr
           onPress={() => setShowDispute(true)}
           activeOpacity={0.85}
         >
-          <Text style={styles.disputeBtnText}>⚠️ File a Dispute</Text>
+          <View style={styles.disputeBtnContent}>
+            <CircleAlert size={16} color={Colors.error} />
+            <Text style={styles.disputeBtnText}>File a Dispute</Text>
+          </View>
         </TouchableOpacity>
 
         <View style={{ height: 20 }} />
@@ -218,6 +240,7 @@ const styles = StyleSheet.create({
   providerAvatarText: { color: Colors.white, fontSize: 16, fontWeight: '800', fontFamily: 'Inter' },
   providerInfo: { flex: 1 },
   providerName: { color: Colors.brandDark, fontSize: 15, fontWeight: '700', fontFamily: 'Inter', marginBottom: 2 },
+  providerRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   providerRating: { color: Colors.slate, fontSize: 12, fontFamily: 'Inter' },
   chatBtn: {
     backgroundColor: Colors.brandTeal, borderRadius: 12,
@@ -257,10 +280,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginBottom: 10,
     shadowColor: Colors.brandTeal, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
   },
+  chatFullBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   chatFullBtnText: { color: Colors.white, fontSize: 15, fontWeight: '700', fontFamily: 'Inter' },
   disputeBtn: {
     borderWidth: 1, borderColor: '#EF4444', borderRadius: 24, padding: 15,
     alignItems: 'center', marginBottom: 10,
   },
+  disputeBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   disputeBtnText: { color: '#EF4444', fontSize: 15, fontWeight: '700', fontFamily: 'Inter' },
 });

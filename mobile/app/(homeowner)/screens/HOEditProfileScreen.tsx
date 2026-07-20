@@ -20,7 +20,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import { ArrowLeft, Camera } from 'lucide-react-native';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 
 interface HOEditProfileScreenProps {
   onBack: () => void;
@@ -75,7 +76,7 @@ export default function HOEditProfileScreen({ onBack, onSave }: HOEditProfileScr
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
-            <Text style={styles.backIcon}>←</Text>
+            <ArrowLeft size={20} color={Colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Edit Profile</Text>
           <TouchableOpacity onPress={onSave} activeOpacity={0.8}>
@@ -89,7 +90,10 @@ export default function HOEditProfileScreen({ onBack, onSave }: HOEditProfileScr
             <Text style={styles.avatarText}>AC</Text>
           </View>
           <TouchableOpacity style={styles.changePhotoBtn} activeOpacity={0.8}>
-            <Text style={styles.changePhotoBtnText}>📷 Change Photo</Text>
+            <View style={styles.changePhotoBtnContent}>
+              <Camera size={14} color={Colors.white} />
+              <Text style={styles.changePhotoBtnText}>Change Photo</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -167,6 +171,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 20,
     paddingHorizontal: 16, paddingVertical: 8,
   },
+  changePhotoBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   changePhotoBtnText: { color: Colors.white, fontSize: 13, fontWeight: '600', fontFamily: 'Inter' },
 
   body: { flex: 1 },

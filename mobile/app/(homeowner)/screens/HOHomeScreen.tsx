@@ -19,16 +19,28 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import {
+  ArrowRight,
+  Bell,
+  BrushCleaning,
+  MapPin,
+  Package,
+  Palette,
+  Plus,
+  Sparkles,
+  Wrench,
+  Zap,
+} from 'lucide-react-native';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 import { HOScreen } from '../../../src/types/navigation';
 
 const SERVICES = [
-  { label: 'General\nCleaning', icon: '🧹', color: '#E8F5E9' },
-  { label: 'Painting', icon: '🎨', color: '#FFF3E0' },
-  { label: 'Deep\nCleaning', icon: '🫧', color: '#E3F2FD' },
-  { label: 'Moving', icon: '📦', color: '#F3E5F5' },
-  { label: 'Plumbing', icon: '🔧', color: '#E8EAF6' },
-  { label: 'Electrical', icon: '⚡', color: '#FFF8E1' },
+  { label: 'General\nCleaning', icon: BrushCleaning, color: '#E8F5E9' },
+  { label: 'Painting', icon: Palette, color: '#FFF3E0' },
+  { label: 'Deep\nCleaning', icon: Sparkles, color: '#E3F2FD' },
+  { label: 'Moving', icon: Package, color: '#F3E5F5' },
+  { label: 'Plumbing', icon: Wrench, color: '#E8EAF6' },
+  { label: 'Electrical', icon: Zap, color: '#FFF8E1' },
 ];
 
 const JOBS = [
@@ -79,7 +91,7 @@ export default function HOHomeScreen({ onNavigate }: HOHomeScreenProps) {
               onPress={() => onNavigate('Notifications')}
               activeOpacity={0.8}
             >
-              <Text style={styles.notifIcon}>🔔</Text>
+              <Bell size={18} color={Colors.white} />
               <View style={styles.notifBadge}><Text style={styles.notifBadgeText}>2</Text></View>
             </TouchableOpacity>
             <TouchableOpacity
@@ -104,7 +116,10 @@ export default function HOHomeScreen({ onNavigate }: HOHomeScreenProps) {
               onPress={() => onNavigate('Wallet')}
               activeOpacity={0.8}
             >
-              <Text style={styles.addBtnText}>+ Add</Text>
+              <View style={styles.addBtnContent}>
+                <Plus size={14} color={Colors.white} />
+                <Text style={styles.addBtnText}>Add</Text>
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -122,7 +137,10 @@ export default function HOHomeScreen({ onNavigate }: HOHomeScreenProps) {
           </View>
 
           <View style={styles.locationRow}>
-            <Text style={styles.locationText}>📍 Brgy. Sampaguita, ...</Text>
+            <View style={styles.locationTextWrap}>
+              <MapPin size={13} color={Colors.slate} />
+              <Text style={styles.locationText}>Brgy. Sampaguita, ...</Text>
+            </View>
             <Text style={styles.radiusText}>5 mi radius</Text>
           </View>
         </View>
@@ -149,7 +167,7 @@ export default function HOHomeScreen({ onNavigate }: HOHomeScreenProps) {
               onPress={() => onNavigate('Create Job')}
               activeOpacity={0.85}
             >
-              <Text style={styles.serviceIcon}>{svc.icon}</Text>
+              <svc.icon size={28} color={Colors.brandDark} />
               <Text style={styles.serviceLabel}>{svc.label}</Text>
             </TouchableOpacity>
           ))}
@@ -176,7 +194,10 @@ export default function HOHomeScreen({ onNavigate }: HOHomeScreenProps) {
                 <Text style={[styles.statusPillText, { color: job.statusColor }]}>{job.status}</Text>
               </View>
             </View>
-            <Text style={styles.jobLocation}>📍 {job.location}</Text>
+            <View style={styles.jobLocationWrap}>
+              <MapPin size={13} color={Colors.slate} />
+              <Text style={styles.jobLocation}>{job.location}</Text>
+            </View>
             <View style={styles.jobMetaRow}>
               <View style={[styles.priorityChip, { backgroundColor: job.priorityBg }]}>
                 <Text style={[styles.priorityText, { color: job.priorityColor }]}>{job.priority}</Text>
@@ -190,7 +211,10 @@ export default function HOHomeScreen({ onNavigate }: HOHomeScreenProps) {
                 onPress={() => onNavigate('Job Detail')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.viewBtnText}>View Job →</Text>
+                <View style={styles.viewBtnContent}>
+                  <Text style={styles.viewBtnText}>View Job</Text>
+                  <ArrowRight size={14} color={Colors.white} />
+                </View>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -229,7 +253,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center', justifyContent: 'center', position: 'relative',
   },
-  notifIcon: { fontSize: 18 },
   notifBadge: {
     position: 'absolute', top: 6, right: 6,
     width: 16, height: 16, borderRadius: 8,
@@ -258,6 +281,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brandDark, borderRadius: 16,
     paddingHorizontal: 16, paddingVertical: 10,
   },
+  addBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addBtnText: { color: Colors.white, fontWeight: '700', fontFamily: 'Inter', fontSize: 13 },
 
   statusRow: { flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' },
@@ -273,6 +297,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     borderTopWidth: 1, borderTopColor: 'rgba(144,153,184,0.2)', paddingTop: 12,
   },
+  locationTextWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   locationText: { color: Colors.slate, fontSize: 12, fontFamily: 'Inter' },
   radiusText: { color: Colors.brandTeal, fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
 
@@ -292,7 +317,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', alignItems: 'flex-start',
     ...Shadows.card,
   },
-  serviceIcon: { fontSize: 28 },
   serviceLabel: { fontSize: 12, fontWeight: '700', color: Colors.brandDark, fontFamily: 'Inter', lineHeight: 16 },
 
   jobCard: {
@@ -303,7 +327,8 @@ const styles = StyleSheet.create({
   jobTitle: { color: Colors.brandDark, fontSize: 16, fontWeight: '700', fontFamily: 'Inter', flex: 1, marginRight: 10 },
   statusPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   statusPillText: { fontSize: 12, fontWeight: '600', fontFamily: 'Inter' },
-  jobLocation: { color: Colors.slate, fontSize: 12, fontFamily: 'Inter', marginBottom: 12 },
+  jobLocationWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
+  jobLocation: { color: Colors.slate, fontSize: 12, fontFamily: 'Inter' },
   jobMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   priorityChip: { borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4 },
   priorityText: { fontSize: 12, fontWeight: '600', fontFamily: 'Inter' },
@@ -314,5 +339,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brandTeal, borderRadius: 14,
     paddingHorizontal: 14, paddingVertical: 8,
   },
+  viewBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   viewBtnText: { color: Colors.white, fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
 });

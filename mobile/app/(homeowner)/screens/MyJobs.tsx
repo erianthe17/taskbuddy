@@ -17,7 +17,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import {
+  CalendarDays,
+  MapPin,
+  Plus,
+  UserRound,
+} from 'lucide-react-native';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 import { HOScreen } from '../../../src/types/navigation';
 
 const FILTER_TABS = ['All', 'Active', 'Pending', 'Completed'];
@@ -149,12 +155,21 @@ export default function MyJobs({ onNavigate }: MyJobsProps) {
                 </View>
               </View>
               <Text style={styles.jobCategory}>{job.category}</Text>
-              <Text style={styles.jobLocation}>📍 {job.location}</Text>
+              <View style={styles.jobLocationRow}>
+                <MapPin size={13} color={Colors.slate} />
+                <Text style={styles.jobLocation}>{job.location}</Text>
+              </View>
               <View style={styles.jobMetaRow}>
-                <Text style={styles.jobMeta}>📅 {job.date} · {job.time}</Text>
+                <View style={styles.jobMetaItem}>
+                  <CalendarDays size={13} color={Colors.slate} />
+                  <Text style={styles.jobMeta}>{job.date} · {job.time}</Text>
+                </View>
               </View>
               <View style={styles.jobFooter}>
-                <Text style={styles.jobProvider}>👤 {job.provider}</Text>
+                <View style={styles.jobProviderRow}>
+                  <UserRound size={13} color={Colors.muted} />
+                  <Text style={styles.jobProvider}>{job.provider}</Text>
+                </View>
                 <Text style={styles.jobAmount}>{job.amount}</Text>
               </View>
             </View>
@@ -169,7 +184,7 @@ export default function MyJobs({ onNavigate }: MyJobsProps) {
         onPress={() => onNavigate('Create Job')}
         activeOpacity={0.85}
       >
-        <Text style={styles.fabText}>+</Text>
+        <Plus size={28} color={Colors.white} />
       </TouchableOpacity>
     </View>
   );
@@ -225,10 +240,13 @@ const styles = StyleSheet.create({
   statusPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   statusPillText: { fontSize: 11, fontWeight: '600', fontFamily: 'Inter' },
   jobCategory: { color: Colors.brandTeal, fontSize: 12, fontWeight: '600', fontFamily: 'Inter', marginBottom: 4 },
-  jobLocation: { color: Colors.slate, fontSize: 12, fontFamily: 'Inter', marginBottom: 6 },
+  jobLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
+  jobLocation: { color: Colors.slate, fontSize: 12, fontFamily: 'Inter' },
   jobMetaRow: { marginBottom: 10 },
+  jobMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   jobMeta: { color: Colors.slate, fontSize: 12, fontFamily: 'Inter' },
   jobFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  jobProviderRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   jobProvider: { color: Colors.muted, fontSize: 12, fontFamily: 'Inter' },
   jobAmount: { color: Colors.brandDark, fontSize: 18, fontWeight: '800', fontFamily: 'Inter' },
 

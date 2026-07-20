@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 
 const TRANSACTIONS = [
   { id: '1', title: 'Kitchen Cleaning', type: 'credit', amount: '+₱750', date: 'May 13, 2026', status: 'Credited', icon: '🧹' },

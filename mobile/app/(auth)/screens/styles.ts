@@ -5,7 +5,7 @@
  */
 
 import { Dimensions, StyleSheet } from 'react-native';
-import { Colors, Radii, Shadows, Sizes } from '../../../../src/constants/designTokens';
+import { Colors, Radii, Shadows, Sizes } from '../../../src/constants/theme';
 
 const { width: W } = Dimensions.get('window');
 const BLOB = Math.round(W * 1.1);

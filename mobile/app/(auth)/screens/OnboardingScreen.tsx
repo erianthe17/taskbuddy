@@ -22,7 +22,7 @@ import {
   View,
   ViewToken,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 
 const { width: W } = Dimensions.get('window');
 

@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 
 const NOTIFICATIONS = [
   { id: '1', icon: '🆕', iconBg: '#EFF6FF', title: 'New Job Available', message: 'A Deep Cleaning job was posted near you — ₱1,200. Check it out now!', time: '5 mins ago', read: false, date: 'Today' },

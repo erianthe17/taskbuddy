@@ -19,7 +19,23 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/designTokens';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  CreditCard,
+  FileText,
+  KeyRound,
+  Link2,
+  Lock,
+  LogOut,
+  Package,
+  Pencil,
+  ShieldAlert,
+  ShieldQuestion,
+  Star,
+  UserRoundX,
+} from 'lucide-react-native';
+import { Colors, Radii, Shadows, Sizes, Spacing } from '../../../src/constants/theme';
 
 interface HOSettingsScreenProps {
   onBack: () => void;
@@ -44,27 +60,27 @@ export default function HOSettingsScreen({ onBack, onLogout }: HOSettingsScreenP
     {
       title: 'Account',
       items: [
-        { label: 'Edit Profile', icon: '✏️', action: () => {} },
-        { label: 'Change Password', icon: '🔑', action: () => {} },
-        { label: 'Payment Methods', icon: '💳', action: () => {} },
-        { label: 'Linked Accounts', icon: '🔗', action: () => {} },
+        { label: 'Edit Profile', icon: Pencil, action: () => {} },
+        { label: 'Change Password', icon: KeyRound, action: () => {} },
+        { label: 'Payment Methods', icon: CreditCard, action: () => {} },
+        { label: 'Linked Accounts', icon: Link2, action: () => {} },
       ],
     },
     {
       title: 'Privacy & Security',
       items: [
-        { label: 'Privacy Policy', icon: '🔒', action: () => {} },
-        { label: 'Terms of Service', icon: '📄', action: () => {} },
-        { label: 'Data & Storage', icon: '📦', action: () => {} },
-        { label: 'Block List', icon: '🚫', action: () => {} },
+        { label: 'Privacy Policy', icon: Lock, action: () => {} },
+        { label: 'Terms of Service', icon: FileText, action: () => {} },
+        { label: 'Data & Storage', icon: Package, action: () => {} },
+        { label: 'Block List', icon: UserRoundX, action: () => {} },
       ],
     },
     {
       title: 'Support',
       items: [
-        { label: 'Help Center', icon: '❓', action: () => {} },
-        { label: 'Report a Problem', icon: '⚠️', action: () => {} },
-        { label: 'Rate the App', icon: '⭐', action: () => {} },
+        { label: 'Help Center', icon: ShieldQuestion, action: () => {} },
+        { label: 'Report a Problem', icon: ShieldAlert, action: () => {} },
+        { label: 'Rate the App', icon: Star, action: () => {} },
       ],
     },
   ];
@@ -91,7 +107,7 @@ export default function HOSettingsScreen({ onBack, onLogout }: HOSettingsScreenP
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
-            <Text style={styles.backIcon}>←</Text>
+            <ArrowLeft size={20} color={Colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Settings</Text>
           <View style={{ width: 40 }} />
@@ -135,7 +151,7 @@ export default function HOSettingsScreen({ onBack, onLogout }: HOSettingsScreenP
                   onPress={item.action}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.menuIcon}>{item.icon}</Text>
+                  <item.icon size={20} color={Colors.brandDark} />
                   <Text style={styles.menuLabel}>{item.label}</Text>
                   <Text style={styles.menuArrow}>›</Text>
                 </TouchableOpacity>
@@ -149,7 +165,10 @@ export default function HOSettingsScreen({ onBack, onLogout }: HOSettingsScreenP
 
         {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={onLogout} activeOpacity={0.85}>
-          <Text style={styles.logoutBtnText}>🚪 Log Out</Text>
+          <View style={styles.logoutBtnContent}>
+            <LogOut size={16} color={Colors.error} />
+            <Text style={styles.logoutBtnText}>Log Out</Text>
+          </View>
         </TouchableOpacity>
 
         <View style={{ height: 20 }} />
@@ -204,5 +223,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.error, borderRadius: 24, padding: 15,
     alignItems: 'center', marginTop: 8,
   },
+  logoutBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   logoutBtnText: { color: Colors.error, fontSize: 15, fontWeight: '700', fontFamily: 'Inter' },
 });

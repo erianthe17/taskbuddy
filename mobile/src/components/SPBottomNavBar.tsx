@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors, Shadows, Sizes } from '../constants/designTokens';
+import { Colors, Shadows, Sizes } from '../constants/theme';
 import { SPScreen } from '../types/navigation';
 
 interface SPBottomNavBarProps {
