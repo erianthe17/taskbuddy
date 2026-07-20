@@ -6,7 +6,6 @@
 
 import type {
   ActivityEvent,
-  CategoryShare,
   MonthlyPoint,
   TopProvider,
   Transaction,
