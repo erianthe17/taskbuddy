@@ -656,11 +656,55 @@ Retraining then reuses the ML repository's `run_training.py` methodology (GroupS
 Do **not** design or implement the following (deliberately deferred; adding them now would
 bloat the schema beyond the validated recommendation flow):
 
-- Payments, wallets, commissions, or payouts
-- In-app chat/messaging
 - Provider portfolios, certifications, or document verification
 - Multi-category providers (one category per provider for now — matches the model)
-- Admin dashboard / moderation tables
-- Scheduling/calendar (jobs are assumed ASAP; no booking time slots)
 - Push-notification delivery infrastructure (the `notifications` table is the source of truth;
   delivery transport is a later concern)
+
+> **Scope note (migration 0006):** Wallet/payments, in-app chat, and scheduling/calendar were
+> originally on this list. They have since been added — as ledger/chat/booking tables that back
+> the mobile app's Wallet, Chat, and Calendar screens — and are documented in [Section 15](#15-app-support-subsystems-migration-0006).
+> They are **not** part of the ML recommendation flow and feed no model features. Admin
+> dashboard/moderation tables were likewise added later (migration 0005).
+
+---
+
+## 15. App-Support Subsystems (migration 0006)
+
+These three subsystems exist to back the mobile app UI. They are intentionally lightweight and
+**decoupled from the recommendation engine** — none of their columns are ML features, and no
+retraining export reads them. RLS is enabled on every table (the NestJS API uses the service-role
+key and enforces authorization in code; policies are defense-in-depth). Full DDL lives in
+`supabase/migrations/0006_wallet_chat_calendar.sql`.
+
+### 15.1 Wallet — `wallet_transactions`
+
+A per-user ledger. **There is no real payment gateway**; entries are recorded directly and the
+balance is *derived* (never stored): `sum(completed credits) − sum(completed debits)`. Enums:
+`wallet_txn_direction ('credit','debit')`, `wallet_txn_status ('pending','completed','failed')`.
+`amount` is always positive; `direction` carries the sign. An optional `job_id` links a payout /
+fee to the job that produced it.
+
+- `GET /wallet` → `{ balance, total_credited, total_debited, pending, transactions[] }`
+- `POST /wallet/transactions` → record `{ direction, amount, title, job_id? }`
+
+### 15.2 Chat — `conversations` + `messages`
+
+One conversation per job, between its `client_id` and (assigned) `provider_id`. Created lazily the
+first time either participant opens it — the job must already have an assigned provider. `messages`
+carry `body` (1–1000 chars) and a `read_at`; a trigger keeps `conversations.last_message_at`
+current for list ordering.
+
+- `GET /conversations` → the caller's conversations (counterpart name + last-message time)
+- `POST /conversations` → get-or-create for `{ job_id }`
+- `GET /conversations/:id/messages` · `POST /conversations/:id/messages` `{ body }` · `POST /conversations/:id/read`
+
+### 15.3 Calendar — `bookings`
+
+A provider's scheduled bookings for assigned jobs. The base marketplace treats jobs as ASAP; a
+booking adds an explicit `scheduled_at` + `duration_minutes` so the calendar has something to show.
+Enum `booking_status ('scheduled','completed','cancelled')`. One booking per job.
+
+- `GET /calendar/bookings?from=&to=` → the caller's bookings (provider or client side)
+- `POST /calendar/bookings` 🔒(provider) → schedule an assigned job
+- `PATCH /calendar/bookings/:id` 🔒(provider) → reschedule / update status / notes

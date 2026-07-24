@@ -16,6 +16,7 @@
 
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -26,9 +27,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ArrowLeft, Check } from 'lucide-react-native';
+import { ArrowLeft, Check, MailCheck } from 'lucide-react-native';
 import { Colors } from '../../../src/constants/theme';
 import TermsAndConditions from './TermsAndConditions';
+import type { MobileRole } from '../../../src/lib/api';
 
 const C = {
   ...Colors,
@@ -39,7 +41,16 @@ const C = {
 } as const;
 
 interface RegisterScreenProps {
-  onSignUp: () => void;
+  /**
+   * Create the account against the backend. Rejects with an Error on failure.
+   * Resolves with whether the user must confirm their email before signing in.
+   */
+  onRegister: (input: {
+    email: string;
+    password: string;
+    fullName: string;
+    role: MobileRole;
+  }) => Promise<{ needsEmailConfirmation: boolean }>;
   onLogin: () => void;
 }
 
@@ -83,7 +94,7 @@ function FormInput({ label, placeholder, value, onChangeText, secureTextEntry, k
 }
 
 function RegisterScreenContent({
-  onSignUp,
+  onRegister,
   onLogin,
   onViewTerms,
   termsAccepted,
@@ -93,7 +104,69 @@ function RegisterScreenContent({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<'homeowner' | 'provider'>('homeowner');
+  const [role, setRole] = useState<MobileRole>('homeowner');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmationSent, setConfirmationSent] = useState(false);
+
+  const handleSignUp = async () => {
+    if (submitting) return;
+    setError(null);
+
+    if (!name.trim()) return setError('Please enter your full name.');
+    if (!email.trim()) return setError('Please enter your email address.');
+    if (password.length < 8)
+      return setError('Password must be at least 8 characters.');
+    if (password !== confirmPassword)
+      return setError('Passwords do not match.');
+    if (!termsAccepted)
+      return setError('Please accept the Terms and Conditions to continue.');
+
+    setSubmitting(true);
+    try {
+      const { needsEmailConfirmation } = await onRegister({
+        email,
+        password,
+        fullName: name,
+        role,
+      });
+      // When confirmation is off, the parent switches to the authenticated
+      // experience automatically; otherwise we show the "check your email" state.
+      if (needsEmailConfirmation) setConfirmationSent(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to create account.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (confirmationSent) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.headerBg} />
+        <View style={styles.confirmWrap}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIcon}>
+              <MailCheck size={32} color={C.brandTeal} />
+            </View>
+            <Text style={styles.title}>Check your email</Text>
+            <Text style={styles.confirmText}>
+              We sent a confirmation link to{' '}
+              <Text style={styles.confirmEmail}>{email.trim()}</Text>. Confirm
+              your address, then sign in to start using TaskBuddy.
+            </Text>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={onLogin}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryBtnText}>Go to Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -184,9 +257,25 @@ function RegisterScreenContent({
               </Text>
             </View>
 
+            {/* Error */}
+            {!!error && (
+              <Text testID="register-error" style={styles.errorBanner}>
+                {error}
+              </Text>
+            )}
+
             {/* Sign Up */}
-            <TouchableOpacity style={styles.primaryBtn} onPress={onSignUp} activeOpacity={0.85}>
-              <Text style={styles.primaryBtnText}>Sign Up</Text>
+            <TouchableOpacity
+              style={[styles.primaryBtn, submitting && styles.primaryBtnDisabled]}
+              onPress={handleSignUp}
+              activeOpacity={0.85}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color={C.white} />
+              ) : (
+                <Text style={styles.primaryBtnText}>Sign Up</Text>
+              )}
             </TouchableOpacity>
 
             {/* Divider */}
@@ -197,7 +286,7 @@ function RegisterScreenContent({
             </View>
 
             {/* Google */}
-            <TouchableOpacity style={styles.googleBtn} onPress={onSignUp} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.googleBtn} onPress={handleSignUp} activeOpacity={0.85}>
               <View style={styles.googleIcon}>
                 <Text style={styles.googleIconText}>G</Text>
               </View>
@@ -226,7 +315,7 @@ function RegisterScreenContent({
   );
 }
 
-export default function RegisterScreen({ onSignUp, onLogin }: RegisterScreenProps) {
+export default function RegisterScreen({ onRegister, onLogin }: RegisterScreenProps) {
   const [showTerms, setShowTerms] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
@@ -241,7 +330,7 @@ export default function RegisterScreen({ onSignUp, onLogin }: RegisterScreenProp
 
   return (
     <RegisterScreenContent
-      onSignUp={onSignUp}
+      onRegister={onRegister}
       onLogin={onLogin}
       onViewTerms={() => setShowTerms(true)}
       termsAccepted={termsAccepted}
@@ -363,7 +452,30 @@ const styles = StyleSheet.create({
     shadowColor: C.brandTeal, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35, shadowRadius: 12, elevation: 5,
   },
+  primaryBtnDisabled: { opacity: 0.7 },
   primaryBtnText: { color: C.white, fontFamily: 'Inter', fontSize: 15, fontWeight: '600', letterSpacing: 0.3 },
+
+  errorBanner: {
+    fontFamily: 'Inter', fontSize: 13, color: C.brandRed,
+    marginBottom: 12, lineHeight: 18,
+  },
+
+  // Email-confirmation success state
+  confirmWrap: { flex: 1, justifyContent: 'center', paddingHorizontal: 20 },
+  confirmCard: {
+    backgroundColor: C.white, borderRadius: 30, padding: 28, alignItems: 'center',
+    shadowColor: '#063D4D', shadowOpacity: 0.08, shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 25, elevation: 6,
+  },
+  confirmIcon: {
+    width: 64, height: 64, borderRadius: 32, marginBottom: 16,
+    backgroundColor: 'rgba(9,110,139,0.10)', alignItems: 'center', justifyContent: 'center',
+  },
+  confirmText: {
+    fontFamily: 'Inter', fontSize: 14, color: C.slate, textAlign: 'center',
+    lineHeight: 21, marginTop: 8, marginBottom: 24,
+  },
+  confirmEmail: { color: C.brandDark, fontWeight: '700' },
 
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
