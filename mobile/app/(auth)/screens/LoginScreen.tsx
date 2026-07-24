@@ -16,11 +16,13 @@
  *  - "Continue with Google" outline button
  *  - "Don't have an account? Sign Up"
  *
- * DEMO MODE: Sign In navigates based on selected role (homeowner / provider).
+ * Sign In authenticates against the backend; the account's role determines
+ * which experience (homeowner / provider) is shown.
  */
 
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   KeyboardAvoidingView,
   Platform,
@@ -38,8 +40,8 @@ const C = Colors;
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface LoginScreenProps {
-  onLoginAsHomeowner: () => void;
-  onLoginAsProvider: () => void;
+  /** Authenticate with the backend. Should reject with an Error on failure. */
+  onLogin: (email: string, password: string) => Promise<void>;
   onSignUp: () => void;
   onForgotPassword?: () => void;
 }
@@ -94,22 +96,33 @@ function InputField({
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function LoginScreen({
-  onLoginAsHomeowner,
-  onLoginAsProvider,
+  onLogin,
   onSignUp,
   onForgotPassword,
 }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'homeowner' | 'provider'>('homeowner');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSignIn = () => {
-    // DEMO: navigate based on selected role without real auth
-    if (selectedRole === 'homeowner') {
-      onLoginAsHomeowner();
-    } else {
-      onLoginAsProvider();
+  const handleSignIn = async () => {
+    if (submitting) return;
+    setError(null);
+
+    if (!email.trim() || !password) {
+      setError('Please enter your email and password.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await onLogin(email, password);
+      // On success the root navigator swaps to the authenticated experience.
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to sign in.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -148,28 +161,6 @@ export default function LoginScreen({
           <View style={styles.headingSection}>
             <Text style={styles.welcomeText}>Welcome!</Text>
             <Text style={styles.subtitleText}>Sign in to your account</Text>
-          </View>
-
-          {/* Role selector (DEMO) */}
-          <View style={styles.roleRow}>
-            <TouchableOpacity
-              style={[styles.roleChip, selectedRole === 'homeowner' && styles.roleChipActive]}
-              onPress={() => setSelectedRole('homeowner')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.roleChipText, selectedRole === 'homeowner' && styles.roleChipTextActive]}>
-                Homeowner
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.roleChip, selectedRole === 'provider' && styles.roleChipActive]}
-              onPress={() => setSelectedRole('provider')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.roleChipText, selectedRole === 'provider' && styles.roleChipTextActive]}>
-                Provider
-              </Text>
-            </TouchableOpacity>
           </View>
 
           {/* Email */}
@@ -212,14 +203,26 @@ export default function LoginScreen({
             </View>
           </View>
 
+          {/* Error */}
+          {!!error && (
+            <Text testID="login-error" style={styles.errorBanner}>
+              {error}
+            </Text>
+          )}
+
           {/* Sign In */}
           <TouchableOpacity
             testID="btn-sign-in"
-            style={styles.primaryBtn}
+            style={[styles.primaryBtn, submitting && styles.primaryBtnDisabled]}
             activeOpacity={0.85}
             onPress={handleSignIn}
+            disabled={submitting}
           >
-            <Text style={styles.primaryBtnText}>Sign In</Text>
+            {submitting ? (
+              <ActivityIndicator color={C.white} />
+            ) : (
+              <Text style={styles.primaryBtnText}>Sign In</Text>
+            )}
           </TouchableOpacity>
 
           {/* Divider */}
@@ -374,9 +377,14 @@ const styles = StyleSheet.create({
     shadowColor: C.brandTeal, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35, shadowRadius: 12, elevation: 5,
   },
+  primaryBtnDisabled: { opacity: 0.7 },
   primaryBtnText: {
     fontFamily: 'Inter', fontSize: 15, fontWeight: '600',
     color: C.white, letterSpacing: 0.3,
+  },
+  errorBanner: {
+    fontFamily: 'Inter', fontSize: 13, color: C.error,
+    marginBottom: 12, lineHeight: 18,
   },
 
   // Divider

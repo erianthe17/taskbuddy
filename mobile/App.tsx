@@ -2,12 +2,12 @@
  * App.tsx — Root navigation controller
  *
  * Architecture:
- *   null role     → Onboarding → Login / Register
+ *   not signed in → Onboarding → Login / Register
  *   'homeowner'   → HO screens with the shared BottomNavBar
  *   'provider'    → SP screens with the shared BottomNavBar
  *
- * DEMO MODE: Login navigates to the appropriate role screens without
- * real auth. Supabase session listener is preserved for future use.
+ * Authentication is real: the auth screens call the NestJS backend through
+ * AuthContext, which persists the session and resolves the account's role.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -51,10 +51,10 @@ import SPEditProfileScreen from './app/(provider)/screens/SPEditProfileScreen';
 import BottomNavBar, { BottomNavItem } from './src/components/BottomNavBar';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-import { Role, HOScreen, SPScreen, DEFAULT_ROLE } from './src/types/navigation';
+import { HOScreen, SPScreen } from './src/types/navigation';
 
-// ── Supabase (kept for future real-auth) ──────────────────────────────────────
-import supabase from './src/lib/supabase';
+// ── Auth ───────────────────────────────────────────────────────────────────────
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 
 const HOMEOWNER_TABS: readonly BottomNavItem<HOScreen>[] = [
   { key: 'Home', label: 'Home', icon: Home },
@@ -78,23 +78,35 @@ const PROVIDER_TABS: readonly BottomNavItem<SPScreen>[] = [
 
 ExpoSplashScreen.preventAutoHideAsync().catch(() => {});
 
-type AuthState = 'splash' | 'onboarding' | 'login' | 'forgotPassword' | 'register' | 'authenticated';
+type PreAuthScreen = 'onboarding' | 'login' | 'forgotPassword' | 'register';
 
 function AppContent() {
-  const [authState, setAuthState] = useState<AuthState>('splash');
-  const [role, setRole] = useState<Role>(DEFAULT_ROLE);
+  const { initializing, isAuthenticated, role, signIn, signUp, signOut } = useAuth();
+
+  // Which pre-auth screen to show while the user is signed out.
+  const [preAuth, setPreAuth] = useState<PreAuthScreen>('onboarding');
+  // The splash plays for a minimum duration; we also wait for session restore.
+  const [minSplashDone, setMinSplashDone] = useState(false);
+
+  const handleLogout = () => {
+    void signOut();
+    setPreAuth('login');
+  };
 
   // ── HO navigation state ───────────────────────────────────────────────────
   const [hoTab, setHOTab] = useState<HOScreen>('Home');
   const [hoScreen, setHOScreen] = useState<HOScreen>('Home'); // for non-tab sub-screens
+  const [hoJobId, setHOJobId] = useState<string | null>(null); // selected job/chat context
 
   // ── SP navigation state ───────────────────────────────────────────────────
   const [spTab, setSPTab] = useState<SPScreen>('Dashboard');
   const [spScreen, setSPScreen] = useState<SPScreen>('Dashboard');
   const [spUrgentJob, setSPUrgentJob] = useState(false);
+  const [spJobId, setSPJobId] = useState<string | null>(null);
 
   // ── HO helpers ────────────────────────────────────────────────────────────
-  const hoNavigate = (screen: HOScreen) => {
+  const hoNavigate = (screen: HOScreen, jobId?: string) => {
+    if (jobId !== undefined) setHOJobId(jobId);
     const TAB_SCREENS: HOScreen[] = ['Home', 'My Jobs', 'Wallet', 'Profile'];
     if (TAB_SCREENS.includes(screen)) {
       setHOTab(screen);
@@ -105,7 +117,8 @@ function AppContent() {
   };
 
   // ── SP helpers ────────────────────────────────────────────────────────────
-  const spNavigate = (screen: SPScreen) => {
+  const spNavigate = (screen: SPScreen, jobId?: string) => {
+    if (jobId !== undefined) setSPJobId(jobId);
     const TAB_SCREENS: SPScreen[] = ['Dashboard', 'My Jobs', 'Calendar', 'Wallet', 'Profile'];
     if (TAB_SCREENS.includes(screen)) {
       setSPTab(screen);
@@ -127,118 +140,57 @@ function AppContent() {
 
   useEffect(() => {
     const splashTimer = setTimeout(() => {
-      setAuthState('onboarding');
+      setMinSplashDone(true);
       ExpoSplashScreen.hideAsync().catch(() => {});
     }, 2200);
 
     return () => clearTimeout(splashTimer);
   }, []);
 
-  // ── Supabase auth listener (preserved, non-blocking) ──────────────────────
-  useEffect(() => {
-    let mounted = true;
-
-    const handleUser = async (user: any) => {
-      const metaRole = user?.user_metadata?.role as Role | undefined;
-      if (metaRole && mounted) {
-        setRole(metaRole);
-        setAuthState('authenticated');
-        return;
-      }
-      try {
-        const { data } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        if (mounted) {
-          setRole((data?.role as Role) ?? DEFAULT_ROLE);
-          setAuthState('authenticated');
-        }
-      } catch {
-        if (mounted) setAuthState('authenticated');
-      }
-    };
-
-    (async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) await handleUser(session.user);
-      } catch { /* ignore */ }
-    })();
-
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        await handleUser(session.user);
-      } else {
-        if (mounted) {
-          setAuthState('onboarding');
-          setRole(DEFAULT_ROLE);
-        }
-      }
-    });
-
-    return () => {
-      mounted = false;
-      sub.subscription?.unsubscribe?.();
-    };
-  }, []);
-
   // ─────────────────────────────────────────────────────────────────────────
   // Auth flow
   // ─────────────────────────────────────────────────────────────────────────
 
-  if (authState === 'splash') {
+  // Hold on the splash until the minimum time has elapsed AND any persisted
+  // session has finished restoring, so we never flash the login screen first.
+  if (!minSplashDone || initializing) {
     return <SplashScreenComponent />;
   }
 
-  if (authState === 'onboarding') {
-    return (
-      <OnboardingScreen
-        onFinish={() => setAuthState('login')}
-        onLogin={() => setAuthState('login')}
-      />
-    );
-  }
+  if (!isAuthenticated) {
+    if (preAuth === 'onboarding') {
+      return (
+        <OnboardingScreen
+          onFinish={() => setPreAuth('login')}
+          onLogin={() => setPreAuth('login')}
+        />
+      );
+    }
 
-  if (authState === 'login') {
-    return (
-      <LoginScreen
-        onLoginAsHomeowner={() => {
-          setRole('homeowner');
-          setAuthState('authenticated');
-          setHOTab('Home');
-          setHOScreen('Home');
-        }}
-        onLoginAsProvider={() => {
-          setRole('provider');
-          setAuthState('authenticated');
-          setSPTab('Dashboard');
-          setSPScreen('Dashboard');
-        }}
-        onSignUp={() => setAuthState('register')}
-        onForgotPassword={() => setAuthState('forgotPassword')}
-      />
-    );
-  }
+    if (preAuth === 'login') {
+      return (
+        <LoginScreen
+          onLogin={signIn}
+          onSignUp={() => setPreAuth('register')}
+          onForgotPassword={() => setPreAuth('forgotPassword')}
+        />
+      );
+    }
 
-  if (authState === 'forgotPassword') {
-    return (
-      <ForgotPasswordScreen
-        onBackToLogin={() => setAuthState('login')}
-        onResetPassword={() => setAuthState('login')}
-      />
-    );
-  }
+    if (preAuth === 'forgotPassword') {
+      return (
+        <ForgotPasswordScreen
+          onBackToLogin={() => setPreAuth('login')}
+          onResetPassword={() => setPreAuth('login')}
+        />
+      );
+    }
 
-  if (authState === 'register') {
+    // preAuth === 'register'
     return (
       <RegisterScreen
-        onSignUp={() => {
-          setRole('homeowner');
-          setAuthState('authenticated');
-        }}
-        onLogin={() => setAuthState('login')}
+        onRegister={signUp}
+        onLogin={() => setPreAuth('login')}
       />
     );
   }
@@ -252,14 +204,14 @@ function AppContent() {
     if (hoScreen === 'Job Detail') {
       return (
         <View style={styles.screen}>
-          <HOJobDetailScreen onBack={hoBack} onNavigate={hoNavigate} />
+          <HOJobDetailScreen jobId={hoJobId} onBack={hoBack} onNavigate={hoNavigate} />
         </View>
       );
     }
     if (hoScreen === 'Chat') {
       return (
         <View style={styles.screen}>
-          <HOChatScreen onBack={hoBack} onViewJob={() => hoNavigate('Job Detail')} />
+          <HOChatScreen jobId={hoJobId} onBack={hoBack} onViewJob={() => hoNavigate('Job Detail')} />
         </View>
       );
     }
@@ -287,7 +239,7 @@ function AppContent() {
     if (hoScreen === 'Settings') {
       return (
         <View style={styles.screen}>
-          <HOSettingsScreen onBack={hoBack} onLogout={() => setAuthState('login')} />
+          <HOSettingsScreen onBack={hoBack} onLogout={handleLogout} />
         </View>
       );
     }
@@ -315,7 +267,7 @@ function AppContent() {
         case 'Wallet':
           return <HOWalletScreen />;
         case 'Profile':
-          return <Profile onNavigate={hoNavigate} onLogout={() => setAuthState('login')} />;
+          return <Profile onNavigate={hoNavigate} onLogout={handleLogout} />;
         default:
           return <HOHomeScreen onNavigate={hoNavigate} />;
       }
@@ -338,6 +290,7 @@ function AppContent() {
     return (
       <View style={styles.screen}>
         <SPJobDetailScreen
+          jobId={spJobId}
           onBack={spBack}
           onNavigate={spNavigate}
           isUrgent={spUrgentJob}
@@ -348,7 +301,7 @@ function AppContent() {
   if (spScreen === 'Chat') {
     return (
       <View style={styles.screen}>
-        <SPChatScreen onBack={spBack} onViewJob={() => spNavigate('Job Detail')} />
+        <SPChatScreen jobId={spJobId} onBack={spBack} onViewJob={() => spNavigate('Job Detail')} />
       </View>
     );
   }
@@ -379,7 +332,7 @@ function AppContent() {
       case 'Wallet':
         return <SPWalletScreen />;
       case 'Profile':
-        return <SPProfileScreen onNavigate={spNavigate} onLogout={() => setAuthState('login')} />;
+        return <SPProfileScreen onNavigate={spNavigate} onLogout={handleLogout} />;
       default:
         return <SPHomeScreen onNavigate={spNavigate} />;
     }
@@ -396,9 +349,11 @@ function AppContent() {
 /** Every route above is rendered inside the shared responsive root layout. */
 export default function App() {
   return (
-    <RootLayout>
-      <AppContent />
-    </RootLayout>
+    <AuthProvider>
+      <RootLayout>
+        <AppContent />
+      </RootLayout>
+    </AuthProvider>
   );
 }
 
