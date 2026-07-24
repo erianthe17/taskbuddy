@@ -76,6 +76,7 @@ Job lifecycle: `open → recommending → assigned → in_progress → completed
    | `0003_rls.sql` | Row Level Security policies |
    | `0004_seed.sql` | 5 categories + urgency timeouts |
    | `0005_admin_role.sql` | adds `'admin'` to `user_role` enum + `admin_user_overview` view (profiles ⋈ `auth.users` email, service-role only) for the Admin Dashboard (#29/#31/#32). Admins can't self-register — promote a user manually after this migration (see the comment at the end of the file). |
+   | `0006_wallet_chat_calendar.sql` | app-support subsystems (`wallet_transactions`, `conversations` + `messages`, `bookings`) backing the mobile Wallet/Chat/Calendar screens. Additive; not part of the ML flow. See `BACKEND_SCHEMA.md` §15. |
 
 3. (Development) In Authentication → Providers → Email, consider disabling
    "Confirm email" so `POST /auth/register` returns a session immediately.
@@ -197,6 +198,21 @@ All bodies are JSON. 🔒 = requires auth; (client) / (provider) = role-restrict
 | `GET /notifications?unread=true` 🔒 | newest 50 |
 | `POST /notifications/:id/read` 🔒 | mark one read |
 | `POST /notifications/read-all` 🔒 | mark all read |
+
+**Wallet, Chat & Calendar** (🔒 — app-support subsystems, migration 0006)
+
+| Method & path | Description |
+|---|---|
+| `GET /wallet` 🔒 | `{ balance, total_credited, total_debited, pending, transactions[] }` (balance derived from the ledger) |
+| `POST /wallet/transactions` 🔒 | record `{ direction: credit/debit, amount, title, job_id? }` |
+| `GET /conversations` 🔒 | caller's conversations (counterpart name + last-message time) |
+| `POST /conversations` 🔒 | get-or-create for `{ job_id }` — job must have an assigned provider |
+| `GET /conversations/:id/messages` 🔒 | messages, oldest first |
+| `POST /conversations/:id/messages` 🔒 | send `{ body (1–1000) }` |
+| `POST /conversations/:id/read` 🔒 | mark the other participant's messages read |
+| `GET /calendar/bookings?from=&to=` 🔒 | caller's bookings (provider or client side), with job + counterpart |
+| `POST /calendar/bookings` 🔒 (provider) | `{ job_id, scheduled_at, duration_minutes?, notes? }` — schedule an assigned job |
+| `PATCH /calendar/bookings/:id` 🔒 (provider) | `{ scheduled_at?, duration_minutes?, status?, notes? }` |
 
 **Admin** (🔒 admin role only — 401 without a token, 403 for non-admins)
 
