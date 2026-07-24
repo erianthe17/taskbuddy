@@ -1,0 +1,246 @@
+/**
+ * AuthContext.tsx — real authentication state backed by the NestJS API.
+ *
+ * Replaces the old DEMO-mode navigation (which picked a role without auth).
+ * Holds the Supabase session tokens (persisted with AsyncStorage so the user
+ * stays logged in across app restarts) plus the resolved profile, and exposes
+ * signIn / signUp / signOut for the auth screens to call.
+ */
+
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  api,
+  ApiError,
+  configureApiAuth,
+  toBackendRole,
+  toMobileRole,
+  type MobileRole,
+  type Profile,
+  type ProviderProfile,
+  type Session,
+} from '../lib/api';
+
+const SESSION_KEY = 'taskbuddy.session';
+
+interface AuthContextValue {
+  /** True until the persisted session (if any) has been restored on launch. */
+  initializing: boolean;
+  session: Session | null;
+  profile: Profile | null;
+  providerProfile: ProviderProfile | null;
+  role: MobileRole | null;
+  isAuthenticated: boolean;
+  /** Re-fetch /auth/me (e.g. after editing the profile). */
+  refreshProfile: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  /** Returns whether email confirmation is still required before login works. */
+  signUp: (input: {
+    email: string;
+    password: string;
+    fullName: string;
+    role: MobileRole;
+    phone?: string;
+  }) => Promise<{ needsEmailConfirmation: boolean }>;
+  signOut: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [initializing, setInitializing] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [providerProfile, setProviderProfile] =
+    useState<ProviderProfile | null>(null);
+
+  // Always-current token, read by the api client's auth accessor.
+  const sessionRef = useRef<Session | null>(null);
+
+  const persistSession = useCallback(async (next: Session | null) => {
+    sessionRef.current = next;
+    setSession(next);
+    if (next) {
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(next));
+    } else {
+      await AsyncStorage.removeItem(SESSION_KEY);
+    }
+  }, []);
+
+  // Wire the api client so authenticated calls attach the token and can
+  // refresh + retry once on a 401 — screens never handle tokens themselves.
+  useEffect(() => {
+    configureApiAuth(
+      () => sessionRef.current?.access_token ?? null,
+      async () => {
+        const current = sessionRef.current;
+        if (!current) return null;
+        try {
+          const { session: refreshed } = await api.refresh(
+            current.refresh_token,
+          );
+          await persistSession(refreshed);
+          return refreshed.access_token;
+        } catch {
+          // Refresh failed — force sign-out state.
+          await persistSession(null);
+          setProfile(null);
+          setProviderProfile(null);
+          return null;
+        }
+      },
+    );
+  }, [persistSession]);
+
+  // ── Restore a persisted session on launch ────────────────────────────────
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(SESSION_KEY);
+        if (!raw) return;
+        const stored = JSON.parse(raw) as Session;
+        // Validate the token by fetching the profile; refresh once if expired.
+        let active: Session = stored;
+        try {
+          const me = await api.me(active.access_token);
+          if (mounted) {
+            sessionRef.current = active;
+            setSession(active);
+            setProfile(me.profile);
+            setProviderProfile(me.provider_profile);
+          }
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 401) {
+            const { session: refreshed } = await api.refresh(
+              active.refresh_token,
+            );
+            active = refreshed;
+            const me = await api.me(active.access_token);
+            if (mounted) {
+              await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(active));
+              sessionRef.current = active;
+              setSession(active);
+              setProfile(me.profile);
+              setProviderProfile(me.provider_profile);
+            }
+          } else {
+            throw err;
+          }
+        }
+      } catch {
+        // Corrupt/expired session — start signed out.
+        await AsyncStorage.removeItem(SESSION_KEY);
+      } finally {
+        if (mounted) setInitializing(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const { session: next } = await api.login({
+        email: email.trim(),
+        password,
+      });
+      const me = await api.me(next.access_token);
+      await persistSession(next);
+      setProfile(me.profile);
+      setProviderProfile(me.provider_profile);
+    },
+    [persistSession],
+  );
+
+  const refreshProfile = useCallback(async () => {
+    const token = sessionRef.current?.access_token;
+    if (!token) return;
+    const me = await api.me(token);
+    setProfile(me.profile);
+    setProviderProfile(me.provider_profile);
+  }, []);
+
+  const signUp = useCallback(
+    async (input: {
+      email: string;
+      password: string;
+      fullName: string;
+      role: MobileRole;
+      phone?: string;
+    }) => {
+      const res = await api.register({
+        email: input.email.trim(),
+        password: input.password,
+        role: toBackendRole(input.role),
+        full_name: input.fullName.trim(),
+        phone: input.phone?.trim() || undefined,
+      });
+
+      // If the project has email confirmation disabled, register returns a
+      // session and we can log the user straight in.
+      if (res.session) {
+        const me = await api.me(res.session.access_token);
+        await persistSession(res.session);
+        setProfile(me.profile);
+        setProviderProfile(me.provider_profile);
+        return { needsEmailConfirmation: false };
+      }
+      return { needsEmailConfirmation: true };
+    },
+    [persistSession],
+  );
+
+  const signOut = useCallback(async () => {
+    const token = session?.access_token;
+    setProfile(null);
+    setProviderProfile(null);
+    await persistSession(null);
+    if (token) {
+      // Best-effort server-side revocation; ignore failures.
+      api.logout(token).catch(() => {});
+    }
+  }, [persistSession, session]);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      initializing,
+      session,
+      profile,
+      providerProfile,
+      role: profile ? toMobileRole(profile.role) : null,
+      isAuthenticated: !!session && !!profile,
+      refreshProfile,
+      signIn,
+      signUp,
+      signOut,
+    }),
+    [
+      initializing,
+      session,
+      profile,
+      providerProfile,
+      refreshProfile,
+      signIn,
+      signUp,
+      signOut,
+    ],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
+}
