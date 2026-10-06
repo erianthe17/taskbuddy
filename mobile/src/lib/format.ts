@@ -84,12 +84,14 @@ export function jobStatusMeta(status: string, colors: Palette['V6Colors'] = ligh
     case 'assigned':
     case 'confirmed':
       return { label: 'Confirmed', color: colors.infoText, bg: colors.infoSurface };
+    // Every status has its own color (Confirmed and Completed used to match,
+    // and Cancelled looked like the red Urgent pill).
     case 'in_progress':
-      return { label: 'In Progress', color: colors.successText, bg: colors.successSurface };
+      return { label: 'In Progress', color: colors.purpleText, bg: colors.purpleSurface };
     case 'completed':
-      return { label: 'Completed', color: colors.infoText, bg: colors.infoSurface };
+      return { label: 'Completed', color: colors.successText, bg: colors.successSurface };
     case 'cancelled':
-      return { label: 'Cancelled', color: colors.dangerText, bg: colors.dangerSurface };
+      return { label: 'Cancelled', color: colors.ink500, bg: colors.ink100 };
     case 'expired':
       return { label: 'Expired', color: colors.ink400, bg: colors.ink50 };
     default:
@@ -147,4 +149,21 @@ export function monthYear(iso: string | null | undefined): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+/** "1 job" / "2 jobs" — display only; the count itself is unchanged. */
+export function plural(count: number | null | undefined, singular: string, pluralForm = `${singular}s`): string {
+  const n = count ?? 0;
+  return `${n} ${n === 1 ? singular : pluralForm}`;
+}
+
+/** Display text for an error shown to users. A bare server failure message
+ * ("Internal server error") is replaced with a friendly sentence; every other
+ * message (validation, conflicts, explanations) is shown unchanged. */
+export function friendlyError(message: string | null | undefined): string {
+  const text = (message ?? '').trim();
+  if (!text || /^internal server error\.?$/i.test(text)) {
+    return 'Something went wrong on our side. Please try again in a moment.';
+  }
+  return text;
 }

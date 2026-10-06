@@ -25,10 +25,12 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
+import ContentSkeleton from '../../../src/components/ui/ContentSkeleton';
+import Silhouette from '../../../src/components/ui/Silhouette';
 import {
   ArrowLeft,
   ArrowRight,
@@ -46,7 +48,7 @@ import {
   type Conversation,
   type Message,
 } from '../../../src/lib/api';
-import { initials, timeOfDay } from '../../../src/lib/format';
+import { jobStatusMeta, timeOfDay } from '../../../src/lib/format';
 import ChatEmptyState from '../../../src/components/ChatEmptyState';
 
 interface HOChatScreenProps {
@@ -161,21 +163,21 @@ export default function HOChatScreen({ jobId, onBack, onViewJob }: HOChatScreenP
     <View style={styles.screen}>
       {/* Header — matches .topbar (flat white, not a colored hero) */}
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+        <Tap style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
           <ArrowLeft size={20} color={C.ink700} />
-        </TouchableOpacity>
+        </Tap>
         <View style={styles.headerAvatar}>
-          <Text style={styles.headerAvatarText}>{initials(conversation?.counterpart_name)}</Text>
+          <Silhouette name={conversation?.counterpart_name} textStyle={styles.headerAvatarText} />
         </View>
         <View style={styles.headerInfo}>
           <Text style={styles.headerName}>{conversation?.counterpart_name ?? 'Chat'}</Text>
           {!!conversation?.job_status && (
-            <Text style={styles.headerStatus}>{conversation.job_status}</Text>
+            <Text style={styles.headerStatus}>{jobStatusMeta(conversation.job_status, V6Colors).label}</Text>
           )}
         </View>
-        <TouchableOpacity onPress={onViewJob} activeOpacity={0.8}>
+        <Tap onPress={onViewJob} activeOpacity={0.8}>
           <Text style={styles.viewJobLink}>View Job</Text>
-        </TouchableOpacity>
+        </Tap>
       </View>
 
       <KeyboardAvoidingView
@@ -183,7 +185,7 @@ export default function HOChatScreen({ jobId, onBack, onViewJob }: HOChatScreenP
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
-        {loading && <ActivityIndicator style={{ marginTop: 30 }} color={V6Colors.link} />}
+        {loading && <ContentSkeleton variant="chat" />}
         {!!error && !loading && <Text style={styles.stateText}>{error}</Text>}
         {!loading && !error && messages.length === 0 && (
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -203,7 +205,7 @@ export default function HOChatScreen({ jobId, onBack, onViewJob }: HOChatScreenP
 
         {/* Composer — matches .chat-composer */}
         <View style={styles.composer}>
-          <TouchableOpacity
+          <Tap
             style={styles.attachBtn}
             activeOpacity={0.8}
             onPress={() => void handleAttach()}
@@ -214,7 +216,7 @@ export default function HOChatScreen({ jobId, onBack, onViewJob }: HOChatScreenP
             ) : (
               <Paperclip size={20} color={C.ink500} />
             )}
-          </TouchableOpacity>
+          </Tap>
           <TextInput keyboardAppearance={appearance}
             style={styles.chatInput}
             placeholder="Message…"
@@ -224,14 +226,14 @@ export default function HOChatScreen({ jobId, onBack, onViewJob }: HOChatScreenP
             multiline
             maxLength={500}
           />
-          <TouchableOpacity
+          <Tap
             style={[styles.sendBtn, !text.trim() && styles.sendBtnDisabled]}
             onPress={handleSend}
             activeOpacity={0.85}
             disabled={!text.trim()}
           >
             <ArrowRight size={18} color={C.onPrimary} />
-          </TouchableOpacity>
+          </Tap>
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -258,10 +260,10 @@ function createThemedStyles(theme: ThemePalette) {
       alignItems: 'center', justifyContent: 'center',
     },
     headerAvatar: {
-      width: 36, height: 36, borderRadius: 12,
-      backgroundColor: C.cyan700, alignItems: 'center', justifyContent: 'center',
+      width: 40, height: 40, borderRadius: 20, overflow: 'hidden',
+      backgroundColor: C.primaryTonalStrong, alignItems: 'center', justifyContent: 'center',
     },
-    headerAvatarText: { color: C.onPrimary, fontSize: 14, fontWeight: '800', fontFamily: 'Inter' },
+    headerAvatarText: { color: C.primaryDeep, fontSize: 14, fontWeight: '800', fontFamily: 'Inter' },
     headerInfo: { flex: 1 },
     headerName: { color: C.ink900, fontSize: 16, fontWeight: '800', fontFamily: 'Inter' },
     headerStatus: { color: V6Colors.successText, fontSize: 12, fontWeight: '600', fontFamily: 'Inter', marginTop: 1 },

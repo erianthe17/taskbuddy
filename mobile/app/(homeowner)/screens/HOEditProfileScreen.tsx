@@ -16,9 +16,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
 import { ArrowLeft } from 'lucide-react-native';
 import AvatarPicker from '../../../src/components/AvatarPicker';
 import ConfirmationModal from '../../../src/components/ConfirmationModal';
@@ -76,6 +76,8 @@ function FormField({
         multiline={multiline}
         keyboardType={keyboardType}
         editable={editable}
+        // Locked fields (email) show the start of the value, not the end.
+        selection={editable === false ? { start: 0, end: 0 } : undefined}
         autoCapitalize={keyboardType === 'email-address' ? 'none' : 'words'}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
@@ -139,9 +141,9 @@ export default function HOEditProfileScreen({ onBack, onSave }: HOEditProfileScr
     <View style={styles.screen}>
       {/* Header — matches .topbar (flat white, not a colored hero) */}
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+        <Tap style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
           <ArrowLeft size={20} color={C.ink700} />
-        </TouchableOpacity>
+        </Tap>
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <View style={{ width: 38 }} />
       </View>
@@ -178,14 +180,14 @@ export default function HOEditProfileScreen({ onBack, onSave }: HOEditProfileScr
 
           {!!error && <Text style={styles.errorText}>{error}</Text>}
 
-          <TouchableOpacity
+          <Tap
             style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
             onPress={requestSave}
             activeOpacity={0.85}
             disabled={saving}
           >
             <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
-          </TouchableOpacity>
+          </Tap>
 
           <View style={{ height: 20 }} />
         </ScrollView>
@@ -236,7 +238,7 @@ function createThemedStyles(theme: ThemePalette) {
     },
     fieldInputMultiline: { height: 90, textAlignVertical: 'top', paddingTop: 12 },
     fieldInputFocused: { borderColor: C.cyan500 },
-    fieldInputDisabled: { color: C.ink400, backgroundColor: C.ink50 },
+    fieldInputDisabled: { color: C.ink500, backgroundColor: C.ink50 },
 
     errorText: { color: V6Colors.dangerText, fontSize: 15.5, fontFamily: 'Inter', marginBottom: 12, textAlign: 'center' },
 

@@ -15,15 +15,23 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
+import ContentSkeleton from '../../../src/components/ui/ContentSkeleton';
 import {
   AlertTriangle,
   ArrowLeft,
+  BadgeCheck,
   BriefcaseBusiness,
   CircleCheckBig,
+  ClipboardList,
+  type LucideIcon,
+  Megaphone,
+  MessageCircle,
+  ShieldAlert,
   Trash2,
+  Wallet,
 } from 'lucide-react-native';
 import ConfirmationModal from '../../../src/components/ConfirmationModal';
 import { useNotificationDeletion } from '../../../src/hooks/useNotificationDeletion';
@@ -47,10 +55,17 @@ interface NotificationRow {
   data: { job_id?: string } | null;
 }
 
-const ICON_BY_TYPE: Record<string, typeof BriefcaseBusiness> = {
+const NEGATIVE_TITLE = /reject|declin|not approved|failed/i;
+
+const ICON_BY_TYPE: Record<string, LucideIcon> = {
   recommendation_invite: BriefcaseBusiness,
   application_update: CircleCheckBig,
-  job_update: AlertTriangle,
+  job_update: ClipboardList,
+  message: MessageCircle,
+  verification_update: BadgeCheck,
+  wallet_update: Wallet,
+  payment_update: Wallet,
+  announcement: Megaphone,
 };
 
 interface SPNotificationsScreenProps {
@@ -87,19 +102,19 @@ export default function SPNotificationsScreen({ onBack, onOpenJob, onOpenChat, o
     <View style={styles.screen}>
       {/* Header — matches .topbar (flat white, not a dark hero) */}
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+        <Tap style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
           <ArrowLeft size={20} color={C.ink700} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        </Tap>
+        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>Notifications</Text>
         {unreadCount > 0 && (
-          <TouchableOpacity onPress={markAllRead} activeOpacity={0.8}>
-            <Text style={styles.markAllText}>Mark all read</Text>
-          </TouchableOpacity>
+          <Tap onPress={markAllRead} activeOpacity={0.8}>
+            <Text style={styles.markAllText} numberOfLines={1} maxFontSizeMultiplier={1.15}>Mark all read</Text>
+          </Tap>
         )}
         {unreadCount === 0 && notifications.length > 0 && (
-          <TouchableOpacity onPress={() => setConfirmClear(true)} activeOpacity={0.8}>
+          <Tap onPress={() => setConfirmClear(true)} activeOpacity={0.8}>
             <Text style={styles.markAllText}>Clear all</Text>
-          </TouchableOpacity>
+          </Tap>
         )}
       </View>
 
@@ -136,7 +151,7 @@ export default function SPNotificationsScreen({ onBack, onOpenJob, onOpenChat, o
         contentContainerStyle={styles.bodyContent}
         showsVerticalScrollIndicator={false}
       >
-        {loading && <ActivityIndicator style={{ marginTop: 20 }} color={V6Colors.link} />}
+        {loading && <ContentSkeleton variant="list" />}
         {!!error && !loading && <Text style={styles.stateText}>{error}</Text>}
         {!loading && !error && notifications.length === 0 && (
           <Text style={styles.stateText}>You have no notifications yet.</Text>
@@ -145,10 +160,16 @@ export default function SPNotificationsScreen({ onBack, onOpenJob, onOpenChat, o
         {notifications.length > 0 && (
           <View style={styles.notificationList}>
             {notifications.map((notif, i) => {
-              const Icon = ICON_BY_TYPE[notif.type] ?? BriefcaseBusiness;
+              // Icon only: the same resolver that decides where a tap goes
+              // tells chat and complaint notifications apart from job updates.
+              const kind = resolveNotificationTarget('provider', notif.data ?? {}).kind;
+              // A rejection or decline should not wear the same check badge as an
+              // approval: same type, different outcome.
+              const negative = NEGATIVE_TITLE.test(notif.title ?? '');
+              const Icon = negative ? ShieldAlert : kind === 'chat' ? MessageCircle : kind === 'dispute' ? ShieldAlert : ICON_BY_TYPE[notif.type] ?? BriefcaseBusiness;
               const isUnread = !notif.read_at;
               return (
-                <TouchableOpacity
+                <Tap
                   key={notif.id}
                   style={[
                     styles.notifRow,
@@ -159,7 +180,7 @@ export default function SPNotificationsScreen({ onBack, onOpenJob, onOpenChat, o
                   onPress={() => openNotification(notif)}
                 >
                   <View style={[styles.notifIcon, isUnread && styles.notifIconUnread]}>
-                    <Icon size={19} color={V6Colors.link} />
+                    <Icon size={19} color={negative ? V6Colors.dangerText : V6Colors.link} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.notifTitle}>{notif.title}</Text>
@@ -167,7 +188,7 @@ export default function SPNotificationsScreen({ onBack, onOpenJob, onOpenChat, o
                     <Text style={styles.notifTime}>{timeAgo(notif.created_at)}</Text>
                   </View>
                   {isUnread && <View style={styles.unreadDot} />}
-                  <TouchableOpacity
+                  <Tap
                     style={styles.deleteBtn}
                     onPress={() => setPendingDelete(notif)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -175,8 +196,8 @@ export default function SPNotificationsScreen({ onBack, onOpenJob, onOpenChat, o
                     accessibilityLabel={`Delete notification: ${notif.title}`}
                   >
                     <Trash2 size={16} color={C.ink300} />
-                  </TouchableOpacity>
-                </TouchableOpacity>
+                  </Tap>
+                </Tap>
               );
             })}
           </View>

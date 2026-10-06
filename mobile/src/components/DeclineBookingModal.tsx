@@ -18,14 +18,13 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
-  Modal,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from './ui/Tap';
+import SheetFrame from './ui/SheetFrame';
 import { X } from 'lucide-react-native';
 import { V6Radii } from '../constants/theme';
 
@@ -69,23 +68,12 @@ export default function DeclineBookingModal({
   const canSubmit = trimmed.length > 0 && !submitting;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={styles.overlay} onPress={onCancel} accessible={false}>
-        <Pressable
-          style={styles.dialog}
-          testID="decline-dialog"
-          // Taps on the dialog's empty space close the keyboard, not the dialog.
-          onPress={(event) => {
-            event.stopPropagation();
-            Keyboard.dismiss();
-          }}
-          accessibilityViewIsModal
-        >
+    <SheetFrame visible={visible} onClose={onCancel} contentStyle={styles.dialog} cardProps={{ testID: "decline-dialog" }}>
           <View style={styles.headerRow}>
             <Text style={styles.title} accessibilityRole="header">Decline Booking</Text>
-            <TouchableOpacity onPress={onCancel} activeOpacity={0.8} accessibilityLabel="Close">
+            <Tap onPress={onCancel} activeOpacity={0.8} accessibilityLabel="Close">
               <X size={22} color={C.ink500} />
-            </TouchableOpacity>
+            </Tap>
           </View>
 
           <Text style={styles.message}>
@@ -97,7 +85,7 @@ export default function DeclineBookingModal({
 
           <View style={styles.quickRow}>
             {QUICK_REASONS.map((option) => (
-              <TouchableOpacity
+              <Tap
                 key={option}
                 style={[styles.quickChip, trimmed === option && styles.quickChipActive]}
                 onPress={() => setReason(option)}
@@ -108,7 +96,7 @@ export default function DeclineBookingModal({
                 >
                   {option}
                 </Text>
-              </TouchableOpacity>
+              </Tap>
             ))}
           </View>
 
@@ -131,15 +119,15 @@ export default function DeclineBookingModal({
           {!!error && <Text style={styles.error}>{error}</Text>}
 
           <View style={styles.actions}>
-            <TouchableOpacity
+            <Tap
               style={styles.cancelBtn}
               onPress={onCancel}
               activeOpacity={0.8}
               disabled={submitting}
             >
               <Text style={styles.cancelText}>Keep Booking</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            </Tap>
+            <Tap
               style={[styles.confirmBtn, !canSubmit && styles.confirmBtnDisabled]}
               onPress={() => onConfirm(trimmed)}
               activeOpacity={0.85}
@@ -148,13 +136,11 @@ export default function DeclineBookingModal({
               {submitting ? (
                 <ActivityIndicator color={C.onPrimary} size="small" />
               ) : (
-                <Text style={styles.confirmText}>Decline</Text>
+                <Text style={[styles.confirmText, !canSubmit && styles.confirmTextDisabled]}>Decline</Text>
               )}
-            </TouchableOpacity>
+            </Tap>
           </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    </SheetFrame>
   );
 }
 
@@ -189,7 +175,9 @@ function createThemedStyles(theme: ThemePalette) {
     cancelBtn: { borderWidth: 1, borderColor: V6Colors.fieldBorder, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 11 },
     cancelText: { color: C.ink500, fontSize: 15.5, fontWeight: '700', fontFamily: 'Inter' },
     confirmBtn: { backgroundColor: V6Colors.dangerSolid, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 11, minWidth: 96, alignItems: 'center' },
-    confirmBtnDisabled: { opacity: 0.5 },
+    // Readable disabled state: grey fill with dark text, like the other forms.
+    confirmBtnDisabled: { backgroundColor: C.ink100 },
+    confirmTextDisabled: { color: C.ink700 },
     confirmText: { color: C.onPrimary, fontSize: 15.5, fontWeight: '700', fontFamily: 'Inter' },
   });
   return { appearance: theme.appearance, Colors, V6Colors, C, styles };

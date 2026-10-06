@@ -3,16 +3,13 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from './ui/Tap';
+import SheetFrame from './ui/SheetFrame';
 import { Send } from 'lucide-react-native';
 import { V6Radii } from '../constants/theme';
 
@@ -44,17 +41,7 @@ export default function ProposalModal({
   }, [visible]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={busy ? undefined : onCancel} statusBarTranslucent>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.overlay} onPress={busy ? undefined : onCancel} accessible={false}>
-          <Pressable
-            style={styles.dialog}
-            onPress={(e) => {
-              e.stopPropagation();
-              Keyboard.dismiss();
-            }}
-            accessibilityViewIsModal
-          >
+    <SheetFrame visible={visible} onClose={busy ? undefined : onCancel} contentStyle={styles.dialog}>
             <Text style={styles.title} accessibilityRole="header">Send a proposal</Text>
             <Text style={styles.body}>
               {jobTitle ? `Tell the client why you're a good fit for "${jobTitle}".` : "Tell the client why you're a good fit."}{' '}
@@ -79,10 +66,10 @@ export default function ProposalModal({
             {!!error && <Text style={styles.error} accessibilityRole="alert">{error}</Text>}
 
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.secondaryBtn} onPress={onCancel} disabled={busy} activeOpacity={0.8} accessibilityRole="button">
+              <Tap style={styles.secondaryBtn} onPress={onCancel} disabled={busy} activeOpacity={0.8} accessibilityRole="button">
                 <Text style={styles.secondaryText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </Tap>
+              <Tap
                 style={[styles.primaryBtn, busy && styles.disabled]}
                 onPress={() => onSubmit(message.trim())}
                 disabled={busy}
@@ -98,12 +85,9 @@ export default function ProposalModal({
                     <Text style={styles.primaryText}>Send proposal</Text>
                   </View>
                 )}
-              </TouchableOpacity>
+              </Tap>
             </View>
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+    </SheetFrame>
   );
 }
 

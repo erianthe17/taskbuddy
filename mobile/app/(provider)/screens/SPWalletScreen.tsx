@@ -17,8 +17,9 @@
 
 import { useThemedStyles, type Palette as ThemePalette } from '../../../src/context/ThemeContext';
 import React, { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
+import ContentSkeleton from '../../../src/components/ui/ContentSkeleton';
 import { Banknote, Building2, Sparkles, WalletCards } from 'lucide-react-native';
 import { Spacing, V6Radii, V6Shadows } from '../../../src/constants/theme';
 import { useHeaderTop } from '../../../src/hooks/useHeaderTop';
@@ -67,12 +68,7 @@ export default function SPWalletScreen() {
 
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
         {/* wallet-hero: linear-gradient(145deg,#111827,#0c4a6e) */}
-        <LinearGradient
-          colors={['#111827', '#0c4a6e']}
-          start={{ x: 0.15, y: 0 }}
-          end={{ x: 0.85, y: 1 }}
-          style={styles.heroCard}
-        >
+        <View style={[styles.heroCard, { backgroundColor: C.providerHero }]}>
           <Text style={styles.balanceLabel}>Available to withdraw</Text>
           <Text style={styles.balanceAmount}>{data ? peso(data.available) : '—'}</Text>
           {!!data && data.pending_withdrawals > 0 && (
@@ -80,7 +76,7 @@ export default function SPWalletScreen() {
               {peso(data.pending_withdrawals)} awaiting withdrawal · {peso(data.balance)} total
             </Text>
           )}
-          <TouchableOpacity
+          <Tap
             style={[styles.withdrawBtn, !canWithdraw && styles.withdrawBtnDisabled]}
             // Kept tappable when empty so the tap explains itself.
             onPress={() => {
@@ -94,10 +90,10 @@ export default function SPWalletScreen() {
             activeOpacity={0.85}
             accessibilityRole="button"
           >
-            <Banknote size={18} color={C.onPrimary} />
-            <Text style={styles.withdrawBtnText}>Withdraw</Text>
-          </TouchableOpacity>
-        </LinearGradient>
+            <Banknote size={18} color={canWithdraw ? '#13283c' : C.onPrimary} />
+            <Text style={[styles.withdrawBtnText, !canWithdraw && styles.withdrawBtnTextDisabled]}>Withdraw</Text>
+          </Tap>
+        </View>
 
         {pendingWithdrawals.length > 0 && (
           <View style={styles.pendingCard}>
@@ -110,7 +106,7 @@ export default function SPWalletScreen() {
                     Requested {shortDate(w.created_at)} · Pending
                   </Text>
                 </View>
-                <TouchableOpacity
+                <Tap
                   onPress={() => cancelWithdrawal(w.id)}
                   disabled={cancelling === w.id}
                   activeOpacity={0.7}
@@ -120,7 +116,7 @@ export default function SPWalletScreen() {
                   <Text style={styles.pendingCancel}>
                     {cancelling === w.id ? 'Cancelling…' : 'Cancel'}
                   </Text>
-                </TouchableOpacity>
+                </Tap>
               </View>
             ))}
           </View>
@@ -145,7 +141,7 @@ export default function SPWalletScreen() {
             <Text style={styles.statLabel}>Total Earned</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: V6Colors.warningText }]}>{peso(data?.total_debited ?? 0)}</Text>
+            <Text style={styles.statValue}>{peso(data?.total_debited ?? 0)}</Text>
             <Text style={styles.statLabel}>Total Withdrawn</Text>
           </View>
         </View>
@@ -158,7 +154,7 @@ export default function SPWalletScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>Payout History</Text>
-        {loading && <ActivityIndicator style={{ marginTop: 10 }} color={V6Colors.link} />}
+        {loading && <ContentSkeleton variant="list" />}
         {!!error && !loading && <Text style={styles.stateText}>{error}</Text>}
         {!loading && !error && transactions.length === 0 && (
           <View style={styles.emptyState}>
@@ -180,7 +176,7 @@ export default function SPWalletScreen() {
                 <View key={txn.id} style={[styles.txnRow, i < transactions.length - 1 && styles.txnRowBorder]}>
                   <View style={styles.txnIcon}><Icon size={19} color={V6Colors.link} /></View>
                   <View style={styles.txnInfo}>
-                    <Text style={styles.txnTitle} numberOfLines={1}>{txn.title}</Text>
+                    <Text style={styles.txnTitle} numberOfLines={2}>{txn.title}</Text>
                     <Text style={styles.txnDate}>{shortDate(txn.created_at)} · {statusLabel}</Text>
                     <Text style={styles.txnDate}>Transaction: {txn.id}</Text>
                     {!!txn.stripe_transfer_id && <Text style={styles.txnDate}>Stripe transfer: {txn.stripe_transfer_id}</Text>}
@@ -239,14 +235,20 @@ function createThemedStyles(theme: ThemePalette) {
     bodyContent: { paddingHorizontal: Spacing.screenH, paddingTop: 16, paddingBottom: 20 },
 
     heroCard: { borderRadius: 18, padding: 20, marginBottom: 16 },
-    balanceLabel: { color: C.ink400, fontSize: 13, fontFamily: 'Inter', marginBottom: 4 },
+    balanceLabel: { color: C.onHeroMuted, fontSize: 14, fontFamily: 'Inter', marginBottom: 4 },
     balanceAmount: { color: C.onPrimary, fontSize: 32.5, fontWeight: '800', fontFamily: 'Inter', marginBottom: 14 },
     withdrawBtn: {
       flexDirection: 'row', alignSelf: 'flex-start', alignItems: 'center', gap: 8,
-      backgroundColor: V6Colors.successSolid, borderRadius: V6Radii.btn, paddingHorizontal: 16, paddingVertical: 10,
+      // White pill on the navy card, same as the homeowner wallet action.
+      backgroundColor: '#ffffff', borderRadius: 999, paddingHorizontal: 18, minHeight: 44,
     },
-    withdrawBtnDisabled: { opacity: 0.45 },
-    withdrawBtnText: { color: C.onPrimary, fontSize: 14, fontWeight: '700', fontFamily: 'Inter' },
+    // Nothing to withdraw: a translucent outline pill with light text, so it
+    // reads as unavailable without turning into low-contrast grey.
+    withdrawBtnDisabled: {
+      backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)',
+    },
+    withdrawBtnText: { color: '#13283c', fontSize: 15, fontWeight: '700', fontFamily: 'Inter' },
+    withdrawBtnTextDisabled: { color: C.onPrimary },
     balanceSubnote: {
       color: 'rgba(255,255,255,0.75)', fontSize: 12.5, fontFamily: 'Inter',
       marginTop: -10, marginBottom: 12,
@@ -293,10 +295,10 @@ function createThemedStyles(theme: ThemePalette) {
     txnRow: { flexDirection: 'row', alignItems: 'center', padding: 14 },
     txnRowBorder: { borderBottomWidth: 1, borderBottomColor: V6Colors.wellBg },
     txnIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: V6Colors.canvas, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-    txnInfo: { flex: 1 },
+    txnInfo: { flex: 1, marginRight: 12 },
     txnTitle: { color: C.ink900, fontSize: 14.5, fontWeight: '600', fontFamily: 'Inter', marginBottom: 2 },
     txnDate: { color: C.ink400, fontSize: 12.5, fontFamily: 'Inter' },
-    txnAmount: { fontSize: 14.5, fontWeight: '800', fontFamily: 'Inter' },
+    txnAmount: { flexShrink: 0, fontSize: 14.5, fontWeight: '800', fontFamily: 'Inter' },
     txnCredit: { color: V6Colors.successText },
     txnDebit: { color: C.ink900 },
   });

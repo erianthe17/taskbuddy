@@ -55,24 +55,29 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
   Platform,
   Modal,
   Image,
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
+import SheetFrame from '../../../src/components/ui/SheetFrame';
+import SuccessMark from '../../../src/components/ui/SuccessMark';
 import {
   ArrowLeft,
   BrushCleaning,
   Check,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
+  Footprints,
   Hammer,
   Hand,
   MapPin,
-  Palette,
   Plus,
   Sparkles,
   Wrench,
@@ -102,7 +107,7 @@ const CATEGORY_META: Record<string, { icon: typeof Wrench; desc: string }> = {
   Cleaning: { icon: BrushCleaning, desc: 'Home & deep cleaning' },
   Handyman: { icon: Hammer, desc: 'Repairs & odd jobs' },
   Manicure: { icon: Sparkles, desc: 'Nail care & manicure' },
-  Pedicure: { icon: Palette, desc: 'Foot care & pedicure' },
+  Pedicure: { icon: Footprints, desc: 'Foot care & pedicure' },
 };
 
 /**
@@ -207,6 +212,14 @@ export default function HOCreateJobScreen({
     [resolvedCoordinates],
   );
   useEffect(() => setMapPreviewFailed(false), [mapPreviewSource]);
+  // While typing, the Back/Next bar would ride up with the keyboard and cover
+  // the address suggestions (I3); it comes back as soon as the keyboard closes.
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardUp(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardUp(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   const [geocodedAddress, setGeocodedAddress] = useState('');
   const [geocoding, setGeocoding] = useState(false);
   const [useProfileLocation, setUseProfileLocation] = useState(true);
@@ -289,6 +302,16 @@ export default function HOCreateJobScreen({
   // step wherever the previous one had been scrolled to (usually the bottom).
   const scrollRef = useRef<ScrollView>(null);
   const fieldPositions = useRef<Partial<Record<keyof FieldErrors, number>>>({});
+  // On short screens the keyboard covers the address suggestions, which sit
+  // under the field. Once the keyboard is up, scroll the Address label to the
+  // top so the suggestions have room.
+  const addressFocused = useRef(false);
+  useEffect(() => { addressFocused.current = false; }, [step]);
+  useEffect(() => {
+    if (step === 2 && keyboardUp && addressFocused.current) {
+      scrollRef.current?.scrollTo({ y: Math.max(0, (fieldPositions.current.location ?? 0) - 8), animated: true });
+    }
+  }, [keyboardUp, step]);
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [step]);
@@ -637,8 +660,15 @@ export default function HOCreateJobScreen({
     return (
       <View style={styles.screen}>
         <ScrollView contentContainerStyle={styles.successScreen}>
-          <View style={styles.successIcon}>
-            <CheckCircle2 size={48} color={V6Colors.link} />
+          <View style={styles.successMarkWrap}>
+            <SuccessMark
+              size={112}
+              fallback={(
+                <View style={styles.successIcon}>
+                  <CheckCircle2 size={48} color={V6Colors.link} />
+                </View>
+              )}
+            />
           </View>
           <Text style={styles.successTitle}>Job Posted!</Text>
           <Text style={styles.successSubtitle}>
@@ -664,12 +694,12 @@ export default function HOCreateJobScreen({
               </Text>
             </View>
           </View>
-          <TouchableOpacity style={[styles.primaryBtn, styles.primaryBtnFullWidth]} onPress={onSuccess} activeOpacity={0.85}>
+          <Tap style={[styles.primaryBtn, styles.primaryBtnFullWidth]} onPress={onSuccess} activeOpacity={0.85}>
             <Text style={styles.primaryBtnText}>View My Jobs</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryBtn} onPress={startAnother} activeOpacity={0.8}>
+          </Tap>
+          <Tap style={styles.secondaryBtn} onPress={startAnother} activeOpacity={0.8}>
             <Text style={styles.secondaryBtnText}>Post Another Job</Text>
-          </TouchableOpacity>
+          </Tap>
         </ScrollView>
       </View>
     );
@@ -681,9 +711,9 @@ export default function HOCreateJobScreen({
       <PhotoViewer photos={photos} index={photoIndex} onIndexChange={setPhotoIndex}
         onClose={() => setPhotoIndex(null)} />
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={handleExit} activeOpacity={0.8}>
+        <Tap style={styles.backBtn} onPress={handleExit} activeOpacity={0.8}>
           <ArrowLeft size={22} color={Colors.ink700} />
-        </TouchableOpacity>
+        </Tap>
         <Text style={styles.headerTitle}>Post a Job</Text>
         <View style={{ width: 38 }} />
       </View>
@@ -724,7 +754,7 @@ export default function HOCreateJobScreen({
                 <Text style={styles.locationPromptTitle}>Use your default location?</Text>
                 <Text style={styles.locationPromptText}>{profile.address}</Text>
                 <View style={styles.locationPromptActions}>
-                  <TouchableOpacity
+                  <Tap
                     style={[styles.locationChoice, useProfileLocation && styles.locationChoiceActive]}
                     onPress={() => {
                       setUseProfileLocation(true);
@@ -732,8 +762,8 @@ export default function HOCreateJobScreen({
                     }}
                   >
                     <Text style={styles.locationChoiceText}>Use default</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
+                  </Tap>
+                  <Tap
                     style={[styles.locationChoice, !useProfileLocation && styles.locationChoiceActive]}
                     onPress={() => {
                       setUseProfileLocation(false);
@@ -741,7 +771,7 @@ export default function HOCreateJobScreen({
                     }}
                   >
                     <Text style={styles.locationChoiceText}>Enter custom</Text>
-                  </TouchableOpacity>
+                  </Tap>
                 </View>
               </View>
             )}
@@ -761,7 +791,7 @@ export default function HOCreateJobScreen({
                 const Icon = meta.icon;
                 const active = categoryId === cat.id;
                 return (
-                  <TouchableOpacity
+                  <Tap
                     key={cat.id}
                     style={[styles.serviceCard, active && styles.serviceCardActive]}
                     onPress={() => {
@@ -780,7 +810,7 @@ export default function HOCreateJobScreen({
                       {cat.name}
                     </Text>
                     <Text style={styles.serviceDesc}>{meta.desc}</Text>
-                  </TouchableOpacity>
+                  </Tap>
                 );
               })}
             </View>
@@ -804,6 +834,8 @@ export default function HOCreateJobScreen({
                   clearError('location');
                 }}
                 onResolve={handleResolvedAddress}
+                onFocus={() => { addressFocused.current = true; }}
+                onBlur={() => { addressFocused.current = false; }}
                 error={fieldErrors.location}
                 hint={geocoding ? 'Verifying address…' : undefined}
               />
@@ -839,7 +871,7 @@ export default function HOCreateJobScreen({
             )}
 
             {!!profile?.address && profile.address !== location && (
-              <TouchableOpacity
+              <Tap
                 style={styles.savedAddressBtn}
                 onPress={() => {
                   setLocation(profile.address!);
@@ -857,7 +889,7 @@ export default function HOCreateJobScreen({
                 <Text style={styles.savedAddressText} numberOfLines={1}>
                   Use my saved address — {profile.address}
                 </Text>
-              </TouchableOpacity>
+              </Tap>
             )}
 
             <View style={styles.noteCard}>
@@ -881,7 +913,7 @@ export default function HOCreateJobScreen({
               {presets.map((preset) => {
                 const selected = tasks.includes(preset);
                 return (
-                  <TouchableOpacity
+                  <Tap
                     key={preset}
                     style={[styles.taskChip, selected && styles.taskChipActive]}
                     onPress={() => toggleTask(preset)}
@@ -895,7 +927,7 @@ export default function HOCreateJobScreen({
                     <Text style={[styles.taskChipText, selected && styles.taskChipTextActive]}>
                       {preset}
                     </Text>
-                  </TouchableOpacity>
+                  </Tap>
                 );
               })}
             </View>
@@ -912,9 +944,9 @@ export default function HOCreateJobScreen({
                         <Check size={13} color={Colors.onPrimary} strokeWidth={3} />
                       </View>
                       <Text style={styles.customTaskText}>{t}</Text>
-                      <TouchableOpacity onPress={() => toggleTask(t)} hitSlop={10}>
+                      <Tap onPress={() => toggleTask(t)} hitSlop={10}>
                         <Text style={styles.removeTaskText}>Remove</Text>
-                      </TouchableOpacity>
+                      </Tap>
                     </View>
                   ))}
               </View>
@@ -933,14 +965,14 @@ export default function HOCreateJobScreen({
                 returnKeyType="done"
                 maxLength={120}
               />
-              <TouchableOpacity
+              <Tap
                 style={[styles.addTaskBtn, !customTask.trim() && styles.addTaskBtnDisabled]}
                 onPress={addCustomTask}
                 activeOpacity={0.85}
                 disabled={!customTask.trim()}
               >
                 <Plus size={20} color={Colors.onPrimary} />
-              </TouchableOpacity>
+              </Tap>
             </View>
             <Text style={styles.taskCount}>
               {tasks.length}/{MAX_TASKS} tasks selected
@@ -1013,7 +1045,7 @@ export default function HOCreateJobScreen({
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Photos (optional)</Text>
-              <TouchableOpacity
+              <Tap
                 style={styles.photoPicker}
                 onPress={() => void pickPhotos()}
                 activeOpacity={0.8}
@@ -1030,14 +1062,14 @@ export default function HOCreateJobScreen({
                     <Text style={styles.photoPickerHint}>Up to 6 images to help providers understand the job.</Text>
                   </>
                 )}
-              </TouchableOpacity>
+              </Tap>
               {!!photoMessage && <Text style={styles.inputErrorText}>{photoMessage}</Text>}
               {photos.length > 0 && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoList}>
                   {photos.map((photo, index) => (
                     <View key={`${photo.uri}-${index}`} style={styles.photoPreview}>
                       <Image source={{ uri: photo.uri }} style={styles.photoImage} />
-                      <TouchableOpacity
+                      <Tap
                         style={styles.removePhoto}
                         onPress={() => {
                           setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index));
@@ -1046,7 +1078,7 @@ export default function HOCreateJobScreen({
                         accessibilityLabel={`Remove photo ${index + 1}`}
                       >
                         <Text style={styles.removePhotoText}>×</Text>
-                      </TouchableOpacity>
+                      </Tap>
                     </View>
                   ))}
                 </ScrollView>
@@ -1068,7 +1100,7 @@ export default function HOCreateJobScreen({
               const active = urgency === option.value;
               const Icon = option.icon;
               return (
-                <TouchableOpacity
+                <Tap
                   key={option.value}
                   style={[styles.urgencyCard, active && { borderColor: option.accent, backgroundColor: V6Colors.infoSurface }]}
                   onPress={() => setUrgency(option.value)}
@@ -1086,7 +1118,7 @@ export default function HOCreateJobScreen({
                   <View style={[styles.radio, active && { borderColor: option.accent }]}>
                     {active && <View style={[styles.radioDot, { backgroundColor: option.accent }]} />}
                   </View>
-                </TouchableOpacity>
+                </Tap>
               );
             })}
 
@@ -1094,25 +1126,25 @@ export default function HOCreateJobScreen({
 
             <View onLayout={(event) => { fieldPositions.current.date = event.nativeEvent.layout.y; }} style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Preferred Date<Text style={styles.requiredAsterisk}> *</Text></Text>
-              <TouchableOpacity
+              <Tap
                 style={[styles.input, styles.pickerInput, showDatePicker && styles.inputFocused, fieldErrors.date && styles.inputError]}
                 onPress={() => { setShowTimePicker(false); setShowDatePicker(true); clearError('date'); }}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.pickerText, !date && styles.pickerPlaceholder]}>{dateLabel || 'Select a date'}</Text>
-              </TouchableOpacity>
+              </Tap>
               {!!fieldErrors.date && <Text style={styles.inputErrorText}>{fieldErrors.date}</Text>}
             </View>
 
             <View onLayout={(event) => { fieldPositions.current.time = event.nativeEvent.layout.y; }} style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Preferred Time<Text style={styles.requiredAsterisk}> *</Text></Text>
-              <TouchableOpacity
+              <Tap
                 style={[styles.input, styles.pickerInput, showTimePicker && styles.inputFocused, fieldErrors.time && styles.inputError]}
                 onPress={() => { openTimePicker(); clearError('time'); }}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.pickerText, !time && styles.pickerPlaceholder]}>{timeLabel || 'Select a time'}</Text>
-              </TouchableOpacity>
+              </Tap>
               {!!fieldErrors.time && <Text style={styles.inputErrorText}>{fieldErrors.time}</Text>}
             </View>
 
@@ -1171,11 +1203,11 @@ export default function HOCreateJobScreen({
             {photos.length > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoList}>
                 {photos.map((photo, index) => (
-                  <TouchableOpacity key={photo.uri} onPress={() => setPhotoIndex(index)}
+                  <Tap key={photo.uri} onPress={() => setPhotoIndex(index)}
                     accessibilityLabel={`Open selected photo ${index + 1}`}>
                     <Image source={{ uri: photo.uri }} style={styles.photoImage}
                       resizeMode="contain" />
-                  </TouchableOpacity>
+                  </Tap>
                 ))}
               </ScrollView>
             )}
@@ -1200,15 +1232,15 @@ export default function HOCreateJobScreen({
       {/* Footer */}
       {/* BUG-005: same edge-to-edge safe-area gap as BUG-002's bottom nav — pad
           for the system nav bar so the Back/Next buttons aren't under it. */}
-      <View style={[styles.footer, { paddingBottom: 14 + insets.bottom }]}>
+      <View style={[styles.footer, { paddingBottom: 14 + insets.bottom }, keyboardUp && styles.footerHidden]}>
         {!!error && <Text style={styles.errorText}>{error}</Text>}
         <View style={styles.footerActions}>
           {step > 1 && (
-            <TouchableOpacity style={styles.previousBtn} onPress={handleStepBack} activeOpacity={0.85} disabled={submitting}>
+            <Tap style={styles.previousBtn} onPress={handleStepBack} activeOpacity={0.85} disabled={submitting}>
               <Text style={styles.previousBtnText}>Back</Text>
-            </TouchableOpacity>
+            </Tap>
           )}
-          <TouchableOpacity
+          <Tap
             style={[
               styles.primaryBtn,
               step === 1 && styles.primaryBtnFullWidth,
@@ -1231,7 +1263,7 @@ export default function HOCreateJobScreen({
                       : 'Next'}
               </Text>
             </View>
-          </TouchableOpacity>
+          </Tap>
         </View>
       </View>
 
@@ -1249,19 +1281,17 @@ export default function HOCreateJobScreen({
         }}
       />
 
-      <Modal
+      <SheetFrame
         visible={showDatePicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDatePicker(false)}
+        onClose={() => setShowDatePicker(false)}
+        dismissible={false}
+        contentStyle={styles.calendarModal}
       >
-        <View style={styles.calendarOverlay}>
-          <View style={styles.calendarModal}>
             <View style={styles.calendarHeader}>
               <Text style={styles.calendarTitle}>Select a date</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)} hitSlop={10}>
+              <Tap onPress={() => setShowDatePicker(false)} hitSlop={10}>
                 <Text style={styles.calendarClose}>Close</Text>
-              </TouchableOpacity>
+              </Tap>
             </View>
             <Calendar key={appearance}
               current={calendarMonth ?? (date ? dateKey(date) : undefined)}
@@ -1277,11 +1307,12 @@ export default function HOCreateJobScreen({
                 setShowDatePicker(false);
               }}
               markedDates={date ? { [dateKey(date)]: { selected: true, selectedColor: Colors.brandTeal } } : undefined}
-              theme={{ calendarBackground: V6Colors.surface, dayTextColor: V6Colors.ink900, monthTextColor: V6Colors.ink900, textDisabledColor: V6Colors.ink400, todayTextColor: V6Colors.link, arrowColor: V6Colors.link, selectedDayBackgroundColor: Colors.brandTeal }}
+              renderArrow={(direction: 'left' | 'right') => (direction === 'left'
+                ? <ChevronLeft size={22} color={V6Colors.link} />
+                : <ChevronRight size={22} color={V6Colors.link} />)}
+              theme={{ calendarBackground: V6Colors.surface, dayTextColor: V6Colors.ink900, monthTextColor: V6Colors.ink900, textDisabledColor: V6Colors.ink400, todayTextColor: V6Colors.link, arrowColor: V6Colors.link, selectedDayBackgroundColor: V6Colors.primary, textSectionTitleColor: V6Colors.ink700, textDayFontFamily: 'Inter', textMonthFontFamily: 'Inter', textDayHeaderFontFamily: 'Inter', textMonthFontWeight: '700', textDayHeaderFontWeight: '600', textMonthFontSize: 17, arrowStyle: { padding: 12 } }}
             />
-          </View>
-        </View>
-      </Modal>
+      </SheetFrame>
 
       {/*
         TIME PICKER — platform-specific rendering.
@@ -1318,9 +1349,9 @@ export default function HOCreateJobScreen({
             <View style={styles.calendarModal}>
               <View style={styles.calendarHeader}>
                 <Text style={styles.calendarTitle}>Select a time</Text>
-                <TouchableOpacity onPress={() => setShowTimePicker(false)} hitSlop={10}>
+                <Tap onPress={() => setShowTimePicker(false)} hitSlop={10}>
                   <Text style={styles.calendarClose}>Close</Text>
-                </TouchableOpacity>
+                </Tap>
               </View>
 
               <DateTimePicker themeVariant={appearance}
@@ -1330,7 +1361,7 @@ export default function HOCreateJobScreen({
                 onChange={handleTimeChange}
               />
 
-              <TouchableOpacity
+              <Tap
                 style={[styles.primaryBtn, { marginTop: 16 }]}
                 onPress={() => {
                   if (tempTime) {
@@ -1342,7 +1373,7 @@ export default function HOCreateJobScreen({
                 activeOpacity={0.85}
               >
                 <Text style={styles.primaryBtnText}>Done</Text>
-              </TouchableOpacity>
+              </Tap>
             </View>
           </View>
         </Modal>
@@ -1462,7 +1493,7 @@ function createThemedStyles(theme: ThemePalette) {
     },
     savedAddressText: { flex: 1, color: V6Colors.link, fontSize: 14, fontWeight: '600', fontFamily: 'Inter' },
     noteCard: { backgroundColor: Colors.ink50, borderRadius: 14, padding: 14 },
-    mapPlaceholder: { height: 190, borderRadius: 14, marginBottom: 16, backgroundColor: Colors.ink50, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 20 },
+    mapPlaceholder: { height: 120, borderRadius: 14, marginBottom: 16, backgroundColor: Colors.ink50, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 20 },
     mapPlaceholderText: { color: Colors.muted, fontSize: 14, fontFamily: 'Inter', textAlign: 'center' },
     mapPreview: { borderRadius: 14, overflow: 'hidden', marginBottom: 8, backgroundColor: Colors.ink50 },
     // Matches the 2:1 image the backend renders (600×300). `cover` at that ratio
@@ -1490,7 +1521,8 @@ function createThemedStyles(theme: ThemePalette) {
     calendarTitle: { color: V6Colors.ink900, fontSize: 21.5, fontWeight: '800', fontFamily: 'Inter' },
     calendarClose: { color: V6Colors.link, fontSize: 16.5, fontWeight: '700', fontFamily: 'Inter' },
 
-    textArea: { textAlignVertical: 'top', minHeight: 20 * 3, paddingTop: 12 },
+    // Room for a few lines plus the counter in the corner (I9).
+    textArea: { textAlignVertical: 'top', minHeight: 128, paddingTop: 12, paddingBottom: 28 },
     textAreaWrap: { position: 'relative' },
     charCount: { position: 'absolute', right: 12, bottom: 8, color: Colors.muted, fontSize: 14.5 },
 
@@ -1581,6 +1613,7 @@ function createThemedStyles(theme: ThemePalette) {
     reviewTaskRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 7 },
     reviewTaskText: { flex: 1, color: V6Colors.ink900, fontSize: 15.5, fontFamily: 'Inter' },
 
+    footerHidden: { display: 'none' },
     footer: { paddingHorizontal: Spacing.screenH, paddingVertical: 12, backgroundColor: Colors.surface, borderTopWidth: 1, borderTopColor: Colors.ink100 },
     footerActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'stretch' },
     previousBtn: { width: '48%', height: 44, borderWidth: 1, borderColor: V6Colors.fieldBorder, borderRadius: 12, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
@@ -1600,6 +1633,7 @@ function createThemedStyles(theme: ThemePalette) {
 
     // Success
     successScreen: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+    successMarkWrap: { alignItems: 'center', marginBottom: 12 },
     successIcon: {
       width: 100, height: 100, borderRadius: 50,
       backgroundColor: V6Colors.successSurface, alignItems: 'center', justifyContent: 'center', marginBottom: 24,

@@ -16,6 +16,8 @@ import { NotificationsProvider } from './src/context/NotificationsContext';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, LogBox, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 // The LogBox notification renders over the bottom of the screen and, in dev
 // builds, intercepts the bottom navigation bar's touches (BUG-002) — breaking
@@ -30,7 +32,7 @@ if (__DEV__) {
 }
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import * as WebBrowser from 'expo-web-browser';
-import { CalendarDays, CirclePlus, ClipboardList, Home, Search, Wallet } from 'lucide-react-native';
+import { CalendarDays, ClipboardList, Home, Plus, Search, Wallet } from 'lucide-react-native';
 import RootLayout from './app/layout';
 
 // ── Auth screens ──────────────────────────────────────────────────────────────
@@ -82,6 +84,7 @@ import HelpSupportScreen from './src/components/HelpSupportScreen';
 import ScreenFrame from './src/components/ScreenFrame';
 
 import { ToastHost, showToast } from './src/components/Toast';
+import ScreenTransition, { useTransitionDirection } from './src/components/ui/ScreenTransition';
 import { clearRetainedState } from './src/hooks/useRetainedState';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -97,7 +100,7 @@ import { resolveNotificationTarget } from './src/lib/notificationRouting';
 const HOMEOWNER_TABS: readonly BottomNavItem<HOScreen>[] = [
   { key: 'Home', label: 'Home', icon: Home },
   { key: 'My Jobs', label: 'My Jobs', icon: ClipboardList },
-  { key: 'Create Job', label: 'Create job', icon: CirclePlus, primary: true },
+  { key: 'Create Job', label: 'Create job', title: 'Post a job', icon: Plus, primary: true },
   { key: 'Calendar', label: 'Calendar', icon: CalendarDays },
   { key: 'Wallet', label: 'Wallet', icon: Wallet },
 ];
@@ -428,15 +431,38 @@ function AppContent() {
   // Auth flow
   // ─────────────────────────────────────────────────────────────────────────
 
+  // ── Screen transition (visual only) ─────────────────────────────────────
+  // Mirrors the branch order below to name the screen being shown and how
+  // deep it is, so the wrapper can slide forward/back. It reads state only;
+  // tab screens share one key so switching tabs never animates.
+  const transitionKey =
+    !minSplashDone || initializing ? 'splash'
+      : !isAuthenticated ? `auth:${preAuth}`
+      : isGoogleSignupPending ? `google:${googleSubScreen}`
+      : showOnboarding === null ? 'splash'
+      : showOnboarding ? 'onboarding'
+      : role === 'homeowner'
+        ? (HO_TAB_SCREENS.includes(hoScreen) ? 'ho:tabs' : `ho:${hoScreen}`)
+        : (SP_TAB_SCREENS.includes(spScreen) ? 'sp:tabs' : `sp:${spScreen === 'Urgent Job' ? 'Job Detail' : spScreen}`);
+  const transitionDepth =
+    !isAuthenticated ? (preAuth === 'login' ? 0 : 1)
+      : isGoogleSignupPending ? (googleSubScreen === 'role' ? 0 : 1)
+      : role === 'homeowner' ? (HO_TAB_SCREENS.includes(hoScreen) ? 0 : hoStack.length + 1)
+      : (SP_TAB_SCREENS.includes(spScreen) ? 0 : spStack.length + 1);
+  const transitionDirection = useTransitionDirection(transitionKey, transitionDepth);
+  const wrap = (screen: React.ReactElement) => (
+    <ScreenTransition screenKey={transitionKey} direction={transitionDirection}>{screen}</ScreenTransition>
+  );
+
   // Hold on the splash until the minimum time has elapsed AND any persisted
   // session has finished restoring, so we never flash the login screen first.
   if (!minSplashDone || initializing) {
-    return <SplashScreenComponent />;
+    return wrap(<SplashScreenComponent />);
   }
 
   if (!isAuthenticated) {
     if (preAuth === 'login') {
-      return (
+      return wrap(
         <LoginScreen
           onLogin={signIn}
           onGoogleSignIn={signInWithGoogle}
@@ -449,7 +475,7 @@ function AppContent() {
     }
 
     if (preAuth === 'forgotPassword') {
-      return (
+      return wrap(
         // A successful reset returns a session, so the screen finishes signed
         // in and the isAuthenticated branch above takes over — there is no
         // "done" callback to route on.
@@ -458,7 +484,7 @@ function AppContent() {
     }
 
     // preAuth === 'register'
-    return (
+    return wrap(
       <RegisterScreen
         onRegister={(input) => signUp({
           email: input.email,
@@ -483,7 +509,7 @@ function AppContent() {
   // disappears automatically.
   if (isAuthenticated && isGoogleSignupPending) {
     if (googleSubScreen === 'sp-details') {
-      return (
+      return wrap(
         <GoogleSPDetailsScreen
           onBack={() => setGoogleSubScreen('role')}
           onComplete={async (input) => {
@@ -501,7 +527,7 @@ function AppContent() {
       );
     }
 
-    return (
+    return wrap(
       <GoogleRoleSelectionScreen
         email={profile?.email as string | null | undefined}
         onSelectHomeowner={async () => {
@@ -518,12 +544,12 @@ function AppContent() {
   // While the flag is still being read we hold on the splash rather than
   // flashing the dashboard and then covering it with the slides.
   if (showOnboarding === null) {
-    return <SplashScreenComponent />;
+    return wrap(<SplashScreenComponent />);
   }
   if (showOnboarding) {
     // Post-login there is nowhere to "skip to" but the dashboard, so Skip and
     // Get Started do the same thing — both count as having seen them.
-    return <OnboardingScreen role={role} onFinish={finishOnboarding} onLogin={finishOnboarding} />;
+    return wrap(<OnboardingScreen role={role} onFinish={finishOnboarding} onLogin={finishOnboarding} />);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -533,36 +559,36 @@ function AppContent() {
   if (role === 'homeowner') {
     // Non-tab sub-screens (no bottom nav)
     if (hoScreen === 'Job Detail') {
-      return (
-        <ScreenFrame bottomColor={V6Colors.white}>
+      return wrap(
+        <ScreenFrame bottomColor={V6Colors.surface}>
           <HOJobDetailScreen jobId={hoSelectedId} onBack={hoBack} onNavigate={hoNavigate} />
         </ScreenFrame>
       );
     }
     if (hoScreen === 'Job Applications') {
-      return (
+      return wrap(
         <ScreenFrame>
           <HOJobApplicationsScreen jobId={hoSelectedId} onBack={hoBack} onNavigate={hoNavigate} />
         </ScreenFrame>
       );
     }
     if (hoScreen === 'Provider Profile') {
-      return (
+      return wrap(
         <ScreenFrame>
           <HOProviderProfileScreen id={hoSelectedId ?? ''} onBack={hoBack} onNavigate={hoNavigate} />
         </ScreenFrame>
       );
     }
     if (hoScreen === 'Leave Review') {
-      return (
-        <ScreenFrame bottomColor={V6Colors.white}>
+      return wrap(
+        <ScreenFrame bottomColor={V6Colors.surface}>
           <HOLeaveReviewScreen jobId={hoSelectedId ?? ''} onSubmitted={hoBack} onBack={hoBack} />
         </ScreenFrame>
       );
     }
     if (hoScreen === 'Chat') {
-      return (
-        <ScreenFrame bottomColor={V6Colors.white}>
+      return wrap(
+        <ScreenFrame bottomColor={V6Colors.surface}>
           <HOChatScreen
             jobId={hoSelectedId}
             onBack={hoBack}
@@ -575,21 +601,21 @@ function AppContent() {
       );
     }
     if (hoScreen === 'Dispute Filing') {
-      return (
-        <ScreenFrame bottomColor={V6Colors.white}>
+      return wrap(
+        <ScreenFrame bottomColor={V6Colors.surface}>
           <HODisputeFilingScreen jobId={hoSelectedId} onBack={hoBack} onSubmitted={hoBack} />
         </ScreenFrame>
       );
     }
     if (hoScreen === 'Dispute Status') {
-      return (
+      return wrap(
         <ScreenFrame>
           <HODisputeStatusScreen jobId={hoSelectedId} onBack={hoBack} />
         </ScreenFrame>
       );
     }
     if (hoScreen === 'Notifications') {
-      return (
+      return wrap(
         <ScreenFrame>
           <HONotificationsScreen
             onBack={hoBack}
@@ -602,21 +628,21 @@ function AppContent() {
       );
     }
     if (hoScreen === 'Edit Profile') {
-      return (
+      return wrap(
         <ScreenFrame>
           <HOEditProfileScreen onBack={hoBack} onSave={hoBack} />
         </ScreenFrame>
       );
     }
     if (hoScreen === 'Settings') {
-      return (
+      return wrap(
         <ScreenFrame>
           <HOSettingsScreen onBack={hoBack} onLogout={handleLogout} />
         </ScreenFrame>
       );
     }
     if (hoScreen === 'Help & Support') {
-      return (
+      return wrap(
         <ScreenFrame>
           <HelpSupportScreen
             role="homeowner"
@@ -627,10 +653,10 @@ function AppContent() {
       );
     }
     if (hoScreen === 'Tutorial') {
-      return <OnboardingScreen role="homeowner" onFinish={hoBack} onLogin={hoBack} />;
+      return wrap(<OnboardingScreen role="homeowner" onFinish={hoBack} onLogin={hoBack} />);
     }
     if (hoScreen === 'Create Job') {
-      return (
+      return wrap(
         <View style={styles.screen}>
           <HOCreateJobScreen
             initialCategoryId={Number.isFinite(Number(hoSelectedId)) ? Number(hoSelectedId) : null}
@@ -647,7 +673,7 @@ function AppContent() {
     if (hoScreen === 'Profile') {
       // Not a bottom-nav tab (matches the mockup — Profile is reached via
       // Home's avatar button, see hero avatarCircle in HOHomeScreen).
-      return (
+      return wrap(
         <ScreenFrame>
           <Profile onNavigate={hoNavigate} onLogout={handleLogout} onBack={hoBack} />
         </ScreenFrame>
@@ -670,13 +696,19 @@ function AppContent() {
       }
     };
 
-    return (
+    return wrap(
       // Not ScreenFrame: BottomNavBar already pads insets.bottom itself
       // (BUG-002), so wrapping in ScreenFrame double-padded the bottom on
       // every homeowner tab screen. SP tabs below already avoid this.
       <View style={styles.screen}>
         <View style={styles.tabContent}>{renderHOTabContent()}</View>
-        <BottomNavBar activeTab={hoTab} tabs={HOMEOWNER_TABS} onTabPress={hoNavigate} />
+        <BottomNavBar
+          activeTab={hoTab}
+          tabs={HOMEOWNER_TABS}
+          onTabPress={hoNavigate}
+          // My Jobs has its own "+ New" button, so no second one there.
+          hidePrimary={hoTab === 'My Jobs'}
+        />
       </View>
     );
   }
@@ -687,8 +719,8 @@ function AppContent() {
 
   // Non-tab sub-screens (no bottom nav)
   if (spScreen === 'Job Detail' || spScreen === 'Urgent Job') {
-    return (
-      <ScreenFrame bottomColor={V6Colors.white}>
+    return wrap(
+      <ScreenFrame bottomColor={V6Colors.surface}>
         <SPJobDetailScreen
           jobId={spJobId}
           onBack={spBack}
@@ -699,14 +731,14 @@ function AppContent() {
     );
   }
   if (spScreen === 'Dispute Filing') {
-    return <ScreenFrame bottomColor={V6Colors.white}><HODisputeFilingScreen jobId={spJobId} onBack={spBack} onSubmitted={spBack} /></ScreenFrame>;
+    return wrap(<ScreenFrame bottomColor={V6Colors.surface}><HODisputeFilingScreen jobId={spJobId} onBack={spBack} onSubmitted={spBack} /></ScreenFrame>);
   }
   if (spScreen === 'Dispute Status') {
-    return <ScreenFrame bottomColor={V6Colors.white}><HODisputeStatusScreen jobId={spJobId} onBack={spBack} /></ScreenFrame>;
+    return wrap(<ScreenFrame bottomColor={V6Colors.surface}><HODisputeStatusScreen jobId={spJobId} onBack={spBack} /></ScreenFrame>);
   }
   if (spScreen === 'Chat') {
-    return (
-      <ScreenFrame bottomColor={V6Colors.white}>
+    return wrap(
+      <ScreenFrame bottomColor={V6Colors.surface}>
         <SPChatScreen
           jobId={spJobId}
           onBack={spBack}
@@ -719,7 +751,7 @@ function AppContent() {
     );
   }
   if (spScreen === 'Notifications') {
-    return (
+    return wrap(
       <ScreenFrame>
         <SPNotificationsScreen
           onBack={spBack}
@@ -732,7 +764,7 @@ function AppContent() {
     );
   }
   if (spScreen === 'Edit Profile') {
-    return (
+    return wrap(
       <ScreenFrame>
         <SPEditProfileScreen
           onBack={spBack}
@@ -743,14 +775,14 @@ function AppContent() {
     );
   }
   if (spScreen === 'Settings') {
-    return (
+    return wrap(
       <ScreenFrame>
         <SPSettingsScreen onBack={spBack} onLogout={handleLogout} />
       </ScreenFrame>
     );
   }
   if (spScreen === 'Help & Support') {
-    return (
+    return wrap(
       <ScreenFrame>
         <HelpSupportScreen
           role="provider"
@@ -761,10 +793,10 @@ function AppContent() {
     );
   }
   if (spScreen === 'Tutorial') {
-    return <OnboardingScreen role="provider" onFinish={spBack} onLogin={spBack} />;
+    return wrap(<OnboardingScreen role="provider" onFinish={spBack} onLogin={spBack} />);
   }
   if (spScreen === 'Verification') {
-    return (
+    return wrap(
       <ScreenFrame>
         <SPVerificationScreen
           onBack={() => {
@@ -781,16 +813,16 @@ function AppContent() {
       </ScreenFrame>
     );
   }
-  if (spScreen === 'Portfolio') return <ScreenFrame><SPPortfolioScreen onBack={spBack}/></ScreenFrame>;
+  if (spScreen === 'Portfolio') return wrap(<ScreenFrame><SPPortfolioScreen onBack={spBack}/></ScreenFrame>);
   if (spScreen === 'My Services') {
-    return (
+    return wrap(
       <ScreenFrame>
         <SPSkillRequestScreen onBack={spBack} />
       </ScreenFrame>
     );
   }
   if (spScreen === 'Payouts') {
-    return (
+    return wrap(
       <ScreenFrame>
         <SPPayoutsScreen onBack={spBack} />
       </ScreenFrame>
@@ -799,7 +831,7 @@ function AppContent() {
   if (spScreen === 'Profile') {
     // Not a bottom-nav tab (matches the mockup — Profile is reached via
     // Feed's avatar button, see hero avatar in SPHomeScreen).
-    return (
+    return wrap(
       <ScreenFrame>
         <SPProfileScreen onNavigate={spNavigate} onLogout={handleLogout} onBack={spBack} />
       </ScreenFrame>
@@ -822,7 +854,7 @@ function AppContent() {
     }
   };
 
-  return (
+  return wrap(
     <View style={styles.screen}>
       <View style={styles.tabContent}>{renderSPTabContent()}</View>
       <BottomNavBar activeTab={spTab} tabs={PROVIDER_TABS} onTabPress={spNavigate} />
@@ -833,23 +865,28 @@ function AppContent() {
 /** Every route above is rendered inside the shared responsive root layout. */
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <ThemeProvider>
-          <NotificationsProvider>
-            <RootLayout>
-              <AppContent />
-              <ToastHost />
-            </RootLayout>
-          </NotificationsProvider>
-        </ThemeProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={rootStyles.fill}>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <NotificationsProvider>
+              <BottomSheetModalProvider>
+                <RootLayout>
+                  <AppContent />
+                  <ToastHost />
+                </RootLayout>
+              </BottomSheetModalProvider>
+            </NotificationsProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+const rootStyles = StyleSheet.create({ fill: { flex: 1 } });
 
+// ─────────────────────────────────────────────────────────────────────────────
 
 function createThemedStyles(theme: ThemePalette) {
   const { Colors, V6Colors } = theme;

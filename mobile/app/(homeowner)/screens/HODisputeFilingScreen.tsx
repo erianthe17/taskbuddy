@@ -14,7 +14,8 @@
 
 import { useThemedStyles, type Palette as ThemePalette } from '../../../src/context/ThemeContext';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
 import { ArrowLeft } from 'lucide-react-native';
 import ConfirmationModal from '../../../src/components/ConfirmationModal';
 import { Spacing, V6Radii, V6Shadows } from '../../../src/constants/theme';
@@ -74,15 +75,17 @@ export default function HODisputeFilingScreen({ jobId, onBack, onSubmitted }: HO
     <View style={styles.screen}>
       {/* Header — matches .topbar (flat white, not a colored hero) */}
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.8}>
+        <Tap style={styles.backButton} onPress={onBack} activeOpacity={0.8}>
           <ArrowLeft size={20} color={C.ink700} />
-        </TouchableOpacity>
+        </Tap>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>File a Complaint</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>{subtitle}</Text>
         </View>
       </View>
 
+      {/* Keeps the description box and Submit above the keyboard (K2). */}
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
       <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Issue</Text>
@@ -90,10 +93,10 @@ export default function HODisputeFilingScreen({ jobId, onBack, onSubmitted }: HO
             {REASONS.map((item) => {
               const selected = item === reason;
               return (
-                <TouchableOpacity key={item} style={styles.reasonRow} onPress={() => setReason(item)} activeOpacity={0.8}>
+                <Tap key={item} style={styles.reasonRow} onPress={() => setReason(item)} activeOpacity={0.8}>
                   <View style={[styles.radio, selected && styles.radioSelected]}>{selected && <View style={styles.radioDot} />}</View>
                   <Text style={styles.reasonText}>{item}</Text>
-                </TouchableOpacity>
+                </Tap>
               );
             })}
           </View>
@@ -117,7 +120,7 @@ export default function HODisputeFilingScreen({ jobId, onBack, onSubmitted }: HO
 
         {error && <Text style={styles.errorText}>{error}</Text>}
 
-        <TouchableOpacity
+        <Tap
           style={[styles.submitButton, (submitting || !jobId) && styles.submitButtonDisabled]}
           onPress={() => setShowConfirmation(true)}
           disabled={submitting || !jobId}
@@ -128,8 +131,9 @@ export default function HODisputeFilingScreen({ jobId, onBack, onSubmitted }: HO
           ) : (
             <Text style={styles.submitText}>Submit Complaint</Text>
           )}
-        </TouchableOpacity>
+        </Tap>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <ConfirmationModal
         visible={showConfirmation}
@@ -147,6 +151,7 @@ function createThemedStyles(theme: ThemePalette) {
   const { Colors, V6Colors } = theme;
   const C = V6Colors;
   const styles = StyleSheet.create({
+    flex: { flex: 1 },
     screen: { flex: 1, backgroundColor: C.canvas },
     header: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -179,7 +184,7 @@ function createThemedStyles(theme: ThemePalette) {
       borderWidth: 1, borderColor: V6Colors.fieldBorder,
       padding: 14, color: C.ink900, fontFamily: 'Inter', fontSize: 15,
     },
-    detailsInputFocused: { borderColor: C.cyan500 },
+    detailsInputFocused: { borderColor: C.cyan700, borderWidth: 2 },
 
     submitButton: {
       alignItems: 'center', justifyContent: 'center',

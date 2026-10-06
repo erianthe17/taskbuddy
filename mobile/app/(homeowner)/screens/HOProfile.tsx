@@ -13,16 +13,16 @@
 
 import { useThemedStyles, type Palette as ThemePalette } from '../../../src/context/ThemeContext';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
 import { useRetainedScroll } from '../../../src/hooks/useRetainedState';
 import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import Tap from '../../../src/components/ui/Tap';
 import {
   ArrowLeft,
   ChevronRight,
@@ -57,6 +57,7 @@ interface ProfileProps {
 export default function Profile({ onNavigate, onLogout, onBack }: ProfileProps) {
   const { C, styles, V6Colors } = useThemedStyles(createThemedStyles);
   const headerTop = useHeaderTop(4);
+  const insets = useSafeAreaInsets();
   // Coming back from Settings/Edit Profile keeps the list where it was.
   const scroll = useRetainedScroll('ho.profile');
   const { profile } = useAuth();
@@ -69,8 +70,11 @@ export default function Profile({ onNavigate, onLogout, onBack }: ProfileProps) 
   }, [], 'ho-profile-stats');
 
   const name = profile?.full_name ?? '';
+  // A geocoded address usually already contains the city; don't repeat it.
   const location =
-    [profile?.city, profile?.address].filter(Boolean).join(', ') || null;
+    (profile?.address && profile?.city && profile.address.includes(profile.city)
+      ? profile.address
+      : [profile?.city, profile?.address].filter(Boolean).join(', ')) || null;
   const memberSince = monthYear(profile?.created_at) || null;
   const subtitle = [memberSince ? `Member since ${memberSince}` : null, location]
     .filter(Boolean)
@@ -79,58 +83,55 @@ export default function Profile({ onNavigate, onLogout, onBack }: ProfileProps) 
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      {/* Hero — matches .profile-hero (same gradient as Home) */}
-      <LinearGradient
-        colors={['#078eaa', '#0b7288']}
-        start={{ x: 0.15, y: 0 }}
-        end={{ x: 0.85, y: 1 }}
-        style={[styles.hero, { paddingTop: headerTop }]}
-      >
-        <TouchableOpacity
-          style={[styles.backBtn, { top: headerTop }]}
-          onPress={onBack}
-          activeOpacity={0.8}
-          accessibilityLabel="Back to Home"
-        >
-          <ArrowLeft size={20} color={C.onPrimary} />
-        </TouchableOpacity>
-
-        <View style={styles.avatarCircle}>
-          <OwnAvatar name={name} textStyle={styles.avatarText} />
-        </View>
-        <Text style={styles.profileName}>{name || 'Your Profile'}</Text>
-        {!!subtitle && <Text style={styles.profileSubtitle}>{subtitle}</Text>}
-      </LinearGradient>
-
-      {/* Stats */}
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>
-            {stats.data ? stats.data.jobsPosted : '—'}
-          </Text>
-          <Text style={styles.statLabel}>Jobs Posted</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>
-            {stats.data ? peso(stats.data.balance) : '—'}
-          </Text>
-          <Text style={styles.statLabel}>Balance</Text>
-        </View>
-      </View>
 
       <ScrollView
         {...scroll}
         style={styles.body}
-        contentContainerStyle={styles.bodyContent}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Hero — matches .profile-hero (same gradient as Home) */}
+        <View style={[styles.hero, { paddingTop: headerTop }, { backgroundColor: C.hero }]}>
+          <Tap
+            style={[styles.backBtn, { top: headerTop }]}
+            onPress={onBack}
+            activeOpacity={0.8}
+            accessibilityLabel="Back to Home"
+          >
+            <ArrowLeft size={20} color={C.onPrimary} />
+          </Tap>
+
+          <View style={styles.avatarCircle}>
+            <OwnAvatar name={name} textStyle={styles.avatarText} />
+          </View>
+          <Text style={styles.profileName}>{name || 'Your Profile'}</Text>
+          {!!subtitle && <Text style={styles.profileSubtitle}>{subtitle}</Text>}
+        </View>
+
+        {/* Stats */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>
+              {stats.data ? stats.data.jobsPosted : '—'}
+            </Text>
+            <Text style={styles.statLabel}>Jobs Posted</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>
+              {stats.data ? peso(stats.data.balance) : '—'}
+            </Text>
+            <Text style={styles.statLabel}>Balance</Text>
+          </View>
+        </View>
+
+        <View style={styles.bodyContent}>
         {/* Account Info */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Account Info</Text>
           {[
             { label: 'Email', value: profile?.email ?? '—' },
-            { label: 'Phone', value: profile?.phone ?? '—' },
+            { label: 'Phone', value: profile?.phone?.trim() || '—' },
             { label: 'Location', value: location ?? '—' },
           ].map((item) => (
             <View key={item.label} style={styles.infoRow}>
@@ -143,7 +144,7 @@ export default function Profile({ onNavigate, onLogout, onBack }: ProfileProps) 
         {/* Menu — matches .navrow */}
         <View style={styles.card}>
           {MENU_ITEMS.map((item) => (
-            <TouchableOpacity
+            <Tap
               key={item.label}
               style={styles.navrow}
               onPress={() => onNavigate(item.screen!)}
@@ -154,19 +155,24 @@ export default function Profile({ onNavigate, onLogout, onBack }: ProfileProps) 
               </View>
               <Text style={styles.rowLabel}>{item.label}</Text>
               <ChevronRight size={20} color={C.ink300} />
-            </TouchableOpacity>
+            </Tap>
           ))}
-          <TouchableOpacity
+        </View>
+
+        {/* Log Out sits on its own, without a chevron, so it isn't tapped by
+            accident while moving down the menu. */}
+        <View style={styles.card}>
+          <Tap
             style={styles.navrow}
             onPress={() => setConfirmLogoutVisible(true)}
             activeOpacity={0.7}
           >
-            <View style={styles.rowIcon}>
+            <View style={[styles.rowIcon, styles.rowIconDanger]}>
               <LogOut size={19} color={V6Colors.dangerText} />
             </View>
             <Text style={[styles.rowLabel, styles.rowLabelDanger]}>Log Out</Text>
-            <ChevronRight size={20} color={C.ink300} />
-          </TouchableOpacity>
+          </Tap>
+        </View>
         </View>
 
         <ConfirmationModal
@@ -184,6 +190,9 @@ export default function Profile({ onNavigate, onLogout, onBack }: ProfileProps) 
 
         <View style={{ height: 20 }} />
       </ScrollView>
+      {/* Keeps the status bar on the header colour once the header scrolls
+          away, so the light status icons never sit on the white page. */}
+      <View pointerEvents="none" style={[styles.statusStrip, { height: insets.top, backgroundColor: C.hero }]} />
     </View>
   );
 }
@@ -193,6 +202,7 @@ function createThemedStyles(theme: ThemePalette) {
   const C = V6Colors;
   const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: C.canvas },
+    statusStrip: { position: 'absolute', top: 0, left: 0, right: 0 },
 
     hero: {
       paddingHorizontal: Spacing.screenH,
@@ -210,13 +220,13 @@ function createThemedStyles(theme: ThemePalette) {
     },
 
     avatarCircle: {
-      width: 72, height: 72, borderRadius: 22,
-      backgroundColor: 'rgba(255,255,255,0.16)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+      width: 80, height: 80, borderRadius: 40,
+      backgroundColor: C.primaryTonalStrong, borderWidth: 3, borderColor: 'rgba(255,255,255,0.85)',
       alignItems: 'center', justifyContent: 'center', marginBottom: 10, overflow: 'hidden',
     },
-    avatarText: { color: C.onPrimary, fontWeight: '800', fontSize: 24, fontFamily: 'Inter' },
+    avatarText: { color: C.primaryDeep, fontWeight: '800', fontSize: 24, fontFamily: 'Inter' },
     profileName: { color: C.onPrimary, fontSize: 19.5, fontWeight: '800', fontFamily: 'Inter' },
-    profileSubtitle: { color: C.cyan100, fontSize: 14, fontFamily: 'Inter', marginTop: 2 },
+    profileSubtitle: { color: C.onHeroMuted, fontSize: 14, fontFamily: 'Inter', marginTop: 2 },
 
     statsRow: {
       flexDirection: 'row', backgroundColor: C.surface, paddingVertical: 15, paddingHorizontal: Spacing.screenH,
@@ -228,7 +238,8 @@ function createThemedStyles(theme: ThemePalette) {
     statLabel: { color: C.ink400, fontSize: 11.5, fontFamily: 'Inter', textAlign: 'center' },
 
     body: { flex: 1 },
-    bodyContent: { paddingHorizontal: Spacing.screenH, paddingTop: 18, paddingBottom: 20 },
+    scrollContent: { paddingBottom: 20 },
+    bodyContent: { paddingHorizontal: Spacing.screenH, paddingTop: 18 },
 
     card: {
       backgroundColor: C.surface, borderRadius: V6Radii.card,
@@ -238,12 +249,9 @@ function createThemedStyles(theme: ThemePalette) {
     },
     cardTitle: { color: C.ink900, fontSize: 16, fontWeight: '800', fontFamily: 'Inter', margin: 12, marginBottom: 4 },
 
-    infoRow: {
-      flexDirection: 'row', justifyContent: 'space-between',
-      paddingVertical: 10, paddingHorizontal: 12,
-    },
-    infoLabel: { color: C.ink500, fontSize: 14.5, fontFamily: 'Inter' },
-    infoValue: { color: C.ink900, fontSize: 14.5, fontWeight: '600', fontFamily: 'Inter', maxWidth: '60%', textAlign: 'right' },
+    infoRow: { paddingVertical: 9, paddingHorizontal: 12, gap: 2 },
+    infoLabel: { color: C.ink500, fontSize: 13, fontFamily: 'Inter' },
+    infoValue: { color: C.ink900, fontSize: 15, fontWeight: '600', fontFamily: 'Inter' },
 
     // .navrow
     navrow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 12 },
@@ -253,6 +261,7 @@ function createThemedStyles(theme: ThemePalette) {
     },
     rowLabel: { flex: 1, color: C.ink900, fontSize: 14.5, fontWeight: '600', fontFamily: 'Inter' },
     rowLabelDanger: { color: V6Colors.dangerText },
+    rowIconDanger: { backgroundColor: V6Colors.dangerSurface },
   });
   return { Colors, V6Colors, C, styles };
 }

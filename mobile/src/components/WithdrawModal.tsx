@@ -26,15 +26,13 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import SheetFrame from './ui/SheetFrame';
 import { V6Radii } from '../constants/theme';
 import { api } from '../lib/api';
 import { peso } from '../lib/format';
@@ -93,19 +91,7 @@ export default function WithdrawModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={close} accessible={false}>
-          <Pressable
-          style={styles.card}
-          testID="withdraw-dialog"
-          // Taps on the card's empty space close the keyboard, not the modal.
-          onPress={(event) => {
-            event.stopPropagation();
-            Keyboard.dismiss();
-          }}
-          accessibilityViewIsModal
-        >
+    <SheetFrame visible={visible} onClose={close} contentStyle={styles.card} cardProps={{ testID: "withdraw-dialog" }}>
           <Text style={styles.title} accessibilityRole="header">Withdraw Funds</Text>
           <Text style={styles.body}>
             We'll review this and send the money by hand, so it isn't instant.
@@ -168,14 +154,11 @@ export default function WithdrawModal({
               {submitting ? (
                 <ActivityIndicator color={C.onPrimary} />
               ) : (
-                <Text style={styles.confirmText}>Withdraw</Text>
+                <Text style={[styles.confirmText, !canSubmit && styles.confirmTextDisabled]}>Withdraw</Text>
               )}
             </Pressable>
           </View>
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+    </SheetFrame>
   );
 }
 
@@ -246,7 +229,9 @@ function createThemedStyles(theme: ThemePalette) {
       paddingHorizontal: 16,
       paddingVertical: 9,
     },
-    btnDisabled: { opacity: 0.5 },
+    // Readable disabled state: grey fill with dark text, like the other forms.
+    btnDisabled: { backgroundColor: C.ink100 },
+    confirmTextDisabled: { color: C.ink700 },
     cancel: { backgroundColor: C.ink50 },
     cancelText: { color: C.ink500, fontSize: 14.5, fontWeight: '700', fontFamily: 'Inter' },
     confirm: { backgroundColor: C.cyan700 },

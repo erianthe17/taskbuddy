@@ -16,26 +16,24 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
-  Modal,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
+import SheetFrame from '../../../src/components/ui/SheetFrame';
 import {
-  ArrowDownLeft,
   ArrowUpRight,
+  Plus,
   CircleDollarSign,
   Gift,
   Package,
   Shield,
   WalletCards,
 } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as AuthSession from 'expo-auth-session';
 import { Spacing, V6Radii, V6Shadows } from '../../../src/constants/theme';
 import { useHeaderTop } from '../../../src/hooks/useHeaderTop';
@@ -290,39 +288,37 @@ export default function HOWalletScreen() {
         }
       >
         {/* Balance card — mockup's linear-gradient(165deg, cyan600, cyan700) */}
-        <LinearGradient
-          colors={[C.cyan600, C.cyan700]}
-          start={{ x: 0.2, y: 0 }}
-          end={{ x: 0.8, y: 1 }}
-          style={styles.balanceCard}
-        >
+        <View style={[styles.balanceCard, { backgroundColor: C.hero }]}>
           <Text style={styles.balanceLabel}>Available Balance</Text>
           <Text style={styles.balanceAmount}>
             {data ? peso(data.balance) : '—'}
           </Text>
           <View style={styles.quickActions}>
-            <TouchableOpacity
-              style={styles.quickActionBtn}
+            <Tap
+              style={[styles.quickActionBtn, styles.quickActionPrimary]}
               onPress={() => setShowAddMoney(true)}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              scale
             >
-              <ArrowUpRight size={22} color={C.onPrimary} />
-              <Text style={styles.quickActionText}>Add Money</Text>
-            </TouchableOpacity>
-            <View style={styles.actionDivider} />
-            <TouchableOpacity
+              <Plus size={18} color="#0369a1" strokeWidth={2.5} />
+              <Text style={[styles.quickActionText, styles.quickActionTextPrimary]}>Add Money</Text>
+            </Tap>
+            <Tap
               style={styles.quickActionBtn}
               onPress={openWithdraw}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              rippleColor={C.rippleOnHero}
             >
-              <ArrowDownLeft size={22} color={C.onPrimary} />
+              <ArrowUpRight size={18} color={C.onPrimary} strokeWidth={2.5} />
               <Text style={styles.quickActionText}>Withdraw</Text>
-            </TouchableOpacity>
+            </Tap>
           </View>
           {data && availableToWithdraw !== data.balance && (
             <Text style={styles.balanceSub}>{peso(availableToWithdraw)} available to withdraw</Text>
           )}
-        </LinearGradient>
+        </View>
 
         {/* Escrow card */}
         <View style={styles.escrowCard}>
@@ -354,9 +350,9 @@ export default function HOWalletScreen() {
                   <View style={styles.withdrawalAction}>
                     <Text style={styles.withdrawalValue}>{peso(withdrawal.amount)}</Text>
                     {withdrawal.status === 'pending' && (
-                      <TouchableOpacity onPress={() => void cancelWithdrawal(withdrawal.id)} activeOpacity={0.8}>
+                      <Tap onPress={() => void cancelWithdrawal(withdrawal.id)} activeOpacity={0.8}>
                         <Text style={styles.withdrawalCancel}>Cancel</Text>
-                      </TouchableOpacity>
+                      </Tap>
                     )}
                   </View>
                 </View>
@@ -377,7 +373,7 @@ export default function HOWalletScreen() {
               {vouchers.map((v) => (
                 <View key={v.id} style={styles.voucherRow}>
                   <View style={styles.voucherInfo}>
-                    <Text style={styles.voucherTitle} numberOfLines={1}>{v.title}</Text>
+                    <Text style={styles.voucherTitle} numberOfLines={2}>{v.title}</Text>
                     <Text style={styles.voucherDate}>{shortDate(v.created_at)}</Text>
                   </View>
                   <Text style={styles.voucherAmount}>+{peso(v.amount)}</Text>
@@ -391,7 +387,7 @@ export default function HOWalletScreen() {
         {/* Filter tabs */}
         <View style={styles.tabRow}>
           {(['all', 'credit', 'debit'] as const).map((t) => (
-            <TouchableOpacity
+            <Tap
               key={t}
               style={[styles.tab, activeTab === t && styles.tabActive]}
               onPress={() => setActiveTab(t)}
@@ -400,7 +396,7 @@ export default function HOWalletScreen() {
               <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
                 {t === 'all' ? 'All' : t === 'credit' ? 'Added' : 'Spent'}
               </Text>
-            </TouchableOpacity>
+            </Tap>
           ))}
         </View>
 
@@ -425,7 +421,7 @@ export default function HOWalletScreen() {
                   <Icon size={19} color={V6Colors.link} />
                 </View>
                 <View style={styles.txnInfo}>
-                  <Text style={styles.txnTitle} numberOfLines={1}>{txn.title}</Text>
+                  <Text style={styles.txnTitle} numberOfLines={2}>{txn.title}</Text>
                   <Text style={styles.txnDate}>{shortDate(txn.created_at)} · {statusLabel}</Text>
                 </View>
                 <Text style={[
@@ -439,22 +435,17 @@ export default function HOWalletScreen() {
           })}
         </View>
         )}
-        <View style={{ height: 20 }} />
+        {/* Room for the floating "Post a job" button above the nav bar. */}
+        <View style={{ height: 96 }} />
       </ScrollView>
 
-      <Modal
+      <SheetFrame
         visible={showAddMoney}
-        transparent
-        animationType="fade"
-        onRequestClose={closeAddMoney}
+        onClose={closeAddMoney}
+        dismissible={false}
+        contentStyle={styles.modalCard}
+        cardProps={{ testID: 'add-money-dialog' }}
       >
-        <View style={styles.modalBackdrop}>
-          <Pressable
-            style={styles.modalCard}
-            testID="add-money-dialog"
-            // Taps on the card's empty space close the keyboard, not the modal.
-            onPress={() => Keyboard.dismiss()}
-          >
             <Text style={styles.modalTitle}>Add Money</Text>
             <Text style={styles.modalBody}>
               You'll be taken to Stripe to pay by card. Funds are held in escrow
@@ -480,7 +471,7 @@ export default function HOWalletScreen() {
               {QUICK_TOPUP_AMOUNTS.map((preset) => {
                 const selected = parsedAmount === preset;
                 return (
-                  <TouchableOpacity
+                  <Tap
                     key={preset}
                     testID={`wallet-quick-${preset}`}
                     style={[styles.quickAmount, selected && styles.quickAmountActive]}
@@ -497,9 +488,9 @@ export default function HOWalletScreen() {
                         selected && styles.quickAmountTextActive,
                       ]}
                     >
-                      {peso(preset)}
+                      ₱{preset.toLocaleString()}
                     </Text>
-                  </TouchableOpacity>
+                  </Tap>
                 );
               })}
             </View>
@@ -509,15 +500,15 @@ export default function HOWalletScreen() {
             {addError && <Text style={styles.modalError}>{addError}</Text>}
 
             <View style={styles.modalActions}>
-              <TouchableOpacity
+              <Tap
                 style={[styles.modalBtn, styles.modalCancel]}
                 onPress={closeAddMoney}
                 disabled={adding}
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </Tap>
+              <Tap
                 testID="wallet-add-money-continue"
                 style={[
                   styles.modalBtn,
@@ -531,27 +522,19 @@ export default function HOWalletScreen() {
                 {adding ? (
                   <ActivityIndicator color={C.onPrimary} />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Continue</Text>
+                  <Text style={[styles.modalConfirmText, !isValidAmount && styles.modalConfirmTextDisabled]}>Continue</Text>
                 )}
-              </TouchableOpacity>
+              </Tap>
             </View>
-          </Pressable>
-        </View>
-      </Modal>
+      </SheetFrame>
 
-      <Modal
+      <SheetFrame
         visible={showWithdraw}
-        transparent
-        animationType="fade"
-        onRequestClose={closeWithdraw}
+        onClose={closeWithdraw}
+        dismissible={false}
+        contentStyle={styles.modalCard}
+        cardProps={{ testID: 'withdraw-hw-dialog' }}
       >
-        <View style={styles.modalBackdrop}>
-          <Pressable
-            style={styles.modalCard}
-            testID="withdraw-hw-dialog"
-            // Taps on the card's empty space close the keyboard, not the modal.
-            onPress={() => Keyboard.dismiss()}
-          >
             <Text style={styles.modalTitle}>Withdraw</Text>
             <Text style={styles.modalBody}>
               Send a request to withdraw your available wallet balance. Our team will process it manually.
@@ -585,15 +568,15 @@ export default function HOWalletScreen() {
             {!!withdrawError && <Text style={styles.modalError}>{withdrawError}</Text>}
 
             <View style={styles.modalActions}>
-              <TouchableOpacity
+              <Tap
                 style={[styles.modalBtn, styles.modalCancel]}
                 onPress={closeWithdraw}
                 disabled={withdrawing}
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </Tap>
+              <Tap
                 style={[
                   styles.modalBtn,
                   styles.modalConfirm,
@@ -606,13 +589,11 @@ export default function HOWalletScreen() {
                 {withdrawing ? (
                   <ActivityIndicator color={C.onPrimary} />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Withdraw</Text>
+                  <Text style={[styles.modalConfirmText, (!isValidWithdrawal || !canWithdrawBalance(availableToWithdraw)) && styles.modalConfirmTextDisabled]}>Withdraw</Text>
                 )}
-              </TouchableOpacity>
+              </Tap>
             </View>
-          </Pressable>
-        </View>
-      </Modal>
+      </SheetFrame>
     </View>
   );
 
@@ -640,13 +621,18 @@ function createThemedStyles(theme: ThemePalette) {
     balanceCard: {
       borderRadius: 18, padding: 20, marginBottom: 14,
     },
-    balanceLabel: { color: C.cyan100, fontSize: 13, fontFamily: 'Inter', marginBottom: 4 },
+    balanceLabel: { color: C.onHeroMuted, fontSize: 14, fontFamily: 'Inter', marginBottom: 4 },
     balanceAmount: { color: C.onPrimary, fontSize: 32.5, fontWeight: '800', fontFamily: 'Inter', marginBottom: 16 },
     balanceSub: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontFamily: 'Inter', marginTop: 12, textAlign: 'center' },
-    quickActions: { flexDirection: 'row', alignItems: 'center' },
-    quickActionBtn: { flex: 1, alignItems: 'center', gap: 4 },
-    quickActionText: { color: 'rgba(255,255,255,0.85)', fontSize: 13.5, fontWeight: '600', fontFamily: 'Inter' },
-    actionDivider: { width: 1, height: 34, backgroundColor: 'rgba(255,255,255,0.2)' },
+    quickActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    quickActionBtn: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      minHeight: 46, borderRadius: 999,
+      backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)',
+    },
+    quickActionPrimary: { backgroundColor: '#ffffff', borderColor: '#ffffff' },
+    quickActionText: { color: C.onPrimary, fontSize: 15, fontWeight: '700', fontFamily: 'Inter' },
+    quickActionTextPrimary: { color: '#0369a1' },
 
     escrowCard: {
       backgroundColor: V6Colors.infoSurface, borderWidth: 1, borderColor: V6Colors.infoSurface,
@@ -708,10 +694,10 @@ function createThemedStyles(theme: ThemePalette) {
       width: 34, height: 34, borderRadius: 12,
       backgroundColor: V6Colors.canvas, alignItems: 'center', justifyContent: 'center', marginRight: 12,
     },
-    txnInfo: { flex: 1 },
+    txnInfo: { flex: 1, marginRight: 12 },
     txnTitle: { color: C.ink900, fontSize: 14.5, fontWeight: '600', fontFamily: 'Inter', marginBottom: 2 },
     txnDate: { color: C.ink400, fontSize: 12.5, fontFamily: 'Inter' },
-    txnAmount: { fontSize: 14.5, fontWeight: '800', fontFamily: 'Inter' },
+    txnAmount: { flexShrink: 0, fontSize: 14.5, fontWeight: '800', fontFamily: 'Inter' },
     txnCredit: { color: V6Colors.successText },
     txnDebit: { color: C.ink900 },
 
@@ -725,27 +711,29 @@ function createThemedStyles(theme: ThemePalette) {
     amountInput: { fontSize: 48.5, fontWeight: '800', fontFamily: 'Inter', color: C.ink900, minWidth: 120, textAlign: 'center' },
     modalError: { color: V6Colors.dangerText, fontSize: 15.5, fontFamily: 'Inter', textAlign: 'center', marginTop: 4 },
     modalHint: { color: C.ink400, fontSize: 14.5, fontFamily: 'Inter', textAlign: 'center', marginTop: 6 },
-    quickAmounts: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+    quickAmounts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
     quickAmount: {
-      paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
-      borderWidth: 1, borderColor: V6Colors.fieldBorder, backgroundColor: C.surface,
+      flexBasis: '48%', flexGrow: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center',
+      borderWidth: 1, borderColor: C.line, borderRadius: 12, backgroundColor: C.surface,
     },
-    quickAmountActive: { borderColor: C.cyan700, backgroundColor: C.cyan50 },
-    quickAmountText: { color: C.ink700, fontSize: 14.5, fontWeight: '600', fontFamily: 'Inter' },
-    quickAmountTextActive: { color: V6Colors.link },
+    quickAmountActive: { borderColor: C.primaryTonalStrong, backgroundColor: C.primaryTonalStrong },
+    quickAmountText: { color: C.ink800, fontSize: 15, fontWeight: '700', fontFamily: 'Inter' },
+    quickAmountTextActive: { color: theme.appearance === 'dark' ? '#e0f2fe' : '#0c4a6e' },
     withdrawAvailable: { color: V6Colors.link, fontSize: 14, fontWeight: '700', fontFamily: 'Inter', marginTop: 12 },
     destinationInput: {
       backgroundColor: V6Colors.wellBg, borderRadius: 12, paddingHorizontal: 14, minHeight: 48,
       borderWidth: 1, borderColor: V6Colors.fieldBorder, fontFamily: 'Inter', fontSize: 15, color: C.ink900,
       marginTop: 12,
     },
-    modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 18 },
-    modalBtn: { minWidth: 104, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 9 },
-    modalBtnDisabled: { opacity: 0.5 },
-    modalCancel: { backgroundColor: C.ink50 },
-    modalCancelText: { color: C.ink500, fontSize: 14.5, fontWeight: '700', fontFamily: 'Inter' },
-    modalConfirm: { backgroundColor: C.cyan700 },
-    modalConfirmText: { color: C.onPrimary, fontSize: 14.5, fontWeight: '700', fontFamily: 'Inter' },
+    modalActions: { flexDirection: 'row', gap: 10, marginTop: 18 },
+    modalBtn: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 16, paddingHorizontal: 16 },
+    // Readable disabled state: grey fill with dark text instead of a faded button.
+    modalBtnDisabled: { backgroundColor: C.ink100 },
+    modalConfirmTextDisabled: { color: C.ink700 },
+    modalCancel: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.fieldBorder },
+    modalCancelText: { color: C.ink800, fontSize: 15.5, fontWeight: '700', fontFamily: 'Inter' },
+    modalConfirm: { backgroundColor: C.primary },
+    modalConfirmText: { color: C.onPrimary, fontSize: 15.5, fontWeight: '700', fontFamily: 'Inter' },
   });
   return { appearance: theme.appearance, Colors, V6Colors, C, styles };
 }

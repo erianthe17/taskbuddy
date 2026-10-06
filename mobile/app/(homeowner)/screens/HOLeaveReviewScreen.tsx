@@ -18,16 +18,16 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
+import Silhouette from '../../../src/components/ui/Silhouette';
 import { ArrowLeft, Star } from 'lucide-react-native';
 import { Spacing, V6Radii, V6Shadows } from '../../../src/constants/theme';
 import { useHeaderTop } from '../../../src/hooks/useHeaderTop';
 
 import { api } from '../../../src/lib/api';
 import { useAsyncData } from '../../../src/hooks/useAsyncData';
-import { initials } from '../../../src/lib/format';
 
 interface HOLeaveReviewScreenProps {
   jobId: string;
@@ -35,10 +35,12 @@ interface HOLeaveReviewScreenProps {
   onBack?: () => void;
 }
 
+const RATING_WORDS: Record<number, string> = { 1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very good', 5: 'Excellent' };
+
 export default function HOLeaveReviewScreen({ jobId, onSubmitted, onBack }: HOLeaveReviewScreenProps) {
   const { C, styles, V6Colors, appearance } = useThemedStyles(createThemedStyles);
   const headerTop = useHeaderTop();
-  const [rating, setRating] = useState<number>(5);
+  const [rating, setRating] = useState<number>(0);
   const [comment, setComment] = useState<string>('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,9 +73,9 @@ export default function HOLeaveReviewScreen({ jobId, onSubmitted, onBack }: HOLe
       {/* Header — matches .topbar (flat white, icon back button) */}
       <View style={[styles.header, { paddingTop: headerTop }]}>
         {onBack && (
-          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+          <Tap style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
             <ArrowLeft size={20} color={C.ink700} />
-          </TouchableOpacity>
+          </Tap>
         )}
         <Text style={styles.headerTitle}>Rate Your Provider</Text>
       </View>
@@ -84,23 +86,31 @@ export default function HOLeaveReviewScreen({ jobId, onSubmitted, onBack }: HOLe
       >
         <ScrollView keyboardDismissMode="on-drag" contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials(providerName)}</Text>
+            <Silhouette name={providerName} textStyle={styles.avatarText} />
           </View>
           <Text style={styles.providerName}>{providerName}</Text>
           <Text style={styles.prompt}>How was your experience?</Text>
 
           <View style={styles.starPicker}>
             {[1, 2, 3, 4, 5].map((n) => (
-              <TouchableOpacity
+              <Tap
                 key={n}
                 onPress={() => setRating(n)}
                 activeOpacity={0.85}
                 style={styles.starBtn}
+                borderlessRipple
+                accessibilityRole="button"
+                accessibilityLabel={`${n} star${n === 1 ? '' : 's'}`}
+                accessibilityState={{ selected: n <= rating }}
               >
                 <Star size={33} color={n <= rating ? '#f59e0b' : '#cbd5e1'} fill={n <= rating ? '#f59e0b' : 'none'} />
-              </TouchableOpacity>
+              </Tap>
             ))}
           </View>
+          {/* Stars start empty so the rating is always the user's own choice. */}
+          <Text style={[styles.ratingLabel, rating === 0 && styles.ratingHint]}>
+            {rating === 0 ? 'Tap a star to rate' : `${rating} of 5 · ${RATING_WORDS[rating]}`}
+          </Text>
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Write a review</Text>
@@ -121,14 +131,14 @@ export default function HOLeaveReviewScreen({ jobId, onSubmitted, onBack }: HOLe
           )}
           {error && <Text style={styles.errorText}>{error}</Text>}
 
-          <TouchableOpacity
-            style={[styles.submitBtn, (busy || alreadyReviewed) && styles.disabled]}
+          <Tap
+            style={[styles.submitBtn, (busy || alreadyReviewed) && styles.disabled, rating === 0 && styles.submitBtnEmpty]}
             onPress={submit}
-            disabled={busy || alreadyReviewed}
+            disabled={busy || alreadyReviewed || rating === 0}
             activeOpacity={0.85}
           >
-            {busy ? <ActivityIndicator color={C.onPrimary} /> : <Text style={styles.submitText}>Submit Review</Text>}
-          </TouchableOpacity>
+            {busy ? <ActivityIndicator color={C.onPrimary} /> : <Text style={[styles.submitText, rating === 0 && styles.submitTextEmpty]}>Submit Review</Text>}
+          </Tap>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -158,13 +168,14 @@ function createThemedStyles(theme: ThemePalette) {
 
     bodyContent: { paddingHorizontal: Spacing.screenH, paddingTop: 22, paddingBottom: 24, alignItems: 'center' },
 
-    avatar: { width: 72, height: 72, borderRadius: 22, backgroundColor: C.cyan700, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-    avatarText: { color: C.onPrimary, fontSize: 24, fontWeight: '800', fontFamily: 'Inter' },
+    avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: C.primaryTonalStrong, alignItems: 'center', justifyContent: 'center', marginBottom: 10, overflow: 'hidden' },
+    avatarText: { color: C.primaryDeep, fontSize: 24, fontWeight: '800', fontFamily: 'Inter' },
     providerName: { color: C.ink900, fontSize: 19.5, fontWeight: '700', fontFamily: 'Inter' },
     prompt: { color: C.ink400, fontSize: 13, fontFamily: 'Inter', marginTop: 5 },
 
     starPicker: { flexDirection: 'row', gap: 9, paddingVertical: 18 },
-    starBtn: { padding: 3 },
+    starBtn: { padding: 6, borderRadius: 24 },
+    ratingLabel: { color: C.ink700, fontSize: 15, fontWeight: '700', fontFamily: 'Inter', textAlign: 'center', marginTop: 4, marginBottom: 8 },
 
     fieldGroup: { width: '100%', marginTop: 4 },
     fieldLabel: { color: C.ink900, fontSize: 14, fontWeight: '700', fontFamily: 'Inter', marginBottom: 6 },
@@ -182,6 +193,10 @@ function createThemedStyles(theme: ThemePalette) {
     submitText: { color: C.onPrimary, fontSize: 16.5, fontWeight: '700', fontFamily: 'Inter' },
 
     disabled: { opacity: 0.6 },
+    // No rating picked yet: grey fill with dark text, like the other disabled buttons.
+    submitBtnEmpty: { backgroundColor: C.ink100, shadowOpacity: 0, elevation: 0 },
+    submitTextEmpty: { color: C.ink700 },
+    ratingHint: { color: C.ink500, fontWeight: '600' },
 
     errorText: { color: V6Colors.dangerText, marginTop: 8, fontFamily: 'Inter', fontSize: 15 },
     alreadyReviewedText: { color: V6Colors.link, marginTop: 8, fontFamily: 'Inter', fontSize: 15, textAlign: 'center' },

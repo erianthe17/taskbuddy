@@ -29,9 +29,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from './ui/Tap';
 import * as Location from 'expo-location';
 import { LocateFixed, MapPin } from 'lucide-react-native';
 
@@ -70,6 +70,9 @@ interface Props {
   inputStyle?: object;
   actionVariant?: 'default' | 'primary';
   testID?: string;
+  /** Lets the screen scroll the field into view when the keyboard opens. */
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 export default function AddressField({
@@ -82,6 +85,8 @@ export default function AddressField({
   inputStyle,
   actionVariant = 'default',
   testID,
+  onFocus,
+  onBlur,
 }: Props) {
   const { Colors, styles, V6Colors, appearance } = useThemedStyles(createThemedStyles);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
@@ -232,13 +237,17 @@ export default function AddressField({
         onFocus={() => {
           setFocused(true);
           if (suggestions.length > 0) setOpen(true);
+          onFocus?.();
         }}
-        onBlur={() => setFocused(false)}
+        onBlur={() => {
+          setFocused(false);
+          onBlur?.();
+        }}
         autoCorrect={false}
         multiline
       />
 
-      <TouchableOpacity
+      <Tap
         style={[styles.locateBtn, actionVariant === 'primary' && styles.locateBtnPrimary]}
         onPress={() => void useCurrentLocation()}
         disabled={locating}
@@ -250,20 +259,20 @@ export default function AddressField({
         {locating ? (
           <ActivityIndicator
             size="small"
-            color={actionVariant === 'primary' ? Colors.white : Colors.brandTeal}
+            color={V6Colors.link}
           />
         ) : (
-          <LocateFixed size={18} color={actionVariant === 'primary' ? Colors.white : Colors.brandTeal} />
+          <LocateFixed size={18} color={V6Colors.link} />
         )}
         <Text style={[styles.locateText, actionVariant === 'primary' && styles.locateTextPrimary]}>
           {locating ? 'Finding your address…' : 'Use my current location'}
         </Text>
-      </TouchableOpacity>
+      </Tap>
 
       {open && (
         <View style={styles.dropdown} testID="address-suggestions">
           {suggestions.map((suggestion, index) => (
-            <TouchableOpacity
+            <Tap
               key={`${suggestion.latitude},${suggestion.longitude},${index}`}
               style={[styles.row, index > 0 && styles.rowDivider]}
               onPress={() => pick(suggestion)}
@@ -276,7 +285,7 @@ export default function AddressField({
               <Text style={styles.rowText} numberOfLines={2}>
                 {suggestion.formatted_address}
               </Text>
-            </TouchableOpacity>
+            </Tap>
           ))}
         </View>
       )}
@@ -314,11 +323,12 @@ function createThemedStyles(theme: ThemePalette) {
       gap: 8,
       paddingVertical: 10,
     },
+    // Tonal, not filled: the step's Next button stays the one primary action (G5).
     locateBtnPrimary: {
       justifyContent: 'center',
-      backgroundColor: Colors.brandTeal,
-      borderRadius: 13,
-      paddingVertical: 14,
+      backgroundColor: V6Colors.primaryTonal,
+      borderRadius: 14,
+      minHeight: 48,
       marginTop: 10,
     },
     locateText: {
@@ -327,7 +337,7 @@ function createThemedStyles(theme: ThemePalette) {
       fontSize: 15,
       fontWeight: '600',
     },
-    locateTextPrimary: { color: Colors.onPrimary, fontWeight: '700' },
+    locateTextPrimary: { color: V6Colors.link, fontWeight: '700' },
 
     dropdown: {
       backgroundColor: Colors.surface,

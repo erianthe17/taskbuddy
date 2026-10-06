@@ -25,9 +25,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
+import ContentSkeleton from '../../../src/components/ui/ContentSkeleton';
 import {
   ArrowLeft,
   Check,
@@ -37,7 +38,7 @@ import {
   MessageCircle,
   ShieldCheck,
 } from 'lucide-react-native';
-import { CalendarDays } from 'lucide-react-native';
+import { CalendarDays, Lock } from 'lucide-react-native';
 import { Spacing, V6Radii } from '../../../src/constants/theme';
 import { useHeaderTop } from '../../../src/hooks/useHeaderTop';
 
@@ -45,7 +46,7 @@ import { SPScreen } from '../../../src/types/navigation';
 import { useAuth } from '../../../src/context/AuthContext';
 import { useAsyncData } from '../../../src/hooks/useAsyncData';
 import { api, ApiError, Job, JobTask } from '../../../src/lib/api';
-import { distanceLabel, peso, shortDate } from '../../../src/lib/format';
+import { distanceLabel, peso, shortDate, timeOfDay } from '../../../src/lib/format';
 import ProposalModal from '../../../src/components/ProposalModal';
 import { showToast } from '../../../src/components/Toast';
 import DeclineBookingModal from '../../../src/components/DeclineBookingModal';
@@ -201,15 +202,27 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
         index={photoIndex} onIndexChange={setPhotoIndex} onClose={() => setPhotoIndex(null)} />
       {/* Header — matches .topbar (flat white) */}
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+        <Tap style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
           <ArrowLeft size={20} color={C.ink700} />
-        </TouchableOpacity>
+        </Tap>
         <Text style={styles.headerTitle}>Job Details</Text>
         <View style={{ width: 38 }} />
       </View>
 
-      {loading && <ActivityIndicator style={{ marginTop: 40 }} color={V6Colors.link} />}
-      {!!error && !loading && <Text style={styles.stateText}>{error}</Text>}
+      {loading && <ContentSkeleton variant="detail" />}
+      {/* F7: an unavailable job (e.g. hired by someone else) gets a real
+          error card instead of a bare grey line on an empty page. */}
+      {!!error && !loading && (
+        <View style={styles.errorCard}>
+          <View style={styles.errorIcon}><Lock size={24} color={C.ink700} /></View>
+          <Text style={styles.errorTitle}>This job isn't available</Text>
+          <Text style={styles.stateText}>{error}</Text>
+          <Text style={styles.errorHint}>It may have been filled by another provider or closed by the client.</Text>
+          <Tap style={styles.errorBtn} onPress={onBack} activeOpacity={0.85} accessibilityRole="button">
+            <Text style={styles.errorBtnText}>Go back</Text>
+          </Tap>
+        </View>
+      )}
 
       {job && (
         <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
@@ -226,7 +239,7 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
                 <MapPin size={17} color={C.ink500} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.factLabel}>Location</Text>
-                  <Text style={styles.factValue} numberOfLines={2}>{job.address}</Text>
+                  <Text style={styles.factValue} numberOfLines={3}>{job.address}</Text>
                   {!!distanceLabel(job.distance_km) && (
                     <Text style={styles.factSub}>{distanceLabel(job.distance_km)}</Text>
                   )}
@@ -274,7 +287,7 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
                 </Text>
               </View>
               {tasks.map((task) => (
-                <TouchableOpacity
+                <Tap
                   key={task.id}
                   style={styles.taskRow}
                   onPress={() => void toggleTask(task)}
@@ -299,7 +312,7 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
                   <Text style={[styles.taskLabel, task.is_done && styles.taskLabelDone]}>
                     {task.label}
                   </Text>
-                </TouchableOpacity>
+                </Tap>
               ))}
             </View>
           )}
@@ -314,11 +327,11 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Job Photos</Text>
             {job.photo_urls.length ? job.photo_urls.map((uri, index) => (
-              <TouchableOpacity key={uri} onPress={() => setPhotoIndex(index)}
+              <Tap key={uri} onPress={() => setPhotoIndex(index)}
                 accessibilityLabel={`Open job photo ${index + 1}`}>
                 <Image source={{ uri }} resizeMode="contain" accessibilityLabel={`Job photo ${index + 1}`}
                   style={{ width: '100%', height: 240, marginTop: 12 }} />
-              </TouchableOpacity>
+              </Tap>
             )) : <Text style={styles.detailValue}>No photos attached</Text>}
 
           </View>
@@ -343,14 +356,14 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
             )}
 
             {isConfirmed && (
-              <TouchableOpacity
+              <Tap
                 style={styles.primaryBtn}
                 onPress={() => runAction(() => api.startJob(job.id))}
                 activeOpacity={0.85}
                 disabled={busy}
               >
                 <Text style={styles.primaryBtnText}>{busy ? 'Starting…' : 'Start Job'}</Text>
-              </TouchableOpacity>
+              </Tap>
             )}
 
             {isWorking && (
@@ -360,13 +373,13 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
             )}
             {isAssignedToMe && dispute?.status === 'open' && <Text style={styles.lockedBtnText}>{dispute.cancellation_state === 'pending' ? 'Cancellation awaiting your response' : dispute.escrow_transactions?.status === 'disputed' ? 'Payment under admin review' : 'Complaint awaiting admin review'}</Text>}
             {isAssignedToMe && (isCancelled || isConfirmed || isWorking || (isDone && withinWarranty) || dispute) && (
-              <TouchableOpacity style={styles.primaryBtn}
+              <Tap style={styles.outlineBtn}
                 onPress={() => onNavigate(dispute ? 'Dispute Status' : 'Dispute Filing', job.id)}>
-                <Text style={styles.primaryBtnText}>{dispute ? 'View Dispute Status' : 'File a Complaint'}</Text>
-              </TouchableOpacity>
+                <Text style={[styles.outlineBtnText, { textAlign: 'center' }]} numberOfLines={2} maxFontSizeMultiplier={1.15}>{dispute ? 'View Complaint Status' : 'File a Complaint'}</Text>
+              </Tap>
             )}
             {isDone && job.warranty_expires_at && (
-              <Text style={styles.lockedBtnText}>Warranty ends {new Date(job.warranty_expires_at).toLocaleString()}.</Text>
+              <Text style={styles.lockedBtnText}>Warranty ends {shortDate(job.warranty_expires_at)}, {timeOfDay(job.warranty_expires_at)}.</Text>
             )}
             {isDone && (
               <View style={styles.lockedBtn}>
@@ -387,15 +400,15 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
               </View>
             )}
             {!isAssignedToMe && !myApplication && canApply && !isVerified && (
-              <TouchableOpacity style={styles.primaryBtn} onPress={() => onNavigate('Verification')} activeOpacity={0.85}>
+              <Tap style={styles.primaryBtn} onPress={() => onNavigate('Verification')} activeOpacity={0.85}>
                 <View style={styles.primaryBtnContent}>
                   <ShieldCheck size={18} color={C.onPrimary} />
                   <Text style={styles.primaryBtnText}>Verify to Apply</Text>
                 </View>
-              </TouchableOpacity>
+              </Tap>
             )}
             {!isAssignedToMe && !myApplication && canApply && isVerified && (
-              <TouchableOpacity
+              <Tap
                 style={styles.primaryBtn}
                 onPress={() => {
                   setActionError(null);
@@ -406,7 +419,7 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
                 testID="btn-submit-proposal"
               >
                 <Text style={styles.primaryBtnText}>Submit Proposal</Text>
-              </TouchableOpacity>
+              </Tap>
             )}
             {!isAssignedToMe && !myApplication && !canApply && (
               <View style={styles.lockedBtn}>
@@ -415,23 +428,23 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
             )}
 
             {isAssignedToMe && (
-              <TouchableOpacity style={styles.outlineBtn} onPress={() => onNavigate('Chat', job.id)} activeOpacity={0.85}>
+              <Tap style={styles.outlineBtn} onPress={() => onNavigate('Chat', job.id)} activeOpacity={0.85}>
                 <View style={styles.primaryBtnContent}>
                   <MessageCircle size={17} color={C.ink700} />
                   <Text style={styles.outlineBtnText}>Message Client</Text>
                 </View>
-              </TouchableOpacity>
+              </Tap>
             )}
 
             {isConfirmed && (
-              <TouchableOpacity
+              <Tap
                 style={styles.outlineDangerBtn}
                 onPress={() => setDeclineOpen(true)}
                 activeOpacity={0.85}
                 disabled={busy}
               >
                 <Text style={styles.outlineDangerBtnText}>Decline Booking</Text>
-              </TouchableOpacity>
+              </Tap>
             )}
           </View>
 
@@ -487,7 +500,19 @@ function createThemedStyles(theme: ThemePalette) {
 
     body: { flex: 1 },
     bodyContent: { paddingHorizontal: Spacing.screenH, paddingTop: 4 },
-    stateText: { color: C.ink500, fontSize: 16.5, fontFamily: 'Inter', textAlign: 'center', marginTop: 30, paddingHorizontal: Spacing.screenH },
+    stateText: { color: C.ink700, fontSize: 15, lineHeight: 22, fontFamily: 'Inter', textAlign: 'center' },
+    errorCard: {
+      margin: Spacing.screenH, marginTop: 32, padding: 24, alignItems: 'center', gap: 8,
+      backgroundColor: C.surface, borderRadius: V6Radii.card, borderWidth: 1, borderColor: C.line,
+    },
+    errorIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.ink100, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+    errorTitle: { color: C.ink900, fontSize: 18, fontWeight: '800', fontFamily: 'Inter', textAlign: 'center' },
+    errorHint: { color: C.ink500, fontSize: 13.5, lineHeight: 20, fontFamily: 'Inter', textAlign: 'center' },
+    errorBtn: {
+      marginTop: 10, minHeight: 48, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center',
+      borderRadius: V6Radii.btn, borderWidth: 1, borderColor: C.fieldBorder, backgroundColor: C.surface,
+    },
+    errorBtnText: { color: C.ink800, fontSize: 15.5, fontWeight: '700', fontFamily: 'Inter' },
 
     hero: { paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: C.line },
     kicker: { fontSize: 11.5, textTransform: 'uppercase', letterSpacing: 0.9, fontWeight: '800', color: V6Colors.link, marginBottom: 8, fontFamily: 'Inter' },
@@ -495,10 +520,11 @@ function createThemedStyles(theme: ThemePalette) {
     heroTitle: { flex: 1, fontSize: 21.5, lineHeight: 25, letterSpacing: -0.5, color: C.ink900, fontWeight: '700', fontFamily: 'Inter' },
     heroPrice: { fontSize: 21.5, fontWeight: '800', color: C.ink900, fontFamily: 'Inter' },
     urgentTag: { color: V6Colors.dangerText, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, marginTop: 8, fontFamily: 'Inter' },
-    factsGrid: { flexDirection: 'row', gap: 8, marginTop: 14 },
-    fact: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, backgroundColor: V6Colors.wellBg, borderRadius: 12 },
+    // Stacked full width so a long address isn't squeezed into half the row.
+    factsGrid: { gap: 8, marginTop: 14 },
+    fact: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 12, backgroundColor: V6Colors.wellBg, borderRadius: 14 },
     factLabel: { fontSize: 11.5, color: C.ink400, fontFamily: 'Inter' },
-    factValue: { fontSize: 13.5, color: C.ink800, fontWeight: '700', fontFamily: 'Inter', marginTop: 1 },
+    factValue: { fontSize: 14.5, color: C.ink800, fontWeight: '700', fontFamily: 'Inter', marginTop: 1, lineHeight: 20 },
     factSub: { fontSize: 11.5, color: C.ink400, fontFamily: 'Inter', marginTop: 2 },
 
     section: { paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: C.line },
@@ -538,17 +564,17 @@ function createThemedStyles(theme: ThemePalette) {
     },
     trustNoteText: { flex: 1, color: V6Colors.link, fontSize: 12, lineHeight: 16, fontFamily: 'Inter' },
 
-    actionBar: { paddingTop: 16, paddingBottom: 10, gap: 8 },
+    actionBar: { paddingTop: 16, paddingBottom: 10, gap: 10 },
     actionError: { color: V6Colors.dangerText, fontSize: 13.5, fontFamily: 'Inter', textAlign: 'center' },
-    primaryBtn: { backgroundColor: C.cyan700, borderRadius: V6Radii.btn, paddingVertical: 14, alignItems: 'center' },
+    primaryBtn: { backgroundColor: C.cyan700, borderRadius: 16, minHeight: 52, justifyContent: 'center', alignItems: 'center' },
     primaryBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     primaryBtnText: { color: C.onPrimary, fontSize: 16.5, fontWeight: '700', fontFamily: 'Inter' },
-    outlineBtn: { borderWidth: 1, borderColor: V6Colors.fieldBorder, borderRadius: V6Radii.btn, paddingVertical: 14, alignItems: 'center' },
-    outlineBtnText: { color: C.ink700, fontSize: 16.5, fontWeight: '700', fontFamily: 'Inter' },
-    outlineDangerBtn: { borderWidth: 1, borderColor: '#ef4444', borderRadius: V6Radii.btn, paddingVertical: 14, alignItems: 'center' },
+    outlineBtn: { borderWidth: 1, borderColor: V6Colors.fieldBorder, borderRadius: 16, minHeight: 52, justifyContent: 'center', alignItems: 'center' },
+    outlineBtnText: { color: C.ink800, fontSize: 16.5, fontWeight: '700', fontFamily: 'Inter' },
+    outlineDangerBtn: { borderWidth: 1, borderColor: V6Colors.dangerBorder, backgroundColor: V6Colors.dangerSurface, borderRadius: 16, minHeight: 52, justifyContent: 'center', alignItems: 'center' },
     outlineDangerBtnText: { color: V6Colors.dangerText, fontSize: 16.5, fontWeight: '700', fontFamily: 'Inter' },
-    lockedBtn: { backgroundColor: C.ink100, borderRadius: V6Radii.btn, paddingVertical: 14, alignItems: 'center' },
-    lockedBtnText: { color: C.ink400, fontSize: 15, fontWeight: '700', fontFamily: 'Inter', textAlign: 'center' },
+    lockedBtn: { backgroundColor: C.ink100, borderRadius: 16, minHeight: 52, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' },
+    lockedBtnText: { color: C.ink700, fontSize: 15, fontWeight: '700', fontFamily: 'Inter', textAlign: 'center' },
   });
   return { Colors, V6Colors, C, styles };
 }

@@ -26,16 +26,18 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
+import ContentSkeleton from '../../../src/components/ui/ContentSkeleton';
+import Silhouette from '../../../src/components/ui/Silhouette';
 import { ArrowLeft, BadgeCheck, CheckCircle2, MessageCircle, ShieldAlert, Star } from 'lucide-react-native';
 import { Spacing } from '../../../src/constants/theme';
 import { useHeaderTop } from '../../../src/hooks/useHeaderTop';
 
 import { useAsyncData } from '../../../src/hooks/useAsyncData';
 import { api } from '../../../src/lib/api';
-import { initials, shortDate } from '../../../src/lib/format';
+import { plural, shortDate } from '../../../src/lib/format';
 import { HOScreen } from '../../../src/types/navigation';
 
 interface HOProviderProfileScreenProps {
@@ -75,14 +77,14 @@ export default function HOProviderProfileScreen({
       {/* Header — matches .topbar (flat white) */}
       <View style={[styles.header, { paddingTop: headerTop }]}>
         {onBack && (
-          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+          <Tap style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
             <ArrowLeft size={20} color={C.ink700} />
-          </TouchableOpacity>
+          </Tap>
         )}
         <Text style={styles.headerTitle}>Provider Profile</Text>
       </View>
 
-      {loading && <ActivityIndicator style={{ marginTop: 24 }} color={V6Colors.link} />}
+      {loading && <ContentSkeleton variant="detail" />}
       {!!error && !loading && <Text style={styles.stateText}>{error}</Text>}
 
       {!loading && provider && (
@@ -90,7 +92,7 @@ export default function HOProviderProfileScreen({
           {/* Hero — matches .public-hero */}
           <View style={styles.hero}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials(provider.profiles?.full_name)}</Text>
+              <Silhouette name={provider.profiles?.full_name} textStyle={styles.avatarText} />
             </View>
             <Text style={styles.name}>{provider.profiles?.full_name ?? 'Provider'}</Text>
             {approvedServiceNames(provider).length > 0 && (
@@ -106,7 +108,7 @@ export default function HOProviderProfileScreen({
             </View>
             <Text style={styles.metaText}>
               {provider.cached_avg_rating != null ? `${Number(provider.cached_avg_rating).toFixed(1)}★ · ` : 'New · '}
-              {provider.cached_completed_jobs ?? 0} completed jobs
+              {plural(provider.cached_completed_jobs, 'completed job')}
               {provider.profiles?.city ? ` · ${provider.profiles.city}` : ''}
             </Text>
           </View>
@@ -117,14 +119,14 @@ export default function HOProviderProfileScreen({
             <Text style={styles.bio}>{provider.bio ?? 'No bio provided.'}</Text>
             <View style={styles.kvRow}>
               <Text style={styles.kvLabel}>Experience</Text>
-              <Text style={styles.kvValue}>{provider.years_experience ?? '—'} yrs</Text>
+              <Text style={styles.kvValue}>{provider.years_experience == null ? '—' : plural(provider.years_experience, 'yr')}</Text>
             </View>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Portfolio</Text>
             {portfolio.loading && <ActivityIndicator color={V6Colors.link}/>}
-            {!!portfolio.error && <><Text style={styles.bio}>{portfolio.error}</Text><TouchableOpacity onPress={portfolio.reload}><Text style={styles.serviceText}>Retry portfolio</Text></TouchableOpacity></>}
+            {!!portfolio.error && <><Text style={styles.bio}>{portfolio.error}</Text><Tap onPress={portfolio.reload}><Text style={styles.serviceText}>Retry portfolio</Text></Tap></>}
             {!portfolio.loading && !portfolio.error && <PortfolioGallery entries={portfolio.data??[]}/>}
           </View>
           {/* Recent work */}
@@ -149,11 +151,11 @@ export default function HOProviderProfileScreen({
           {/* Reviews */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Reviews</Text>
-            {reviews.length === 0 && <Text style={styles.bio}>No reviews yet.</Text>}
+            {reviews.length === 0 && <Text style={styles.emptyText}>No reviews yet.</Text>}
             {reviews.map((r) => (
               <View key={r.id} style={styles.reviewRow}>
                 <View style={styles.reviewAvatar}>
-                  <Text style={styles.reviewAvatarText}>{initials(r.client?.full_name)}</Text>
+                  <Silhouette name={r.client?.full_name} textStyle={styles.reviewAvatarText} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.reviewHeader}>
@@ -173,14 +175,14 @@ export default function HOProviderProfileScreen({
 
           {jobId && onNavigate && (
             <View style={styles.actionBar}>
-              <TouchableOpacity
+              <Tap
                 style={styles.messageBtn}
                 onPress={() => onNavigate('Chat', jobId)}
                 activeOpacity={0.85}
               >
                 <MessageCircle size={18} color={C.onPrimary} />
                 <Text style={styles.messageBtnText}>Message</Text>
-              </TouchableOpacity>
+              </Tap>
             </View>
           )}
 
@@ -214,8 +216,8 @@ function createThemedStyles(theme: ThemePalette) {
     body: { flex: 1 },
 
     hero: { padding: 22, paddingHorizontal: Spacing.screenH, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.line, alignItems: 'center' },
-    avatar: { width: 72, height: 72, borderRadius: 22, backgroundColor: C.cyan700, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-    avatarText: { color: C.onPrimary, fontSize: 24, fontWeight: '800', fontFamily: 'Inter' },
+    avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: C.primaryTonalStrong, alignItems: 'center', justifyContent: 'center', marginBottom: 10, overflow: 'hidden' },
+    avatarText: { color: C.primaryDeep, fontSize: 24, fontWeight: '800', fontFamily: 'Inter' },
     name: { color: C.ink900, fontSize: 20.5, fontWeight: '700', fontFamily: 'Inter' },
     metaText: { color: C.ink400, fontSize: 12.5, fontFamily: 'Inter', marginTop: 4, textAlign: 'center' },
     serviceText: { color: V6Colors.link, fontSize: 13, fontWeight: '700', fontFamily: 'Inter', marginTop: 2 },
@@ -231,6 +233,7 @@ function createThemedStyles(theme: ThemePalette) {
     section: { padding: 18, paddingHorizontal: Spacing.screenH, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.line },
     sectionTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.7, color: C.ink400, fontWeight: '700', fontFamily: 'Inter', marginBottom: 10 },
     bio: { fontSize: 13.5, lineHeight: 20, color: C.ink700, fontFamily: 'Inter' },
+    emptyText: { fontSize: 13.5, lineHeight: 20, color: C.ink500, fontFamily: 'Inter' },
 
     kvRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
     kvLabel: { color: C.ink500, fontSize: 13.5, fontFamily: 'Inter' },

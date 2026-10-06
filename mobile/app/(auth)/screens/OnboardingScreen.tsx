@@ -13,10 +13,10 @@ import {
   FlatList,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
   ViewToken,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
 import { BadgeCheck, CalendarCheck, Search, Shield, Sparkles, Users } from 'lucide-react-native';
 import { V6Radii, V6Shadows } from '../../../src/constants/theme';
 import { useAuthLayout } from '../../../src/hooks/useAuthLayout';
@@ -60,7 +60,7 @@ const CLIENT_SLIDES: Slide[] = [
     title: 'Pay with',
     titleAccent: 'peace of mind',
     subtitle: 'Your payment is held until the job is done.',
-    body: 'Top up your Wallet, hire, then confirm completion to release payment. Something wrong? File a dispute from the job.',
+    body: 'Top up your Wallet, hire, then confirm completion to release payment. Something wrong? File a complaint from the job.',
   },
 ];
 
@@ -140,9 +140,9 @@ export default function OnboardingScreen({ role, onFinish, onLogin }: Onboarding
   return (
     <View style={[styles.screen, { paddingTop: layout.paddingTop, paddingBottom: layout.paddingBottom }]}>
       <View style={styles.skipRow}>
-        <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} activeOpacity={0.8}>
+        <Tap style={styles.skipBtn} onPress={handleSkip} activeOpacity={0.8}>
           <Text style={styles.skipText}>Skip</Text>
-        </TouchableOpacity>
+        </Tap>
       </View>
 
       <FlatList
@@ -167,11 +167,11 @@ export default function OnboardingScreen({ role, onFinish, onLogin }: Onboarding
           ))}
         </View>
 
-        <TouchableOpacity style={styles.nextBtn} onPress={handleNext} activeOpacity={0.85}>
+        <Tap style={styles.nextBtn} onPress={handleNext} activeOpacity={0.85}>
           <Text style={styles.nextBtnText}>
             {currentIndex === slides.length - 1 ? 'Get Started' : 'Continue'}
           </Text>
-        </TouchableOpacity>
+        </Tap>
       </View>
     </View>
   );
@@ -226,10 +226,12 @@ function createThemedStyles(theme: ThemePalette) {
       fontFamily: 'Inter',
       fontSize: 32.5,
       fontWeight: '800',
-      letterSpacing: -0.81,
+      // A line height near the font size made Android clip the second line
+      // of two-line titles ("Confirm and get / paid").
+      letterSpacing: -0.5,
       color: C.ink900,
       textAlign: 'center',
-      lineHeight: 33,
+      lineHeight: 40,
     },
     titleAccent: {
       color: C.cyan600,

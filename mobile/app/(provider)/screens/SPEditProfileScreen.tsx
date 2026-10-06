@@ -22,9 +22,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
 import { ArrowLeft } from 'lucide-react-native';
 import AvatarPicker from '../../../src/components/AvatarPicker';
 import ConfirmationModal from '../../../src/components/ConfirmationModal';
@@ -85,6 +85,8 @@ function FormField({
         multiline={multiline}
         keyboardType={keyboardType}
         editable={editable}
+        // Locked fields (email) show the start of the value, not the end.
+        selection={editable === false ? { start: 0, end: 0 } : undefined}
         autoCapitalize={keyboardType === 'email-address' ? 'none' : 'words'}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
@@ -156,9 +158,9 @@ export default function SPEditProfileScreen({ onBack, onSave, onManageServices }
     <View style={styles.screen}>
       {/* Header — matches .topbar (flat white, not a colored hero) */}
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+        <Tap style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
           <ArrowLeft size={20} color={C.ink700} />
-        </TouchableOpacity>
+        </Tap>
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <View style={{ width: 38 }} />
       </View>
@@ -202,23 +204,23 @@ export default function SPEditProfileScreen({ onBack, onSave, onManageServices }
                     (categories.data ?? []).find((c) => c.id === providerProfile.category_id)?.name ??
                     '—'}
                 </Text>
-                <TouchableOpacity onPress={onManageServices} activeOpacity={0.8} testID="btn-manage-services">
+                <Tap onPress={onManageServices} activeOpacity={0.8} testID="btn-manage-services">
                   <Text style={styles.serviceLockedLink}>Request a change</Text>
-                </TouchableOpacity>
+                </Tap>
               </View>
             ) : (
               <View style={styles.chipGrid}>
                 {(categories.data ?? []).map((cat) => {
                   const active = categoryId === cat.id;
                   return (
-                    <TouchableOpacity
+                    <Tap
                       key={cat.id}
                       style={[styles.chip, active && styles.chipActive]}
                       onPress={() => setCategoryId(cat.id)}
                       activeOpacity={0.8}
                     >
                       <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat.name}</Text>
-                    </TouchableOpacity>
+                    </Tap>
                   );
                 })}
               </View>
@@ -227,14 +229,14 @@ export default function SPEditProfileScreen({ onBack, onSave, onManageServices }
 
           {!!error && <Text style={styles.errorText}>{error}</Text>}
 
-          <TouchableOpacity
+          <Tap
             style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
             onPress={requestSave}
             activeOpacity={0.85}
             disabled={saving}
           >
             <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
-          </TouchableOpacity>
+          </Tap>
 
           <View style={{ height: 20 }} />
         </ScrollView>
@@ -285,7 +287,7 @@ function createThemedStyles(theme: ThemePalette) {
     },
     fieldInputMultiline: { height: 90, textAlignVertical: 'top', paddingTop: 12 },
     fieldInputFocused: { borderColor: C.cyan500 },
-    fieldInputDisabled: { color: C.ink400, backgroundColor: C.ink50 },
+    fieldInputDisabled: { color: C.ink500, backgroundColor: C.ink50 },
 
     chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     serviceLocked: {

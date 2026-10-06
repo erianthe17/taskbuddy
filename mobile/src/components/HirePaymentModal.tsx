@@ -22,15 +22,13 @@ import { useThemedStyles, type Palette as ThemePalette } from '../context/ThemeC
 import React from 'react';
 import {
   ActivityIndicator,
-  Modal,
-  Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from './ui/Tap';
+import SheetFrame from './ui/SheetFrame';
 import { CreditCard, Wallet } from 'lucide-react-native';
-import { V6Radii } from '../constants/theme';
 import { MAX_CARD_PHP, MIN_TOPUP_PHP } from '../lib/api';
 import { peso } from '../lib/format';
 
@@ -70,19 +68,18 @@ export default function HirePaymentModal({
   const locked = busy !== null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={locked ? undefined : onClose}>
-      <Pressable style={styles.backdrop} onPress={locked ? undefined : onClose} accessible={false}>
-        <Pressable style={styles.card} onPress={() => {}} accessibilityViewIsModal>
+    <SheetFrame visible={visible} onClose={locked ? undefined : onClose} contentStyle={styles.card}>
           <Text style={styles.title} accessibilityRole="header">
             Hire {providerName}
           </Text>
+          {hasBudget && <Text style={styles.amount} accessibilityLabel={`Amount ${peso(budget)}`}>{peso(budget)}</Text>}
           <Text style={styles.body}>
             {hasBudget
               ? `${peso(budget)} is held in escrow and released to ${providerName} after the three-day warranty ends, unless a complaint is open.`
               : `This job has no budget, so nothing is held — ${providerName} is hired straight away.`}
           </Text>
 
-          <TouchableOpacity
+          <Tap
             style={[styles.option, (!walletCovers || locked) && styles.optionDisabled]}
             onPress={onPayWallet}
             disabled={!walletCovers || locked}
@@ -101,16 +98,16 @@ export default function HirePaymentModal({
               )}
             </View>
             {busy === 'wallet' && <ActivityIndicator color={V6Colors.link} />}
-          </TouchableOpacity>
+          </Tap>
 
           {hasBudget && available != null && !walletCovers && (
-            <TouchableOpacity onPress={onAddMoney} disabled={locked} activeOpacity={0.8} testID="hire-add-money">
+            <Tap onPress={onAddMoney} disabled={locked} activeOpacity={0.8} testID="hire-add-money">
               <Text style={styles.link}>Not enough in your wallet — add money →</Text>
-            </TouchableOpacity>
+            </Tap>
           )}
 
           {hasBudget && (
-            <TouchableOpacity
+            <Tap
               style={[styles.option, (!cardAllowed || locked) && styles.optionDisabled]}
               onPress={onPayCard}
               disabled={!cardAllowed || locked}
@@ -127,7 +124,7 @@ export default function HirePaymentModal({
                 </Text>
               </View>
               {busy === 'card' && <ActivityIndicator color={V6Colors.link} />}
-            </TouchableOpacity>
+            </Tap>
           )}
 
           {message && (
@@ -139,12 +136,10 @@ export default function HirePaymentModal({
             </Text>
           )}
 
-          <TouchableOpacity onPress={onClose} disabled={locked} activeOpacity={0.8} style={styles.cancel}>
+          <Tap onPress={onClose} disabled={locked} activeOpacity={0.8} style={styles.cancel}>
             <Text style={[styles.cancelText, locked && styles.optionDisabled]}>Cancel</Text>
-          </TouchableOpacity>
-        </Pressable>
-      </Pressable>
-    </Modal>
+          </Tap>
+    </SheetFrame>
   );
 }
 
@@ -152,15 +147,9 @@ function createThemedStyles(theme: ThemePalette) {
   const { Colors, V6Colors } = theme;
   const C = V6Colors;
   const styles = StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      backgroundColor: 'rgba(15,23,42,0.5)',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 28,
-    },
-    card: { width: '100%', backgroundColor: C.surface, borderRadius: V6Radii.card, padding: 22, gap: 10 },
-    title: { color: C.ink900, fontSize: 21, fontWeight: '800', fontFamily: 'Inter' },
+    card: { paddingHorizontal: 22, gap: 12 },
+    title: { color: C.ink900, fontSize: 20, fontWeight: '800', fontFamily: 'Inter', marginTop: 4 },
+    amount: { color: C.ink900, fontSize: 32, fontWeight: '800', fontFamily: 'Inter', letterSpacing: -0.6 },
     body: { color: C.ink500, fontSize: 14, fontFamily: 'Inter', lineHeight: 19, marginBottom: 4 },
 
     option: {
@@ -169,8 +158,9 @@ function createThemedStyles(theme: ThemePalette) {
       gap: 12,
       borderWidth: 1,
       borderColor: C.fieldBorder,
-      borderRadius: 14,
-      padding: 14,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      minHeight: 64,
     },
     optionDisabled: { opacity: 0.5 },
     optionCopy: { flex: 1 },
@@ -182,8 +172,8 @@ function createThemedStyles(theme: ThemePalette) {
     messageError: { color: V6Colors.dangerText },
     messageInfo: { color: C.ink700 },
 
-    cancel: { alignItems: 'center', paddingTop: 6 },
-    cancelText: { color: C.ink500, fontSize: 14, fontWeight: '700', fontFamily: 'Inter' },
+    cancel: { alignItems: 'center', justifyContent: 'center', minHeight: 48, borderRadius: 14 },
+    cancelText: { color: C.ink700, fontSize: 15, fontWeight: '700', fontFamily: 'Inter' },
   });
   return { Colors, V6Colors, C, styles };
 }

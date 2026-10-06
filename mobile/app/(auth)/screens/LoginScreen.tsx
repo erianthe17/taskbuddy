@@ -21,10 +21,10 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import Tap from '../../../src/components/ui/Tap';
+import GoogleGlyph from '../../../src/components/GoogleGlyph';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { V6Radii, V6Shadows } from '../../../src/constants/theme';
 import { useAuthLayout } from '../../../src/hooks/useAuthLayout';
@@ -236,9 +236,9 @@ export default function LoginScreen({
       <View style={styles.passwordSection}>
         <View style={styles.passwordLabelRow}>
           <Text style={styles.inputLabel}>Password</Text>
-          <TouchableOpacity onPress={onForgotPassword}>
+          <Tap onPress={onForgotPassword}>
             <Text style={styles.forgotText}>Forgot Password?</Text>
-          </TouchableOpacity>
+          </Tap>
         </View>
 
         <InputField
@@ -253,13 +253,13 @@ export default function LoginScreen({
           secureTextEntry={!showPassword}
           error={fieldErrors.password}
           rightElement={
-            <TouchableOpacity
+            <Tap
               onPress={() => setShowPassword((s) => !s)}
               style={styles.eyeBtn}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               {showPassword ? <EyeOff size={20} color={C.ink400} /> : <Eye size={20} color={C.ink400} />}
-            </TouchableOpacity>
+            </Tap>
           }
         />
       </View>
@@ -272,7 +272,7 @@ export default function LoginScreen({
       )}
 
       {/* Sign In */}
-      <TouchableOpacity
+      <Tap
         testID="btn-sign-in"
         style={[styles.primaryBtn, cs?.primaryBtn, submitting && styles.primaryBtnDisabled]}
         activeOpacity={0.85}
@@ -284,7 +284,7 @@ export default function LoginScreen({
         ) : (
           <Text style={styles.primaryBtnText}>Sign In</Text>
         )}
-      </TouchableOpacity>
+      </Tap>
 
       {/* Divider */}
       <View style={[styles.dividerRow, cs?.dividerRow]}>
@@ -294,7 +294,7 @@ export default function LoginScreen({
       </View>
 
       {/* Google */}
-      <TouchableOpacity
+      <Tap
         testID="btn-google"
         style={[styles.googleBtn, cs?.googleBtn, googleLoading && styles.primaryBtnDisabled]}
         activeOpacity={0.85}
@@ -302,16 +302,14 @@ export default function LoginScreen({
         disabled={googleLoading || submitting}
       >
         {googleLoading ? (
-          <ActivityIndicator color={V6Colors.link} />
+          <ActivityIndicator color="#ffffff" />
         ) : (
           <>
-            <View style={styles.googleIcon}>
-              <Text style={styles.googleIconText}>G</Text>
-            </View>
+            <GoogleGlyph size={20} />
             <Text style={styles.googleBtnText}>Continue with Google</Text>
           </>
         )}
-      </TouchableOpacity>
+      </Tap>
 
       {/* Sign Up */}
       <View style={styles.signUpRow}>
@@ -331,11 +329,7 @@ export default function LoginScreen({
     // even with pointerEvents set, and this sidesteps that class of bug
     // entirely: children of a normal View-like container always receive
     // touches, no workaround needed.
-    <LinearGradient
-      colors={[V6Colors.infoSurface, V6Colors.surface]}
-      locations={[0, 0.55]}
-      style={styles.screen}
-    >
+    <View style={[styles.screen, { backgroundColor: V6Colors.surface }]}>
       {/* Keyboard handling: the ScrollView's keyboardShouldPersistTaps +
           keyboardDismissMode handle taps/dismissal; KeyboardAvoidingView on
           Android resizes the form so the focused field/Sign In button scrolls
@@ -352,7 +346,7 @@ export default function LoginScreen({
       ) : (
         <View style={styles.flex}>{scrollContent}</View>
       )}
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -457,20 +451,16 @@ function createThemedStyles(theme: ThemePalette) {
     dividerText: { fontFamily: 'Inter', fontSize: 15.5, color: C.ink300 },
 
     // Google — matches .btn-outline
+    // Google's dark sign-in button: #131314, light text, four-colour G; same
+    // shape and height as the primary button above it.
+    // The light border only shows in dark mode, where the page is near-black.
     googleBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1, borderColor: V6Colors.fieldBorder, borderRadius: V6Radii.btn,
-      paddingVertical: 12, paddingHorizontal: 24, marginBottom: 28, gap: 10,
-      minHeight: 46, backgroundColor: C.surface,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+      backgroundColor: '#131314', borderRadius: V6Radii.btn, paddingVertical: 14, minHeight: 46, paddingHorizontal: 24,
+      borderWidth: 1, borderColor: theme.appearance === 'dark' ? '#8E918F' : '#131314',
+      marginBottom: 28,
     },
-    googleIcon: {
-      width: 20, height: 20, borderRadius: 10,
-      backgroundColor: '#EA4335', alignItems: 'center', justifyContent: 'center',
-    },
-    googleIconText: { color: C.onPrimary, fontSize: 14.5, fontWeight: '700' },
-    googleBtnText: {
-      fontFamily: 'Inter', fontSize: 16.5, fontWeight: '600', color: C.ink700,
-    },
+    googleBtnText: { fontFamily: 'Inter', fontSize: 16, fontWeight: '700', color: '#ffffff' },
 
     // Sign Up
     signUpRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },

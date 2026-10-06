@@ -15,9 +15,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
 import { ArrowLeft, BadgeCheck, Clock, XCircle } from 'lucide-react-native';
 import { Spacing, V6Radii } from '../../../src/constants/theme';
 import { useHeaderTop } from '../../../src/hooks/useHeaderTop';
@@ -111,9 +111,9 @@ export default function SPSkillRequestScreen({ onBack }: SPSkillRequestScreenPro
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8} accessibilityLabel="Back">
+        <Tap style={styles.backBtn} onPress={onBack} activeOpacity={0.8} accessibilityLabel="Back">
           <ArrowLeft size={20} color={C.ink700} />
-        </TouchableOpacity>
+        </Tap>
         <Text style={styles.headerTitle}>My Services</Text>
       </View>
 
@@ -131,7 +131,7 @@ export default function SPSkillRequestScreen({ onBack }: SPSkillRequestScreenPro
             <Text style={styles.mainService}>{mainService}</Text>
           </View>
           {secondaryServices.length > 0 && <>
-            <Text style={styles.cardLabel}>APPROVED ADDITIONAL SERVICES</Text>
+            <Text style={[styles.cardLabel, styles.cardLabelSpaced]}>APPROVED ADDITIONAL SERVICES</Text>
             {secondaryServices.map((service) => <Text key={service.category_id} style={styles.mainService}>{service.service_categories.name}</Text>)}
           </>}
           <Text style={styles.cardNote}>
@@ -154,9 +154,9 @@ export default function SPSkillRequestScreen({ onBack }: SPSkillRequestScreenPro
               <Text style={styles.bold}>{pending.category?.name ?? 'a service'}</Text> · sent {shortDate(pending.created_at)}
             </Text>
             <Text style={styles.reasonQuote}>“{pending.reason}”</Text>
-            <TouchableOpacity onPress={() => setConfirmCancel(pending)} activeOpacity={0.8} style={styles.cancelLink}>
+            <Tap onPress={() => setConfirmCancel(pending)} activeOpacity={0.8} style={styles.cancelLink}>
               <Text style={styles.cancelLinkText}>Cancel request</Text>
-            </TouchableOpacity>
+            </Tap>
           </View>
         )}
 
@@ -167,7 +167,7 @@ export default function SPSkillRequestScreen({ onBack }: SPSkillRequestScreenPro
             {TYPE_OPTIONS.map((opt) => {
               const selected = type === opt.value;
               return (
-                <TouchableOpacity
+                <Tap
                   key={opt.value}
                   style={[styles.option, selected && styles.optionOn]}
                   onPress={() => setType(opt.value)}
@@ -182,7 +182,7 @@ export default function SPSkillRequestScreen({ onBack }: SPSkillRequestScreenPro
                     <Text style={styles.optionLabel}>{opt.label}</Text>
                     <Text style={styles.optionHint}>{opt.hint}</Text>
                   </View>
-                </TouchableOpacity>
+                </Tap>
               );
             })}
 
@@ -191,14 +191,14 @@ export default function SPSkillRequestScreen({ onBack }: SPSkillRequestScreenPro
               {choices.map((cat) => {
                 const active = categoryId === cat.id;
                 return (
-                  <TouchableOpacity
+                  <Tap
                     key={cat.id}
                     style={[styles.chip, active && styles.chipActive]}
                     onPress={() => setCategoryId(cat.id)}
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat.name}</Text>
-                  </TouchableOpacity>
+                  </Tap>
                 );
               })}
             </View>
@@ -217,14 +217,14 @@ export default function SPSkillRequestScreen({ onBack }: SPSkillRequestScreenPro
             />
             <Text style={styles.counter}>{reason.length}/{REASON_MAX}</Text>
 
-            <TouchableOpacity
+            <Tap
               style={[styles.submitBtn, !canSubmit && styles.disabled]}
               onPress={() => void submit()}
               disabled={!canSubmit}
               activeOpacity={0.85}
             >
-              {submitting ? <ActivityIndicator color={C.onPrimary} /> : <Text style={styles.submitText}>Send to admins</Text>}
-            </TouchableOpacity>
+              {submitting ? <ActivityIndicator color={C.onPrimary} /> : <Text style={[styles.submitText, !canSubmit && styles.disabledText]}>Send to admins</Text>}
+            </Tap>
           </View>
         )}
 
@@ -298,6 +298,7 @@ function createThemedStyles(theme: ThemePalette) {
 
     card: { backgroundColor: C.surface, borderRadius: V6Radii.card, borderWidth: 1, borderColor: C.line, padding: 16, marginBottom: 14 },
     cardLabel: { color: C.ink400, fontSize: 11.5, fontWeight: '800', letterSpacing: 0.6, fontFamily: 'Inter' },
+    cardLabelSpaced: { marginTop: 14 },
     mainRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
     mainService: { color: C.ink900, fontSize: 18, fontWeight: '800', fontFamily: 'Inter' },
     cardNote: { color: C.ink500, fontSize: 13, fontFamily: 'Inter', lineHeight: 18, marginTop: 8 },
@@ -333,7 +334,9 @@ function createThemedStyles(theme: ThemePalette) {
     error: { color: V6Colors.dangerText, fontSize: 13.5, fontFamily: 'Inter', marginTop: 6 },
     submitBtn: { backgroundColor: C.cyan700, borderRadius: 12, minHeight: 46, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
     submitText: { color: C.onPrimary, fontSize: 15, fontWeight: '700', fontFamily: 'Inter' },
-    disabled: { opacity: 0.5 },
+    // Readable disabled state: grey fill with dark text instead of a faded button.
+    disabled: { backgroundColor: V6Colors.ink100 },
+    disabledText: { color: V6Colors.ink700 },
 
     sectionTitle: { color: C.ink400, fontSize: 12.5, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase', fontFamily: 'Inter', marginTop: 6, marginBottom: 8 },
     historyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderRadius: 12, padding: 12, marginBottom: 8 },

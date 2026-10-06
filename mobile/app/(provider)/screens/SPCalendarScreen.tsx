@@ -16,9 +16,16 @@
 
 import { useThemedStyles, type Palette as ThemePalette } from '../../../src/context/ThemeContext';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
+import ContentSkeleton from '../../../src/components/ui/ContentSkeleton';
 import { Calendar } from 'react-native-calendars';
-import { CalendarDays, UserRound } from 'lucide-react-native';
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  UserRound,
+} from 'lucide-react-native';
 import { Spacing, V6Radii, V6Shadows } from '../../../src/constants/theme';
 import { useHeaderTop } from '../../../src/hooks/useHeaderTop';
 
@@ -90,13 +97,24 @@ export default function SPCalendarScreen({ onNavigate }: SPCalendarScreenProps) 
             onDayPress={(day) => setSelectedDate(day.dateString)}
             onMonthChange={(m) => setVisibleMonth({ year: m.year, month: m.month - 1 })}
             markedDates={markedDates}
+            renderArrow={(direction: 'left' | 'right') => (direction === 'left'
+              ? <ChevronLeft size={22} color={V6Colors.link} />
+              : <ChevronRight size={22} color={V6Colors.link} />)}
             theme={{
               calendarBackground: V6Colors.surface,
               backgroundColor: V6Colors.surface,
               dayTextColor: V6Colors.ink900,
               textDisabledColor: V6Colors.ink400,
               monthTextColor: V6Colors.ink900,
-              textSectionTitleColor: V6Colors.ink500,
+              textSectionTitleColor: V6Colors.ink700,
+              textDayFontFamily: 'Inter',
+              textMonthFontFamily: 'Inter',
+              textDayHeaderFontFamily: 'Inter',
+              textMonthFontWeight: '700',
+              textDayHeaderFontWeight: '600',
+              textMonthFontSize: 17,
+              textDayFontSize: 15,
+              arrowStyle: { padding: 12 },
               todayTextColor: V6Colors.link,
               arrowColor: V6Colors.link,
               selectedDayBackgroundColor: C.cyan700,
@@ -106,16 +124,16 @@ export default function SPCalendarScreen({ onNavigate }: SPCalendarScreenProps) 
 
         <Text style={styles.sectionTitle}>Your Schedule</Text>
 
-        {loading && <ActivityIndicator style={{ marginTop: 10 }} color={V6Colors.link} />}
+        {loading && <ContentSkeleton variant="list" />}
 
         {!loading && !!error && (
           <View style={styles.emptyState}>
             <CalendarDays size={30} color={C.ink300} />
             <Text style={styles.emptyTitle}>Couldn't load your schedule</Text>
             <Text style={styles.emptyText}>{error}</Text>
-            <TouchableOpacity onPress={reload} activeOpacity={0.8}>
+            <Tap onPress={reload} activeOpacity={0.8}>
               <Text style={styles.retryLink}>Retry</Text>
-            </TouchableOpacity>
+            </Tap>
           </View>
         )}
 
@@ -129,7 +147,7 @@ export default function SPCalendarScreen({ onNavigate }: SPCalendarScreenProps) 
 
         {!loading && !error && daySchedule.map((booking) => {
           return (
-            <TouchableOpacity
+            <Tap
               key={booking.id}
               style={styles.scheduleCard}
               onPress={() => onNavigate?.('Job Detail', booking.job_id)}
@@ -148,7 +166,7 @@ export default function SPCalendarScreen({ onNavigate }: SPCalendarScreenProps) 
                   {booking.status === 'scheduled' ? 'Scheduled' : booking.status === 'completed' ? 'Completed' : 'Cancelled'}
                 </Text>
               </View>
-            </TouchableOpacity>
+            </Tap>
           );
         })}
 

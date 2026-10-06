@@ -3,16 +3,13 @@ import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from './ui/Tap';
+import SheetFrame from './ui/SheetFrame';
 import { CheckCircle2, Circle, KeyRound, ShieldCheck } from 'lucide-react-native';
 import { V6Radii } from '../constants/theme';
 import { api } from '../lib/api';
@@ -43,7 +40,7 @@ export default function ChangePasswordModal({ visible, onClose }: ChangePassword
 
   const rules = [
     { label: `At least ${MIN_LENGTH} characters`, ok: newPassword.length >= MIN_LENGTH },
-    { label: 'Different from your current password', ok: !!newPassword && newPassword !== currentPassword },
+    { label: 'Different from your current password', ok: !!newPassword && !!currentPassword && newPassword !== currentPassword },
     { label: 'Both new passwords match', ok: !!confirmPassword && newPassword === confirmPassword },
   ];
   const canSave = !!currentPassword && rules.every((r) => r.ok) && !saving;
@@ -73,18 +70,7 @@ export default function ChangePasswordModal({ visible, onClose }: ChangePassword
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={saving ? undefined : close} statusBarTranslucent>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.overlay} onPress={saving ? undefined : close} accessible={false}>
-          <Pressable
-            style={styles.dialog}
-            // Taps on the dialog's empty space close the keyboard, not the dialog.
-            onPress={(e) => {
-              e.stopPropagation();
-              Keyboard.dismiss();
-            }}
-            accessibilityViewIsModal
-          >
+    <SheetFrame visible={visible} onClose={saving ? undefined : close} contentStyle={styles.dialog}>
             {success ? (
               <View style={styles.successWrap}>
                 <View style={[styles.iconWell, styles.iconWellSuccess]}>
@@ -92,9 +78,9 @@ export default function ChangePasswordModal({ visible, onClose }: ChangePassword
                 </View>
                 <Text style={styles.title} accessibilityRole="header">Password updated</Text>
                 <Text style={styles.subtitle}>Use your new password the next time you sign in.</Text>
-                <TouchableOpacity style={[styles.primaryBtn, styles.fullWidth]} onPress={close} activeOpacity={0.85} accessibilityRole="button">
+                <Tap style={[styles.primaryBtn, styles.fullWidth]} onPress={close} activeOpacity={0.85} accessibilityRole="button">
                   <Text style={styles.primaryText}>Done</Text>
-                </TouchableOpacity>
+                </Tap>
               </View>
             ) : (
               <>
@@ -163,10 +149,10 @@ export default function ChangePasswordModal({ visible, onClose }: ChangePassword
                 {!!error && <Text style={styles.error} accessibilityRole="alert">{error}</Text>}
 
                 <View style={styles.actions}>
-                  <TouchableOpacity style={styles.secondaryBtn} onPress={close} disabled={saving} activeOpacity={0.8} accessibilityRole="button">
+                  <Tap style={styles.secondaryBtn} onPress={close} disabled={saving} activeOpacity={0.8} accessibilityRole="button">
                     <Text style={styles.secondaryText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
+                  </Tap>
+                  <Tap
                     style={[styles.primaryBtn, !canSave && styles.disabled]}
                     onPress={handleSave}
                     disabled={!canSave}
@@ -175,15 +161,12 @@ export default function ChangePasswordModal({ visible, onClose }: ChangePassword
                     accessibilityState={{ disabled: !canSave }}
                     testID="btn-update-password"
                   >
-                    {saving ? <ActivityIndicator color={C.onPrimary} /> : <Text style={styles.primaryText}>Update password</Text>}
-                  </TouchableOpacity>
+                    {saving ? <ActivityIndicator color={C.onPrimary} /> : <Text style={[styles.primaryText, !canSave && styles.disabledText]}>Update password</Text>}
+                  </Tap>
                 </View>
               </>
             )}
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+    </SheetFrame>
   );
 }
 
@@ -223,7 +206,9 @@ function createThemedStyles(theme: ThemePalette) {
       minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10,
     },
     primaryText: { color: C.onPrimary, fontSize: 14.5, fontWeight: '700', fontFamily: 'Inter' },
-    disabled: { opacity: 0.5 },
+    // Readable disabled state: grey fill with dark text instead of a faded button.
+    disabled: { backgroundColor: V6Colors.ink100 },
+    disabledText: { color: V6Colors.ink700 },
     successWrap: { alignItems: 'center' },
     fullWidth: { flex: 0, alignSelf: 'stretch', marginTop: 4 },
   });

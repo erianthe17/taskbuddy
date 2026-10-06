@@ -38,17 +38,19 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import { AlertCircle, ArrowLeft, ChevronRight, ShieldAlert, Star } from 'lucide-react-native';
+import Tap from '../../../src/components/ui/Tap';
+import { plural } from '../../../src/lib/format';
+import ContentSkeleton from '../../../src/components/ui/ContentSkeleton';
+import Silhouette from '../../../src/components/ui/Silhouette';
+import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, ShieldAlert, Star } from 'lucide-react-native';
 import { Spacing } from '../../../src/constants/theme';
 import { useHeaderTop } from '../../../src/hooks/useHeaderTop';
 
 import { useAsyncData } from '../../../src/hooks/useAsyncData';
 import { api, type JobApplication } from '../../../src/lib/api';
 import { openRedirectSession } from '../../../src/lib/appRedirectSession';
-import { initials } from '../../../src/lib/format';
 import HirePaymentModal from '../../../src/components/HirePaymentModal';
 import ConfirmationModal from '../../../src/components/ConfirmationModal';
 import { HOScreen } from '../../../src/types/navigation';
@@ -96,6 +98,7 @@ export default function HOJobApplicationsScreen({
   };
 
   const pendingCount = apps?.filter((a) => a.status === 'pending').length ?? 0;
+  const hasHired = apps?.some((a) => a.status === 'accepted') ?? false;
 
   // Accept and Reject both ask first: rejecting can't be undone, and accepting
   // goes straight on to payment.
@@ -220,14 +223,14 @@ export default function HOJobApplicationsScreen({
       {/* Header — matches .topbar (flat white) */}
       <View style={[styles.header, { paddingTop: headerTop }]}>
         {onBack && (
-          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+          <Tap style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
             <ArrowLeft size={20} color={C.ink700} />
-          </TouchableOpacity>
+          </Tap>
         )}
         <Text style={styles.headerTitle}>Proposals</Text>
       </View>
 
-      {loading && <ActivityIndicator style={{ marginTop: 24 }} color={V6Colors.link} />}
+      {loading && <ContentSkeleton variant="list" />}
       {!!error && !loading && <Text style={styles.stateText}>{error}</Text>}
 
       {!loading && apps && (
@@ -237,16 +240,16 @@ export default function HOJobApplicationsScreen({
           showsVerticalScrollIndicator={false}
         >
           <Text style={styles.countText}>
-            {pendingCount} active proposal{pendingCount === 1 ? '' : 's'} · Hire exactly one provider
+            {hasHired ? 'Provider hired · Follow the job from Job Details' : `${pendingCount} active proposal${pendingCount === 1 ? '' : 's'} · Hire exactly one provider`}
           </Text>
 
           {actionError && (
             <View style={styles.errorBanner} testID="applications-action-error">
               <AlertCircle size={16} color={V6Colors.dangerText} />
               <Text style={[styles.errorBannerText, { flex: 1 }]}>{actionError}</Text>
-              <TouchableOpacity onPress={() => reload()} activeOpacity={0.8}>
+              <Tap onPress={() => reload()} activeOpacity={0.8}>
                 <Text style={styles.retryText}>Retry</Text>
-              </TouchableOpacity>
+              </Tap>
             </View>
           )}
 
@@ -266,7 +269,7 @@ export default function HOJobApplicationsScreen({
                 <View key={app.id} style={styles.card}>
                   {/* The whole header opens the provider's profile — rating,
                       reviews and past work — before deciding. */}
-                  <TouchableOpacity
+                  <Tap
                     style={styles.cardHead}
                     onPress={() => onNavigate?.('Provider Profile', app.provider_id)}
                     disabled={!onNavigate}
@@ -276,7 +279,7 @@ export default function HOJobApplicationsScreen({
                     testID={`applications-profile-${app.id}`}
                   >
                     <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{initials(provider?.full_name)}</Text>
+                      <Silhouette name={provider?.full_name} textStyle={styles.avatarText} />
                     </View>
                     <View style={styles.copy}>
                       <Text style={styles.providerName}>{provider?.full_name ?? 'Provider'}</Text>
@@ -286,7 +289,7 @@ export default function HOJobApplicationsScreen({
                           {stats?.cached_avg_rating != null
                             ? `${Number(stats.cached_avg_rating).toFixed(1)} · `
                             : 'New · '}
-                          {stats?.cached_completed_jobs ?? 0} jobs
+                          {plural(stats?.cached_completed_jobs, 'job')}
                         </Text>
                       </View>
                       {!verified && (
@@ -302,7 +305,7 @@ export default function HOJobApplicationsScreen({
                         <ChevronRight size={15} color={V6Colors.link} />
                       </View>
                     )}
-                  </TouchableOpacity>
+                  </Tap>
 
                   <View style={styles.messageBox}>
                     <Text style={styles.messageText}>{app.cover_message ?? 'No cover message.'}</Text>
@@ -310,7 +313,7 @@ export default function HOJobApplicationsScreen({
 
                   {app.status === 'pending' ? (
                     <View style={styles.actionsRow}>
-                      <TouchableOpacity
+                      <Tap
                         style={[styles.outlineBtn, busyId !== null && styles.disabled]}
                         onPress={() => setConfirmReject(app)}
                         disabled={busyId !== null}
@@ -318,11 +321,11 @@ export default function HOJobApplicationsScreen({
                         testID={`applications-reject-${app.id}`}
                       >
                         <Text style={styles.outlineBtnText}>{busyId === app.id ? 'Working…' : 'Reject'}</Text>
-                      </TouchableOpacity>
+                      </Tap>
                       {/* Hiring an unverified provider is refused by the API
                           (409 provider_not_verified); disabling it here says
                           why before the tap rather than after. */}
-                      <TouchableOpacity
+                      <Tap
                         style={[styles.primaryBtn, (busyId !== null || !verified) && styles.disabled]}
                         onPress={() => setConfirmAccept(app)}
                         disabled={busyId !== null || !verified}
@@ -332,10 +335,17 @@ export default function HOJobApplicationsScreen({
                         <Text style={styles.primaryBtnText}>
                           {busyId === app.id ? 'Working…' : verified ? 'Accept' : 'Awaiting verification'}
                         </Text>
-                      </TouchableOpacity>
+                      </Tap>
                     </View>
                   ) : (
-                    <Text style={styles.decidedText}>{DECIDED_LABEL[app.status]}</Text>
+                    app.status === 'accepted' ? (
+                      <View style={styles.hiredBadge}>
+                        <CheckCircle2 size={16} color={V6Colors.successText} />
+                        <Text style={styles.hiredText}>{DECIDED_LABEL[app.status]}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.decidedText}>{DECIDED_LABEL[app.status]}</Text>
+                    )
                   )}
                 </View>
               );
@@ -434,10 +444,10 @@ function createThemedStyles(theme: ThemePalette) {
     card: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderRadius: 16, padding: 15 },
     cardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 11 },
     avatar: {
-      width: 42, height: 42, borderRadius: 13,
-      backgroundColor: C.cyan700, alignItems: 'center', justifyContent: 'center',
+      width: 44, height: 44, borderRadius: 22, overflow: 'hidden',
+      backgroundColor: C.primaryTonalStrong, alignItems: 'center', justifyContent: 'center',
     },
-    avatarText: { color: C.onPrimary, fontSize: 16, fontWeight: '800', fontFamily: 'Inter' },
+    avatarText: { color: C.primaryDeep, fontSize: 16, fontWeight: '800', fontFamily: 'Inter' },
     copy: { flex: 1 },
     providerName: { color: C.ink900, fontSize: 14.5, fontWeight: '700', fontFamily: 'Inter' },
     ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
@@ -460,6 +470,11 @@ function createThemedStyles(theme: ThemePalette) {
       paddingHorizontal: 8, paddingVertical: 3, marginTop: 2,
     },
     unverifiedChipText: { color: C.amber700, fontSize: 10.5, fontWeight: '700', fontFamily: 'Inter' },
+    hiredBadge: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44,
+      borderRadius: 12, backgroundColor: V6Colors.successSurface, borderWidth: 1, borderColor: V6Colors.successBorder,
+    },
+    hiredText: { color: V6Colors.successText, fontSize: 15, fontWeight: '700', fontFamily: 'Inter' },
     decidedText: { color: C.ink500, fontSize: 12.5, fontWeight: '600', fontFamily: 'Inter', textAlign: 'center' },
 
     errorBanner: {

@@ -17,9 +17,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
+import ContentSkeleton from '../../../src/components/ui/ContentSkeleton';
+import Silhouette from '../../../src/components/ui/Silhouette';
 import {
   ArrowLeft,
   CalendarDays,
@@ -37,7 +39,7 @@ import { useHeaderTop } from '../../../src/hooks/useHeaderTop';
 import { HOScreen } from '../../../src/types/navigation';
 import { useAsyncData } from '../../../src/hooks/useAsyncData';
 import { api, ApiError, type Job } from '../../../src/lib/api';
-import { distanceLabel, initials, jobStatusMeta, peso, shortDate, timeAgo, timeOfDay, urgencyMeta } from '../../../src/lib/format';
+import { distanceLabel, friendlyError, jobStatusMeta, peso, plural, shortDate, timeAgo, timeOfDay, urgencyMeta } from '../../../src/lib/format';
 import ConfirmationModal from '../../../src/components/ConfirmationModal';
 
 function acceptedDistanceKm(job: Job): number | null {
@@ -148,9 +150,14 @@ export default function HOJobDetailScreen({ jobId, onBack, onNavigate }: HOJobDe
     }
   };
 
+  // Once the provider has ticked every task the work is done: the next step
+  // is Confirm Completion, and a problem goes through File a Complaint rather
+  // than a cancellation.
+  const allTasksDone = tasks.length > 0 && tasks.every((task) => task.is_done);
   const canCancel =
     job &&
-    ['open', 'recommending', 'assigned', 'confirmed', 'in_progress'].includes(job.status);
+    ['open', 'recommending', 'assigned', 'confirmed', 'in_progress'].includes(job.status) &&
+    !(job.status === 'in_progress' && allTasksDone);
   const canDispute = job && !!job.assigned_provider_id && (
     ['assigned', 'confirmed', 'in_progress', 'cancelled'].includes(job.status) ||
     (job.status === 'completed' && job.warranty_expires_at && Date.now() < new Date(job.warranty_expires_at).getTime())
@@ -166,14 +173,14 @@ export default function HOJobDetailScreen({ jobId, onBack, onNavigate }: HOJobDe
     <View style={styles.screen}>
       {/* Header — matches .topbar (flat white, not a colored hero) */}
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+        <Tap style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
           <ArrowLeft size={20} color={C.ink700} />
-        </TouchableOpacity>
+        </Tap>
         <Text style={styles.headerTitle}>Job Details</Text>
         <View style={{ width: 38 }} />
       </View>
 
-      {loading && <ActivityIndicator style={{ marginTop: 40 }} color={V6Colors.link} />}
+      {loading && <ContentSkeleton variant="detail" />}
       {!!error && !loading && <Text style={styles.stateText}>{error}</Text>}
 
       {job && (
@@ -230,7 +237,7 @@ export default function HOJobDetailScreen({ jobId, onBack, onNavigate }: HOJobDe
                   </View>
                   <View style={styles.detailText}>
                     <Text style={styles.detailLabel}>{item.label}</Text>
-                    <Text style={[styles.detailValue, item.color && { color: item.color }]} numberOfLines={item.wide ? 3 : 1}>
+                    <Text style={[styles.detailValue, item.color && { color: item.color }]} numberOfLines={item.wide ? 3 : 4}>
                       {item.value}
                     </Text>
                   </View>
@@ -248,10 +255,20 @@ export default function HOJobDetailScreen({ jobId, onBack, onNavigate }: HOJobDe
                 <View key={label} style={styles.timelineStep}>
                   <View style={[
                     styles.timelineDot,
-                    i < stage && styles.timelineDotDone,
-                    i === stage && styles.timelineDotCurrent,
+                    // The last step is "Done": once reached it is complete, not "current".
+                    (i < stage || (i === stage && i === JOB_STAGES.length - 1)) && styles.timelineDotDone,
+                    i === stage && i < JOB_STAGES.length - 1 && styles.timelineDotCurrent,
                   ]} />
-                  <Text style={[styles.timelineLabel, i <= stage && styles.timelineLabelDone]}>{label}</Text>
+                  {/* Five steps share one row: on 360 dp phones even 1.1x broke
+                      "Confirmed" mid-word, so these short labels stay at 1x
+                      (the status pill above repeats the current stage). */}
+                  <Text
+                    style={[styles.timelineLabel, i <= stage && styles.timelineLabelDone]}
+                    maxFontSizeMultiplier={1}
+                    numberOfLines={2}
+                  >
+                    {label}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -290,9 +307,9 @@ export default function HOJobDetailScreen({ jobId, onBack, onNavigate }: HOJobDe
             {job.photo_urls?.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.attachmentList}>
                 {job.photo_urls.map((url, index) => (
-                  <TouchableOpacity key={url} onPress={() => setPhotoIndex(index)} accessibilityLabel={`Open job photo ${index + 1}`} activeOpacity={0.85}>
+                  <Tap key={url} onPress={() => setPhotoIndex(index)} accessibilityLabel={`Open job photo ${index + 1}`} activeOpacity={0.85}>
                     <Image source={{ uri: url }} style={styles.attachmentImage} />
-                  </TouchableOpacity>
+                  </Tap>
                 ))}
               </ScrollView>
             ) : (
@@ -306,32 +323,32 @@ export default function HOJobDetailScreen({ jobId, onBack, onNavigate }: HOJobDe
               <Text style={styles.sectionTitle}>Service Provider</Text>
               <View style={styles.providerCard}>
                 <View style={styles.providerAvatar}>
-                  <Text style={styles.providerAvatarText}>{initials(provider.profiles?.full_name)}</Text>
+                  <Silhouette name={provider.profiles?.full_name} textStyle={styles.providerAvatarText} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.providerName}>{provider.profiles?.full_name ?? 'Provider'}</Text>
+                  <Text style={styles.providerName} numberOfLines={1}>{provider.profiles?.full_name ?? 'Provider'}</Text>
                   <View style={styles.providerRatingRow}>
                     <Star size={12} color={C.ink400} fill={C.ink400} />
                     <Text style={styles.providerRating}>
                       {provider.cached_avg_rating != null
                         ? `${Number(provider.cached_avg_rating).toFixed(1)} · `
                         : 'New · '}
-                      {provider.cached_completed_jobs} jobs completed
+                      {plural(provider.cached_completed_jobs, 'job')} completed
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity
+                <Tap
                   style={styles.messageBtn}
                   onPress={() => onNavigate('Chat', job.id)}
                   activeOpacity={0.8}
                 >
                   <MessageCircle size={15} color={C.ink700} />
                   <Text style={styles.messageBtnText}>Message</Text>
-                </TouchableOpacity>
+                </Tap>
               </View>
 
               {job.provider_accept_address && (
-                <Text style={styles.detailValue}>
+                <Text style={styles.acceptedFrom}>
                   Accepted from {job.provider_accept_address}
                   {acceptedDistance != null ? ` · ${distanceLabel(acceptedDistance)} from your job` : ''}
                 </Text>
@@ -346,14 +363,14 @@ export default function HOJobDetailScreen({ jobId, onBack, onNavigate }: HOJobDe
               </Text>
               {!!matchingMessage && <Text style={styles.matchingMessage}>{matchingMessage}</Text>}
               {['open', 'recommending'].includes(job.status) && (
-              <TouchableOpacity
-                style={styles.primaryBtn}
+              <Tap
+                style={styles.outlineBtn}
                 onPress={() => onNavigate('Job Applications', job.id)}
                 activeOpacity={0.85}
                 testID="job-detail-view-offers"
               >
-                <Text style={styles.primaryBtnText}>View Offers</Text>
-              </TouchableOpacity>
+                <Text style={styles.outlineBtnText}>View Offers</Text>
+              </Tap>
               )}
             </View>
           )}
@@ -365,17 +382,21 @@ export default function HOJobDetailScreen({ jobId, onBack, onNavigate }: HOJobDe
                   show on every job, including ones with no provider yet, where
                   POST /jobs/:id/review can only come back as an error. */}
               {canReview && (
-                <TouchableOpacity
-                  style={[styles.linkRow, styles.detailRowBorder]}
+                <Tap
+                  style={styles.reviewBtn}
                   onPress={() => onNavigate('Leave Review', job.id)}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  scale
                 >
-                  <Text style={styles.linkRowText}>Leave Review</Text>
-                </TouchableOpacity>
+                  <Star size={18} color={C.onPrimary} fill={C.onPrimary} />
+                  <Text style={styles.reviewBtnText}>Leave Review</Text>
+                </Tap>
               )}
               {job.has_review && (
-                <View style={[styles.linkRow, styles.detailRowBorder]}>
-                  <Text style={styles.linkRowText}>Review submitted</Text>
+                <View style={styles.reviewDone}>
+                  <Check size={18} color={V6Colors.successText} strokeWidth={2.5} />
+                  <Text style={styles.reviewDoneText}>Review submitted</Text>
                 </View>
               )}
             </View>
@@ -387,33 +408,39 @@ export default function HOJobDetailScreen({ jobId, onBack, onNavigate }: HOJobDe
 
       {job && (
         <View style={styles.actionBar}>
-          {!!actionError && <Text style={styles.actionError}>{actionError}</Text>}
+          {!!actionError && <Text style={styles.actionError}>{friendlyError(actionError)}</Text>}
           {canComplete && (
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => setConfirmComplete(true)} activeOpacity={0.85} disabled={busy}>
+            <Tap style={styles.primaryBtn} onPress={() => setConfirmComplete(true)} activeOpacity={0.85} disabled={busy}>
               <Text style={styles.primaryBtnText}>{busy ? 'Working…' : 'Confirm Completion'}</Text>
-            </TouchableOpacity>
+            </Tap>
           )}
           {canFindProviders && (
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => void findProviders()} activeOpacity={0.85} disabled={busy}>
+            <Tap style={styles.primaryBtn} onPress={() => void findProviders()} activeOpacity={0.85} disabled={busy}>
               <Text style={styles.primaryBtnText}>{busy ? 'Looking…' : 'Find Providers'}</Text>
-            </TouchableOpacity>
-          )}
-          {canCancel && (
-            <TouchableOpacity style={styles.outlineDangerBtn} onPress={() => setConfirmCancel(true)} activeOpacity={0.85} disabled={busy}>
-              <View style={styles.outlineBtnContent}>
-                <CircleAlert size={17} color={V6Colors.dangerText} />
-                <Text style={styles.outlineDangerBtnText}>Cancel Job</Text>
-              </View>
-            </TouchableOpacity>
+            </Tap>
           )}
           {job.status === 'completed' && job.warranty_expires_at && (
-            <Text style={styles.detailLabel}>Warranty ends {new Date(job.warranty_expires_at).toLocaleString()}.</Text>
+            <Text style={styles.barNote}>Warranty ends {shortDate(job.warranty_expires_at)}, {timeOfDay(job.warranty_expires_at)}.</Text>
           )}
-          {dispute?.status === 'open' && <Text style={styles.detailLabel}>{dispute.cancellation_state === 'pending' ? 'Cancellation awaiting provider response' : dispute.escrow_transactions?.status === 'disputed' ? 'Payment under admin review' : 'Complaint awaiting admin review'}</Text>}
-          {(dispute || canDispute) && (
-            <TouchableOpacity style={styles.outlineBtn} onPress={() => onNavigate(dispute ? 'Dispute Status' : 'Dispute Filing', job.id)} activeOpacity={0.85}>
-              <Text style={styles.outlineDangerBtnText}>{dispute ? 'View Dispute Status' : 'File a Complaint'}</Text>
-            </TouchableOpacity>
+          {dispute?.status === 'open' && <Text style={styles.barNote}>{dispute.cancellation_state === 'pending' ? 'Cancellation awaiting provider response' : dispute.escrow_transactions?.status === 'disputed' ? 'Payment under admin review' : 'Complaint awaiting admin review'}</Text>}
+          {/* Secondary actions share one row so the primary action stays the
+              clear first choice; only cancelling is styled as destructive. */}
+          {(canCancel || dispute || canDispute) && (
+            <View style={styles.secondaryRow}>
+              {canCancel && (
+                <Tap style={[styles.outlineDangerBtn, styles.secondaryBtn]} onPress={() => setConfirmCancel(true)} activeOpacity={0.85} disabled={busy}>
+                  <View style={styles.outlineBtnContent}>
+                    <CircleAlert size={17} color={V6Colors.dangerText} />
+                    <Text style={styles.outlineDangerBtnText} numberOfLines={1}>Cancel Job</Text>
+                  </View>
+                </Tap>
+              )}
+              {(dispute || canDispute) && (
+                <Tap style={[styles.outlineBtn, styles.secondaryBtn]} onPress={() => onNavigate(dispute ? 'Dispute Status' : 'Dispute Filing', job.id)} activeOpacity={0.85}>
+                  <Text style={[styles.outlineBtnText, { textAlign: 'center' }]} numberOfLines={2} maxFontSizeMultiplier={1.15}>{dispute ? 'View Complaint Status' : 'File a Complaint'}</Text>
+                </Tap>
+              )}
+            </View>
           )}
         </View>
       )}
@@ -485,7 +512,7 @@ function createThemedStyles(theme: ThemePalette) {
       borderBottomWidth: 1, borderBottomColor: V6Colors.line,
     },
     backBtn: {
-      width: 38, height: 38, borderRadius: 12,
+      width: 44, height: 44, borderRadius: 22,
       backgroundColor: C.surface, borderWidth: 1, borderColor: V6Colors.line,
       alignItems: 'center', justifyContent: 'center',
     },
@@ -510,9 +537,9 @@ function createThemedStyles(theme: ThemePalette) {
 
     // Sections — borderless, bottom-divider only
     section: { paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: C.line },
-    sectionTitle: { fontSize: 14, color: C.ink900, fontWeight: '800', fontFamily: 'Inter', marginBottom: 12 },
+    sectionTitle: { fontSize: 16, color: C.ink900, fontWeight: '800', fontFamily: 'Inter', marginBottom: 12 },
     sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
-    sectionTitleInline: { flex: 1, fontSize: 14, color: C.ink900, fontWeight: '800', fontFamily: 'Inter' },
+    sectionTitleInline: { flex: 1, fontSize: 16, color: C.ink900, fontWeight: '800', fontFamily: 'Inter' },
     taskCounter: { fontSize: 12, color: C.ink400, fontWeight: '700', fontFamily: 'Inter' },
     taskRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7 },
     taskBox: {
@@ -525,7 +552,7 @@ function createThemedStyles(theme: ThemePalette) {
     taskLabelDone: { color: C.ink400, textDecorationLine: 'line-through' },
     actionError: { color: V6Colors.dangerText, fontSize: 13.5, fontFamily: 'Inter', textAlign: 'center' },
     matchingMessage: { color: V6Colors.link, fontSize: 13.5, fontFamily: 'Inter', textAlign: 'center', lineHeight: 18, marginBottom: 16 },
-    descText: { fontSize: 14, lineHeight: 21, color: C.ink700, fontFamily: 'Inter' },
+    descText: { fontSize: 15, lineHeight: 22, color: C.ink700, fontFamily: 'Inter' },
     attachmentList: { gap: 10 },
     attachmentImage: { width: 92, height: 92, borderRadius: 10, backgroundColor: C.ink100 },
     emptyAttachmentText: { color: C.ink500, fontSize: 13.5, fontFamily: 'Inter' },
@@ -537,7 +564,7 @@ function createThemedStyles(theme: ThemePalette) {
     timelineDot: { width: 15, height: 15, borderRadius: 8, borderWidth: 2, borderColor: V6Colors.line, backgroundColor: C.surface, marginBottom: 6 },
     timelineDotDone: { backgroundColor: C.cyan700, borderColor: C.cyan700 },
     timelineDotCurrent: { borderColor: C.cyan700 },
-    timelineLabel: { fontSize: 9.5, lineHeight: 12, color: C.ink400, fontFamily: 'Inter', textAlign: 'center' },
+    timelineLabel: { fontSize: 11, lineHeight: 14, color: C.ink400, fontFamily: 'Inter', textAlign: 'center' },
     timelineLabelDone: { color: C.ink700, fontWeight: '700' },
 
     // Detail rows
@@ -546,14 +573,15 @@ function createThemedStyles(theme: ThemePalette) {
     detailRowWide: { width: '100%' },
     detailText: { flex: 1, minWidth: 0 },
     detailIcon: { width: 30, height: 30, borderRadius: 9, backgroundColor: V6Colors.wellBg, alignItems: 'center', justifyContent: 'center' },
-    detailLabel: { fontSize: 11.5, color: C.ink400, fontFamily: 'Inter', marginBottom: 2 },
-    detailValue: { fontSize: 13.5, color: C.ink800, fontWeight: '600', fontFamily: 'Inter', lineHeight: 17, flexShrink: 1 },
+    detailLabel: { fontSize: 12.5, color: C.ink500, fontFamily: 'Inter', marginBottom: 2 },
+    detailValue: { fontSize: 14.5, color: C.ink800, fontWeight: '600', fontFamily: 'Inter', lineHeight: 20, flexShrink: 1 },
     providerNotice: { marginBottom: 16 },
+    acceptedFrom: { fontSize: 13.5, color: C.ink500, fontFamily: 'Inter', lineHeight: 19, marginTop: 12 },
 
     // Provider card
     providerCard: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-    providerAvatar: { width: 42, height: 42, borderRadius: 13, backgroundColor: C.cyan700, alignItems: 'center', justifyContent: 'center' },
-    providerAvatarText: { color: C.onPrimary, fontSize: 16, fontWeight: '800', fontFamily: 'Inter' },
+    providerAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.primaryTonalStrong, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    providerAvatarText: { color: C.primaryDeep, fontSize: 16, fontWeight: '800', fontFamily: 'Inter' },
     providerName: { fontSize: 14.5, fontWeight: '700', color: C.ink900, fontFamily: 'Inter' },
     providerRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
     providerRating: { fontSize: 11.5, color: C.ink400, fontFamily: 'Inter' },
@@ -564,18 +592,31 @@ function createThemedStyles(theme: ThemePalette) {
     linkRow: { paddingVertical: 12 },
     detailRowBorder: { borderTopWidth: 1, borderTopColor: V6Colors.wellBg },
     linkRowText: { color: V6Colors.link, fontSize: 14.5, fontWeight: '700', fontFamily: 'Inter' },
+    reviewBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      backgroundColor: C.primary, borderRadius: 16, minHeight: 52,
+    },
+    reviewBtnText: { color: C.onPrimary, fontSize: 16, fontWeight: '700', fontFamily: 'Inter' },
+    reviewDone: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      backgroundColor: V6Colors.successSurface, borderRadius: 16, minHeight: 48,
+    },
+    reviewDoneText: { color: V6Colors.successText, fontSize: 15, fontWeight: '700', fontFamily: 'Inter' },
 
     // Action bar
-    actionBar: { paddingHorizontal: Spacing.screenH, paddingTop: 12, paddingBottom: 10, gap: 8, backgroundColor: C.surface, borderTopWidth: 1, borderTopColor: C.line },
+    actionBar: { paddingHorizontal: Spacing.screenH, paddingTop: 12, paddingBottom: 12, gap: 10, backgroundColor: C.surface, borderTopWidth: 1, borderTopColor: C.line },
     previewBackdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.9)', alignItems: 'center', justifyContent: 'center', padding: 20 },
     previewImage: { width: '100%', height: '80%' },
-    primaryBtn: { backgroundColor: C.cyan700, borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
+    primaryBtn: { backgroundColor: C.cyan700, borderRadius: 16, minHeight: 52, justifyContent: 'center', alignItems: 'center' },
     primaryBtnText: { color: C.onPrimary, fontSize: 16.5, fontWeight: '700', fontFamily: 'Inter' },
-    outlineBtn: { borderWidth: 1, borderColor: V6Colors.fieldBorder, borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
-    outlineBtnText: { color: C.ink700, fontSize: 16.5, fontWeight: '700', fontFamily: 'Inter' },
-    outlineDangerBtn: { borderWidth: 1, borderColor: '#ef4444', borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
+    outlineBtn: { borderWidth: 1, borderColor: V6Colors.fieldBorder, borderRadius: 16, minHeight: 52, justifyContent: 'center', alignItems: 'center' },
+    secondaryRow: { flexDirection: 'row', gap: 10 },
+    secondaryBtn: { flex: 1, paddingHorizontal: 10 },
+    barNote: { fontSize: 13, color: C.ink500, fontFamily: 'Inter', textAlign: 'center' },
+    outlineBtnText: { color: C.ink800, fontSize: 15.5, fontWeight: '700', fontFamily: 'Inter' },
+    outlineDangerBtn: { borderWidth: 1, borderColor: V6Colors.dangerBorder, backgroundColor: V6Colors.dangerSurface, borderRadius: 16, minHeight: 52, justifyContent: 'center', alignItems: 'center' },
     outlineBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    outlineDangerBtnText: { color: V6Colors.dangerText, fontSize: 16.5, fontWeight: '700', fontFamily: 'Inter' },
+    outlineDangerBtnText: { color: V6Colors.dangerText, fontSize: 15.5, fontWeight: '700', fontFamily: 'Inter' },
   });
   return { Colors, V6Colors, C, styles };
 }

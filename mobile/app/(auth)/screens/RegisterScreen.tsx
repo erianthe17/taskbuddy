@@ -34,19 +34,21 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
   type LayoutChangeEvent,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
 import { AlertCircle, ArrowLeft, Check, ChevronDown, MailCheck } from 'lucide-react-native';
 import { V6Radii, V6Shadows } from '../../../src/constants/theme';
 import TermsAndConditions from './TermsAndConditions';
 import { ApiError, api } from '../../../src/lib/api';
 import type { MobileRole } from '../../../src/lib/api';
 import { useAuth } from '../../../src/context/AuthContext';
+import GoogleGlyph from '../../../src/components/GoogleGlyph';
 import PasswordInput from '../../../src/components/PasswordInput';
 import { useAuthLayout } from '../../../src/hooks/useAuthLayout';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /** Supabase issues 6-digit signup codes. */
 const OTP_LENGTH = 6;
@@ -167,14 +169,14 @@ function ConsentCheckbox({ checked, onPress, label, error, testID }: ConsentChec
   return (
     <View style={styles.consentItem}>
       <View style={styles.consentRow}>
-        <TouchableOpacity
+        <Tap
           testID={testID}
           style={[styles.checkbox, checked && styles.checkboxChecked]}
           onPress={onPress}
           activeOpacity={0.7}
         >
           {checked ? <Check size={14} color={C.onPrimary} /> : null}
-        </TouchableOpacity>
+        </Tap>
         <Text style={styles.termsText}>{label}</Text>
       </View>
       {!!error && <Text style={styles.inputErrorText}>{error}</Text>}
@@ -202,6 +204,7 @@ type FieldErrors = {
 export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: RegisterScreenProps) {
   const { C, styles, V6Colors, appearance } = useThemedStyles(createThemedStyles);
   const layout = useAuthLayout();
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const cardTop = useRef(0);
   const fieldPositions = useRef<Record<string, number>>({});
@@ -440,7 +443,7 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
             {!!otpError && <Text style={styles.otpError}>{otpError}</Text>}
             {!!resendNote && <Text style={styles.otpNote}>{resendNote}</Text>}
 
-            <TouchableOpacity
+            <Tap
               style={[styles.primaryBtn, !canVerify && styles.primaryBtnDisabled]}
               onPress={verifyCode}
               disabled={!canVerify}
@@ -452,9 +455,9 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
               ) : (
                 <Text style={styles.primaryBtnText}>Verify Email</Text>
               )}
-            </TouchableOpacity>
+            </Tap>
 
-            <TouchableOpacity
+            <Tap
               onPress={resendCode}
               disabled={resending || verifying}
               activeOpacity={0.7}
@@ -463,11 +466,11 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
               <Text style={styles.otpLink}>
                 {resending ? 'Sending…' : "Didn't get it? Resend code"}
               </Text>
-            </TouchableOpacity>
+            </Tap>
 
-            <TouchableOpacity onPress={onLogin} activeOpacity={0.7} accessibilityRole="button">
+            <Tap onPress={onLogin} activeOpacity={0.7} accessibilityRole="button">
               <Text style={styles.otpLinkMuted}>Go to Sign In</Text>
-            </TouchableOpacity>
+            </Tap>
           </View>
         </View>
       </View>
@@ -506,9 +509,9 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
       />
           {/* Top section */}
           <View style={styles.topSection}>
-            <TouchableOpacity style={styles.backBtn} onPress={onLogin} activeOpacity={0.8}>
+            <Tap style={styles.backBtn} onPress={onLogin} activeOpacity={0.8}>
               <ArrowLeft size={21} color={C.ink700} />
-            </TouchableOpacity>
+            </Tap>
           </View>
 
           {/* Form card */}
@@ -519,7 +522,7 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
             {/* Role toggle */}
             <View style={[styles.roleRow, fontScale > 1.2 && { flexDirection: 'column' }]}>
               {(['homeowner', 'provider'] as const).map((r) => (
-                <TouchableOpacity
+                <Tap
                   key={r}
                   style={[styles.roleBtn, role === r && styles.roleBtnActive]}
                   onPress={() => setRole(r)}
@@ -528,7 +531,7 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
                   <Text style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>
                     {r === 'homeowner' ? 'Client' : 'Service Provider'}
                   </Text>
-                </TouchableOpacity>
+                </Tap>
               ))}
             </View>
 
@@ -557,7 +560,7 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
             <FormInput
               label="Password"
               required
-              placeholder="••••••••"
+              placeholder="At least 8 characters"
               testID="input-password"
               value={password}
               onChangeText={(v) => { setPassword(v); clearError('password'); }}
@@ -568,7 +571,7 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
             <FormInput
               label="Confirm Password"
               required
-              placeholder="••••••••"
+              placeholder="Re-enter your password"
               testID="input-confirm-password"
               value={confirmPassword}
               onChangeText={(v) => { setConfirmPassword(v); clearError('confirmPassword'); }}
@@ -584,7 +587,7 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
                   Skill Category
                   <Text style={styles.requiredAsterisk}> *</Text>
                 </Text>
-                <TouchableOpacity
+                <Tap
                   style={[
                     styles.inputBox,
                     styles.categoryPicker,
@@ -601,11 +604,11 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
                     color={C.muted}
                     style={{ transform: [{ rotate: categoryOpen ? '180deg' : '0deg' }] }}
                   />
-                </TouchableOpacity>
+                </Tap>
                 {categoryOpen && (
                   <View style={styles.categoryDropdown}>
                     {categories.map((cat) => (
-                      <TouchableOpacity
+                      <Tap
                         key={cat.id}
                         style={[
                           styles.categoryOption,
@@ -627,7 +630,7 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
                           {cat.name}
                         </Text>
                         {cat.id === categoryId && <Check size={15} color={V6Colors.link} />}
-                      </TouchableOpacity>
+                      </Tap>
                     ))}
                   </View>
                 )}
@@ -722,7 +725,7 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
             )}
 
             {/* Sign Up */}
-            <TouchableOpacity
+            <Tap
               style={[styles.primaryBtn, submitting && styles.primaryBtnDisabled]}
               onPress={handleSignUp}
               activeOpacity={0.85}
@@ -733,7 +736,7 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
               ) : (
                 <Text style={styles.primaryBtnText}>Sign Up</Text>
               )}
-            </TouchableOpacity>
+            </Tap>
 
             {/* Divider */}
             <View style={styles.dividerRow}>
@@ -743,23 +746,21 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
             </View>
 
             {/* Google */}
-            <TouchableOpacity
+            <Tap
               style={[styles.googleBtn, googleLoading && styles.primaryBtnDisabled]}
               onPress={handleGoogleSignIn}
               activeOpacity={0.85}
               disabled={googleLoading || submitting}
             >
               {googleLoading ? (
-                <ActivityIndicator color={V6Colors.link} />
+                <ActivityIndicator color="#ffffff" />
               ) : (
                 <>
-                  <View style={styles.googleIcon}>
-                    <Text style={styles.googleIconText}>G</Text>
-                  </View>
+                  <GoogleGlyph size={20} />
                   <Text style={styles.googleBtnText}>Continue with Google</Text>
                 </>
               )}
-            </TouchableOpacity>
+            </Tap>
           </View>
 
           {/* Sign In link */}
@@ -791,6 +792,9 @@ export default function RegisterScreen({ onRegister, onLogin, onGoogleSignIn }: 
       >
         {scrollContent}
       </KeyboardAvoidingView>
+      {/* The form scrolls under a transparent status bar; this strip keeps
+          the clock from sitting on top of the fields. */}
+      <View pointerEvents="none" style={[styles.statusStrip, { height: insets.top }]} />
     </Animated.View>
   );
 }
@@ -811,6 +815,7 @@ function createThemedStyles(theme: ThemePalette) {
   const styles = StyleSheet.create({
     flex: { flex: 1 },
     screen: { flex: 1, backgroundColor: C.bg },
+    statusStrip: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: C.bg },
 
     scrollContent: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingTop: 56, paddingHorizontal: 16, paddingBottom: 40 },
 
@@ -976,18 +981,16 @@ function createThemedStyles(theme: ThemePalette) {
     dividerLine: { flex: 1, height: 1, backgroundColor: V6Colors.ink100 },
     dividerText: { color: '#B3B3B3', fontSize: 15.5, fontFamily: 'Roboto' },
 
+    // Google's dark sign-in button: #131314, light text, four-colour G; same
+    // shape and height as the primary button above it.
+    // The light border only shows in dark mode, where the page is near-black.
     googleBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1, borderColor: V6Colors.fieldBorder,
-      borderRadius: V6Radii.btn, paddingVertical: 13, gap: 10, marginBottom: 20,
-      backgroundColor: C.surface,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+      backgroundColor: '#131314', borderRadius: V6Radii.btn, paddingVertical: 15, paddingHorizontal: 24,
+      borderWidth: 1, borderColor: theme.appearance === 'dark' ? '#8E918F' : '#131314',
+      marginBottom: 20,
     },
-    googleIcon: {
-      width: 20, height: 20, borderRadius: 10,
-      backgroundColor: '#EA4335', alignItems: 'center', justifyContent: 'center',
-    },
-    googleIconText: { color: C.onPrimary, fontSize: 14.5, fontWeight: '700' },
-    googleBtnText: { fontFamily: 'Inter', fontSize: 16.5, fontWeight: '500', color: V6Colors.ink500 },
+    googleBtnText: { fontFamily: 'Inter', fontSize: 16, fontWeight: '700', color: '#ffffff' },
 
     signInRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 4 },
     signInPrompt: { fontFamily: 'Inter', fontSize: 16.5, color: C.muted },

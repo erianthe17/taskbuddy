@@ -20,15 +20,14 @@
 import { useThemedStyles, type Palette as ThemePalette } from '../../../src/context/ThemeContext';
 import React, { useState } from 'react';
 import {
-  Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import Tap from '../../../src/components/ui/Tap';
+import SheetFrame from '../../../src/components/ui/SheetFrame';
 import {
   ArrowLeft,
   ChevronRight,
@@ -101,9 +100,9 @@ export default function HOSettingsScreen({ onBack, onLogout }: HOSettingsScreenP
     <View style={styles.screen}>
       {/* Header — matches .topbar (flat white, not a colored hero) */}
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+        <Tap style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
           <ArrowLeft size={20} color={C.ink700} />
-        </TouchableOpacity>
+        </Tap>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 38 }} />
       </View>
@@ -155,15 +154,15 @@ export default function HOSettingsScreen({ onBack, onLogout }: HOSettingsScreenP
         </View>
         {!!settingsError && <View>
           <Text style={styles.settingsError}>{settingsError}</Text>
-          <TouchableOpacity onPress={reloadSettings} accessibilityLabel="Retry settings">
+          <Tap onPress={reloadSettings} accessibilityLabel="Retry settings">
             <Text style={{color: V6Colors.link, paddingBottom: 16}}>Retry settings</Text>
-          </TouchableOpacity>
+          </Tap>
         </View>}
 
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.card}>
           {accountItems.map((item, i) => (
-            <TouchableOpacity
+            <Tap
               key={item.label}
               style={[styles.navrow, i < accountItems.length - 1 && styles.rowBorder]}
               activeOpacity={0.7}
@@ -174,9 +173,9 @@ export default function HOSettingsScreen({ onBack, onLogout }: HOSettingsScreenP
               </View>
               <Text style={styles.rowLabel}>{item.label}</Text>
               <ChevronRight size={20} color={C.ink300} />
-            </TouchableOpacity>
+            </Tap>
           ))}
-          <TouchableOpacity
+          <Tap
             style={styles.navrow}
             activeOpacity={0.7}
             onPress={() => setShowDeleteModal(true)}
@@ -187,7 +186,7 @@ export default function HOSettingsScreen({ onBack, onLogout }: HOSettingsScreenP
             </View>
             <Text style={[styles.rowLabel, styles.rowLabelDanger]}>Delete Account</Text>
             <ChevronRight size={20} color={C.ink300} />
-          </TouchableOpacity>
+          </Tap>
         </View>
 
         <View style={{ height: 20 }} />
@@ -195,21 +194,14 @@ export default function HOSettingsScreen({ onBack, onLogout }: HOSettingsScreenP
 
       <ChangePasswordModal visible={showPasswordModal} onClose={() => setShowPasswordModal(false)} />
 
-      <Modal visible={showLanguageModal} transparent animationType="fade" onRequestClose={() => setShowLanguageModal(false)}>
-        <Pressable style={styles.overlay} onPress={() => setShowLanguageModal(false)} accessible={false}>
-          <Pressable
-            style={styles.dialog}
-            onPress={(e) => e.stopPropagation()}
-            accessibilityViewIsModal
-            accessibilityRole="alert"
-          >
+      <SheetFrame visible={showLanguageModal} onClose={() => setShowLanguageModal(false)} contentStyle={styles.dialog} cardProps={{ accessibilityRole: "alert" }}>
             <Text style={styles.dialogTitle} accessibilityRole="header">Language</Text>
             <View style={styles.langRow}>
               <Text style={styles.langLabel}>English</Text>
               <Text style={styles.langBadge}>Selected</Text>
             </View>
             <Text style={styles.dialogBody}>More languages are coming soon.</Text>
-            <TouchableOpacity
+            <Tap
               style={styles.dialogCloseBtn}
               onPress={() => setShowLanguageModal(false)}
               activeOpacity={0.85}
@@ -217,10 +209,8 @@ export default function HOSettingsScreen({ onBack, onLogout }: HOSettingsScreenP
               accessibilityLabel="Close"
             >
               <Text style={styles.dialogCloseText}>Close</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+            </Tap>
+    </SheetFrame>
 
       <ConfirmationModal
         visible={showDeleteModal}
