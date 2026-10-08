@@ -1,0 +1,26 @@
+appId: com.taskbuddy.app
+---
+# Slice 1.3: "View tutorial" replay from Help & Support, provider role.
+- runFlow: _helpers/login_provider.yaml
+- tapOn:
+    id: "btn-home-avatar"
+- scrollUntilVisible:
+    element: "Help & Support"
+- tapOn: "Help & Support"
+- assertVisible: "View tutorial"
+- tapOn: "View tutorial"
+- assertVisible: "Get verified.*"
+- tapOn: "Continue"
+- assertVisible: "Find jobs.*"
+- tapOn: "Continue"
+- assertVisible: "Confirm and get.*"
+- assertVisible: "Get Started"
+- tapOn: "Get Started"
+- assertVisible: "View tutorial"
+- tapOn: "View tutorial"
+- tapOn: "Skip"
+- assertVisible: "View tutorial"
+- tapOn: "View tutorial"
+- tapOn: "Continue"
+- back
+- assertVisible: "View tutorial"

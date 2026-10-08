@@ -384,8 +384,9 @@ that account and delete it (Settings → Delete Account) before retrying.
 - **`takeScreenshot` paths must stay inside the run's output folder** (use a bare name). For a
   screenshot anywhere else, run `adb exec-out screencap -p > file.png` from Git Bash (PowerShell's
   redirect corrupts the PNG).
-- **Don't tap "Continue with Google" on this emulator.** It has a Google account signed in, and
-  the OAuth round trip finishes by itself and signs the app in (E2E-008).
+- **Keep personal Google accounts off this emulator** (E2E-008). With one signed in, "Continue with
+  Google" finishes by itself and signs the app in. With none (`adb shell dumpsys account` shows
+  `Accounts: 0`) it opens Google's sign-in page in a Chrome custom tab.
 - **Known stale flows** (see `docs/e2e-sweep/findings.md`): `jobs_create_plumbing` (E2E-005),
   `profile_edit_client` (E2E-006), `hire_payment_choice` (E2E-007).
 
@@ -409,3 +410,13 @@ that account and delete it (Settings → Delete Account) before retrying.
 - **A freshly cleared app shows onboarding again after login**, even for an old account, so login helpers must tolerate it (`Skip` optional).
 - **In `scrollUntilVisible`, the back arrow on Register has no label**; tap point `8%,8%`.
 - New flows: `p1_auth_register_validation`, `p1_auth_register_client`, `p1_auth_register_provider`. The two that create accounts use a `Date.now()` email and delete the burner at the end. If a run dies midway, delete the leftover `maestro.burner.reg.<ts>@taskbuddy.test` by hand.
+
+## Slice 1.3 notes (2026-10-09, release build `fbe63d63`)
+
+- **Forgot Password has no testIDs.** Open it with `tapOn: "Forgot Password?"` (text), select the email field by its `sample@mail.com` placeholder, the code field by `••••••`, the new-password field by `At least 8 characters` (only while empty, the rule row below has the same text), the confirm field by `Re-enter your new password`. The back arrow's a11y label `Return to sign in` works as a selector.
+- **An unknown email advances to stage 2 exactly like a real one** (no account enumeration). Use `maestro.noacct.fp@taskbuddy.test` for every stage-2 flow, since a real address sends mail (Supabase caps 4 per hour). `auth_forgot_password_request.yaml` types `maestro.client@` and sends one.
+- **Stage 2 is long:** `hideKeyboard` before `scrollUntilVisible` on the confirm field, or the tap fails with the field behind the keyboard.
+- **Inline `run` from the Maestro MCP can't resolve relative `runFlow` paths** (its temp file is elsewhere); use the absolute path to `_helpers/launch_fresh.yaml`, or run the file with the CLI.
+- **Tutorial replay:** client Profile > "Help & Support" > "View tutorial"; provider Profile (scroll) > "Help & Support". The buttons read "Continue" and "Get Started" (not "Next"). Skip and Get Started both return to Help & Support. Slide titles are split across nested Text nodes, so assert with a regex such as `Post a job in.*`.
+- **Hardware back on the first-run slides exits the app** (E2E-023), so don't use `back` there.
+- New flows: `p1_auth_forgot_validation`, `p1_auth_forgot_stage2_validation`, `p1_onboarding_tutorial_client`, `p1_onboarding_tutorial_provider`, `p1_auth_legal`. None sends mail or creates an account, and none freezes the raw server copy logged in E2E-020/022.

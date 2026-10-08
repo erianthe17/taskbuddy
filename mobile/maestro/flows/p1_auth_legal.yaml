@@ -1,0 +1,35 @@
+appId: com.taskbuddy.app
+---
+# Slice 1.3: Terms & Privacy modals reached from Register. Creates no account.
+- runFlow: _helpers/launch_fresh.yaml
+- tapOn: "Sign Up"
+- assertVisible: "Create account"
+- scrollUntilVisible:
+    element:
+      id: "chk-terms"
+- tapOn:
+    id: "chk-terms"
+- assertVisible: "I agree to the Terms & Conditions"
+- scrollUntilVisible:
+    element: "Policy Updates"
+# X and hardware back close without accepting, and back does not leave Register
+- tapOn: "Close"
+- assertNotVisible: "I agree to the Terms & Conditions"
+- tapOn:
+    id: "chk-terms"
+- back
+- assertNotVisible: "I agree to the Terms & Conditions"
+- assertVisible: "Create account"
+# accept closes the modal
+- tapOn:
+    id: "chk-terms"
+- tapOn: "I agree to the Terms & Conditions"
+- assertNotVisible: "I agree to the Terms & Conditions"
+# privacy: last section reachable, accept closes
+- tapOn:
+    id: "chk-privacy"
+- assertVisible: "I agree to the Privacy Policy"
+- scrollUntilVisible:
+    element: "Retention"
+- tapOn: "I agree to the Privacy Policy"
+- assertNotVisible: "I agree to the Privacy Policy"

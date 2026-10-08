@@ -1,0 +1,44 @@
+appId: com.taskbuddy.app
+---
+# Slice 1.3: forgot-password stage 1 validation and the no-enumeration check.
+# Sends NO mail: only unknown addresses (maestro.noacct.fp@, never maestro.client@).
+# Does not assert the server's wording for malformed addresses (E2E-020 logs it
+# as raw class-validator text); it only asserts stage 2 is not reached.
+- runFlow: _helpers/launch_fresh.yaml
+- tapOn: "Forgot Password?"
+- assertVisible: "Forgot your password?"
+# empty
+- tapOn: "Send reset code"
+- assertVisible: "Enter the email address on your account."
+# whitespace only
+- tapOn: "sample@mail.com"
+- inputText: "   "
+- tapOn: "Send reset code"
+- assertVisible: "Enter the email address on your account."
+# malformed: rejected by the server, stays on stage 1
+- runFlow: _helpers/launch_fresh.yaml
+- tapOn: "Forgot Password?"
+- tapOn: "sample@mail.com"
+- inputText: "not-an-email"
+- hideKeyboard
+- tapOn: "Send reset code"
+- waitForAnimationToEnd:
+    timeout: 5000
+- assertVisible: "Send reset code"
+- assertNotVisible: "Check your email"
+# unknown address advances exactly like a real one (no account enumeration)
+- runFlow: _helpers/launch_fresh.yaml
+- tapOn: "Forgot Password?"
+- tapOn: "sample@mail.com"
+- inputText: "  maestro.noacct.fp@taskbuddy.test  "
+- hideKeyboard
+- tapOn: "Send reset code"
+- extendedWaitUntil:
+    visible: "Check your email"
+    timeout: 15000
+- assertVisible: ".*has an account.*"
+- assertVisible: ".*Resend in.*"
+- assertNotVisible: ".*no account.*"
+# hardware back on stage 2 goes to Login
+- back
+- assertVisible: "Welcome!"

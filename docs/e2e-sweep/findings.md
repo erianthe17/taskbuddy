@@ -9,8 +9,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
-| S3 | 2 | 0 | 0 | 0 | 1 |
-| S4 | 13 | 2 | 1 | 0 | 0 |
+| S3 | 2 | 1 | 0 | 0 | 0 |
+| S4 | 18 | 2 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -93,13 +93,13 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Found:** 2026-10-08, slice 0.3, case 0.3-R08   **Role:** both
 - **Category:** env
 - **Severity:** S3 medium
-- **Status:** Escalated (needs a decision from you, see below)
+- **Status:** Workaround (the Google account was removed from the AVD on 2026-10-09; re-verified in slice 1.3)
 - **Steps:** 1. Clear app data and launch. 2. Tap "Continue with Google". 3. Wait about 10s.
-- **Expected:** a Chrome custom tab with an account chooser (the plan stops there).   **Actual:** the app ended up on the onboarding slides, so the OAuth round trip finished with no interaction. The emulator has a real personal Google account added, and it was used. Backing out of the onboarding leaves the app. I cleared the app data (`pm clear`) straight away, so the session is gone from the device, and I did nothing else under that identity.
-- **Unknown:** whether that Google identity already had a TaskBuddy profile or the sign-in created a new one on the shared backend. I haven't looked it up, because the plan keeps me to `@taskbuddy.test` accounts.
-- **Evidence:** `evidence/E2E-008-google-signin-autocompletes.png`
-- **Suggested handling:** remove that Google account from the emulator, or use an AVD without one, before Slice 1.3. Decide whether to check the backend for a profile created today and delete it if so.
-
+- **Expected:** a Chrome custom tab with an account chooser (the plan stops there).   **Actual (0.3):** the app ended up on the onboarding slides, so the OAuth round trip finished with no interaction. The emulator had a real personal Google account added, and it was used. I cleared the app data (`pm clear`) straight away.
+- **Your reply (2026-10-09):** "google log in works correctly no problem". You did not say whether that identity already had a TaskBuddy profile or whether the 0.3 sign-in created one. Nobody looked it up (the plan keeps me to `@taskbuddy.test` accounts), so that is still unknown.
+- **Slice 1.3 re-check:** with `dumpsys account` showing `Accounts: 0`, one tap opened a Chrome custom tab on Google's own "Sign in" page (Email or phone field), nothing auto-completed, back returned to Login within 12 s with no ANR and no error banner, and a force-stop plus relaunch landed on Login.
+- **Evidence:** `evidence/E2E-008-google-signin-autocompletes.png` (0.3). The 1.3 screenshot is not committed.
+- **Remaining ask:** keep personal Google accounts off the test AVD. If the 0.3 tap created a profile for that Google identity on the shared backend, it is still there; delete it yourself if you don't want it.
 
 ### E2E-009 — Login banner shows raw class-validator text ("email must be an email")
 - **Found:** 2026-10-08, slice 1.1, cases 1.1-09, 1.1-13, 1.1-14, 1.1-30   **Role:** both
@@ -210,6 +210,57 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** the same confirmation wording and buttons for the same destructive action.   **Actual:** the client dialog reads "This permanently removes your personal details and signs you out. You must first clear any wallet balance, pending withdrawal, active job, escrow hold, or dispute." with buttons "Cancel" / "Delete Account". The provider dialog has an icon, different wording ("Your profile, contact details and settings are removed ... This can't be undone.") and buttons "Keep My Account" / "Delete". Maestro flows need role-specific selectors because of this (`settings_delete_account_burner.yaml` only works for clients).
 - **Evidence:** `evidence/E2E-019-delete-dialog-client.png` (provider dialog seen on screen, not saved)
 - **Suspected cause:** two separate dialog components. Not investigated.
+
+### E2E-020 — Forgot Password banner shows raw class-validator text ("email must be an email")
+- **Found:** 2026-10-09, slice 1.3, cases 1.3-05, 1.3-06   **Role:** both
+- **Category:** ux
+- **Severity:** S4 low/cosmetic
+- **Status:** Open (twin of E2E-009 on Login and E2E-015 on Register)
+- **Steps:** 1. Login, "Forgot Password?". 2. Type `not-an-email` (also `x@y`), tap "Send reset code".
+- **Expected:** friendly copy such as "Please enter a valid email address." and no advance to stage 2.   **Actual:** red card reads `email must be an email`. The screen has no client-side format check, only an empty check.
+- **Evidence:** `evidence/E2E-020-forgot-raw-validation-copy.png`
+- **Suspected cause:** `ForgotPasswordScreen.tsx:81` only checks `!email.trim()`; `api.ts:788-790` passes `message[0]` through as-is. Same fix as E2E-009.
+
+### E2E-021 — Forgot Password keeps its error card after the input is corrected (both stages)
+- **Found:** 2026-10-09, slice 1.3, cases 1.3-13, 1.3-34   **Role:** both
+- **Category:** ux
+- **Severity:** S4 low/cosmetic
+- **Status:** Open (same class as E2E-013/014)
+- **Steps:** 1. Reach stage 2 with an unknown address. 2. Code `123456`, New `TestPass123!`, Confirm `TestPass123?`, tap "Reset password" (error appears). 3. Edit Confirm to `TestPass123!` without tapping anything else.
+- **Expected:** the error clears once the input changes.   **Actual:** both rules turn green ("At least 8 characters", "Both passwords match") while the red card still says "Those passwords do not match.", until the next submit.
+- **Also on stage 1 (case 1.3-13):** tap "Send reset code" with an empty field ("Enter the email address on your account."), then type a valid address: the red card stays above the valid value.
+- **Evidence:** `evidence/E2E-021-forgot-stale-mismatch-error.png`, `evidence/E2E-021-forgot-stage1-stale-empty-error.png`
+- **Suspected cause:** `ForgotPasswordScreen.tsx:79-80,99-101` clear `error` only at the start of a submit; the `onChangeText` handlers don't.
+
+### E2E-022 — Forgot Password stage 2 shows Supabase's raw "Token has expired or is invalid"
+- **Found:** 2026-10-09, slice 1.3, case 1.3-33   **Role:** both
+- **Category:** ux
+- **Severity:** S4 low/cosmetic
+- **Status:** Open
+- **Steps:** 1. Stage 2 with an unknown address. 2. Code `123456`, matching valid passwords, tap "Reset password".
+- **Expected:** the screen's own copy ("That code is invalid or has expired.", `ForgotPasswordScreen.tsx:120`).   **Actual:** red card reads "Token has expired or is invalid", passed through from the backend. No account existence leak (the same text would come back for a real account with a wrong code).
+- **Evidence:** `evidence/E2E-022-forgot-raw-token-copy.png`
+- **Suspected cause:** the friendly string is only a fallback for non-Error throws; `e.message` is shown whenever the server sends one.
+
+### E2E-023 — Hardware back on the first-run onboarding slides closes the app
+- **Found:** 2026-10-09, slice 1.3, case 1.3-59   **Role:** both
+- **Category:** ux
+- **Severity:** S4 low/cosmetic
+- **Status:** Open (needs product sign-off: it may be intended, since there is nowhere to go back to)
+- **Steps:** 1. Clear app data, log in as `maestro.client@`. 2. On the first onboarding slide press hardware back.
+- **Expected:** back is absorbed (or goes to the previous slide), as it does on every other screen.   **Actual:** the app leaves to the launcher. Relaunching keeps the session and shows the slides again (the "seen" flag is only saved on Skip / Get Started); Skip then force-stop then relaunch lands on Home with no slides.
+- **Evidence:** observed via `dumpsys activity` (top activity = launcher), no screenshot.
+- **Suspected cause:** `App.tsx:282-284` returns false from the back handler while onboarding is showing.
+
+### E2E-024 — Forgot Password stage 2: Confirm field half covered by the keyboard at font scale 1.3
+- **Found:** 2026-10-09, slice 1.3, case 1.3-44   **Role:** both
+- **Category:** ux
+- **Severity:** S4 low/cosmetic (the field can still be typed in and the screen scrolls)
+- **Status:** Open (same class as E2E-012/016)
+- **Steps:** 1. `adb shell settings put system font_scale 1.3`. 2. Forgot Password, an unknown address, stage 2. 3. Fill code and New password, tap Confirm new password.
+- **Expected:** the focused field and its text are fully visible above the keyboard.   **Actual:** the Confirm field's lower half is under the keyboard and its placeholder is clipped ("Re-enter your new passwor"); the rules, "Reset password" and the footer are not visible until the user hides the keyboard.
+- **Evidence:** `evidence/E2E-024-forgot-confirm-field-under-keyboard-1.3x.png`
+- **Suspected cause:** `KeyboardAvoidingView behavior="height"` inside a ScrollView (`ForgotPasswordScreen.tsx:315-318`), same pattern as Register.
 
 ## Found & solved
 

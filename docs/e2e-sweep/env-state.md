@@ -106,7 +106,7 @@ Balance / available / pending, recorded at slice start and end.
 - Typing trap: `aabbrrcc` types cleanly on the release build, so the doubled-letter rule no longer applies.
 - Notification permission is never requested during login (`POST_NOTIFICATIONS granted=false`).
 - `mobile/node_modules` was incomplete (`expo-image` missing), which made every `eas` command fail with `expo config` exiting 1. `npm ci` fixed it. `eas` in PowerShell needs `cmd /c` because its upgrade notice on stderr trips PowerShell's error handling.
-- The emulator has a real personal Google account added. "Continue with Google" completes by itself with it (E2E-008). Don't tap that button again until the account is removed or you decide otherwise.
+- (Resolved 2026-10-09) The Google account was removed from the AVD (`dumpsys account` shows `Accounts: 0`); the button now opens Google's own sign-in page in a Chrome custom tab (E2E-008, Workaround).
 - Baseline log: `~/.taskbuddy-e2e/logs/baseline.log`. Crash sweep: `0.3-logcat.txt` (empty, clean).
 
 ## Slice 1.1 notes
@@ -126,3 +126,10 @@ Balance / available / pending, recorded at slice start and end.
 - Server facts learned: register has no length cap on `full_name`/`password`; the server lower-cases and trims the email and trims `full_name` (a `<script>` name is stored verbatim); a duplicate email is case-insensitive (409); `forbidNonWhitelisted` wording is "property x should not exist".
 - Maestro `takeScreenshot` drops PNGs into the working directory; they were moved to `~/.taskbuddy-e2e/scratch/1.2/` and not committed.
 
+## Slice 1.3 notes
+
+- Installed build unchanged: `fbe63d63…` (APK sha256 matched at session start). No rebuild.
+- Mail sent this hour: exactly one (`maestro.client@`, 16:32 UTC, case 1.3-01). The existing flow `auth_forgot_password_request.yaml` sends mail every time it runs, so Slice 9.1's regression run will send one more. Every other forgot-password case used `maestro.noacct.fp@taskbuddy.test` / `maestro.noacct.fp2@taskbuddy.test`, which have no account and send nothing.
+- Emulator: font scale back at 1.0, autofill null, timezone Asia/Manila. The Google account was removed by you before the Google cases. One Chrome task is left in Recents from the custom tab.
+- No wallet or job state changed. Balances as before: client 49,500 available (500 frozen), others 0. No account was created or deleted in this slice.
+- The Maestro MCP's device connection died mid-session (`UNAVAILABLE`, connection age ~3 h). All device work went through the `maestro test` CLI.

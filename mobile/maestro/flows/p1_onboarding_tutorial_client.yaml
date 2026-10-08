@@ -1,0 +1,35 @@
+appId: com.taskbuddy.app
+---
+# Slice 1.3: "View tutorial" replay from Help & Support, client role.
+- runFlow: _helpers/login_client.yaml
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "Help & Support"
+- assertVisible: "View tutorial"
+- tapOn: "View tutorial"
+- assertVisible: "Post a job in.*"
+- assertVisible: "Skip"
+- tapOn: "Continue"
+- assertVisible: "Pick the right.*"
+- tapOn: "Continue"
+- assertVisible: "Pay with.*"
+- assertVisible: "Get Started"
+- tapOn: "Get Started"
+- assertVisible: "View tutorial"
+# Skip returns to Help & Support
+- tapOn: "View tutorial"
+- tapOn: "Skip"
+- assertVisible: "View tutorial"
+# swipes keep the button label in sync
+- tapOn: "View tutorial"
+- swipe:
+    direction: LEFT
+- swipe:
+    direction: LEFT
+- assertVisible: "Get Started"
+- swipe:
+    direction: RIGHT
+- assertVisible: "Continue"
+# hardware back pops one level to Help & Support
+- back
+- assertVisible: "View tutorial"

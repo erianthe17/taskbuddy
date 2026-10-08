@@ -1,0 +1,40 @@
+appId: com.taskbuddy.app
+---
+# Slice 1.3: forgot-password stage 2 client-side validation (unknown address,
+# so no mail). Does not submit a well-formed request: the server's error copy is
+# raw Supabase text (E2E-022) and is not frozen here.
+- runFlow: _helpers/launch_fresh.yaml
+- tapOn: "Forgot Password?"
+- tapOn: "sample@mail.com"
+- inputText: "maestro.noacct.fp@taskbuddy.test"
+- hideKeyboard
+- tapOn: "Send reset code"
+- extendedWaitUntil:
+    visible: "Check your email"
+    timeout: 15000
+# empty code
+- scrollUntilVisible:
+    element: "Reset password"
+- tapOn: "Reset password"
+- assertVisible: "Enter the 6-digit code from your email."
+# the code field strips letters and caps at 6 digits
+- scrollUntilVisible:
+    element: "Reset code"
+    direction: UP
+- tapOn: "••••••"
+- inputText: "ab12"
+- inputText: "345678"
+- hideKeyboard
+# password too short (7)
+- tapOn: "At least 8 characters"
+- inputText: "Pass12!"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Re-enter your new password"
+- tapOn: "Re-enter your new password"
+- inputText: "Pass12!"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Reset password"
+- tapOn: "Reset password"
+- assertVisible: "New password must be at least 8 characters."
