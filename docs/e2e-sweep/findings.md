@@ -9,8 +9,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
-| S3 | 0 | 0 | 0 | 0 | 0 |
-| S4 | 0 | 0 | 0 | 0 | 0 |
+| S3 | 1 | 0 | 0 | 0 | 0 |
+| S4 | 1 | 1 | 0 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -31,5 +31,34 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 </details>
 
 ## Open
+
+### E2E-001 — ML service health is down (HTTP 429)
+- **Found:** 2026-10-08, slice 0.2, case 0.2-03   **Role:** both
+- **Category:** env
+- **Severity:** S3 medium
+- **Status:** Open
+- **Steps:** 1. `GET /health` on the deployed API.
+- **Expected:** `ml_service.status` = up.   **Actual:** `{"ml_service":{"status":"down","detail":"HTTP 429"}}`, database up.
+- **Evidence:** health JSON, 2026-10-08 09:22Z
+- **Suspected cause:** known from HANDOFF.md (ML service 429). Not investigated.
+- **Impact:** Slice 5.4 (recommendation path) will not produce invites.
+
+### E2E-002 — Stale confirmed job with ₱500 escrow left on test accounts
+- **Found:** 2026-10-08, slice 0.2, case 0.2-11   **Role:** both
+- **Category:** env
+- **Severity:** S4 low/cosmetic
+- **Status:** Open (awaiting user approval to cancel via admin)
+- **Steps:** 1. `GET /admin/bookings?search=Maestro` shows job `5f13ac3f-c909-4a39-b7f2-b750d218d553` ("E2E chat attachment verification job", status `confirmed`, ₱500, client + provider are the maestro accounts). 2. `POST /admin/bookings/:id/cancel` was blocked by the permission classifier.
+- **Expected:** no leftovers.   **Actual:** client wallet shows in_escrow 500 (available 49,500); provider wallet shows in_escrow 500.
+- **Suspected cause:** leftover from the Sept 16 sweep.
+
+### E2E-003 — Provider readiness gaps for later slices
+- **Found:** 2026-10-08, slice 0.2, case 0.2-08   **Role:** provider
+- **Category:** env
+- **Severity:** S4 low/cosmetic
+- **Status:** Workaround (set up in the slices that need it)
+- **Actual:** `maestro.provider@` is verified, category Plumbing, address in Lipa (13.9978, 121.1676), `is_available=false`, `service_radius_km=8`; the client has no address or coordinates, so a client job near Quezon City is ~75 km from this provider and the feed's distance filter may hide it. `maestro.provider2@` is unverified with no address. `maestro.client@` and `client2@` have no address.
+- **Plan:** 2.x sets addresses; 4.1 verifies provider2; 4.2 sets location with `adb emu geo fix` or an address near the jobs.
+
 
 ## Found & solved

@@ -258,9 +258,9 @@ Exit: files exist, emulator boots, tooling versions and emulator baseline record
    response message contains `property <field> should not exist`, the deployed DTO lacks it →
    `deploy-drift` finding, S1 if it's registration/hire/job-create. Record the table in env-state.md.
 3. `GET /health` → record the db and ml status. ML down → `env` finding (affects Slice 5.4).
-4. Admin login: `source ~/.taskbuddy-e2e/secrets.env`, then `POST /auth/login` with the admin creds.
+4. Admin login: read `~/.taskbuddy-e2e/secrets.env` (lines are `KEY:value` or `KEY=value`; parse with `sed -E "s/^KEY[:=]//"`, never print them), then `POST /auth/login` with the admin creds.
    Store the token in `$ADMIN_TOKEN` (shell only). Confirm `GET /admin/analytics/summary` → 200.
-5. Audit the test accounts via `POST /auth/login` and `GET /profiles/me` and `GET /wallet` for
+5. Audit the test accounts via `POST /auth/login` and `GET /auth/me` (there is no `GET /profiles/me`) and `GET /wallet` for
    `maestro.client@` and `maestro.provider@`. Missing → register via `POST /auth/register` (look at
    `RegisterDto` for the exact fields, incl. `category_id` and `consented_*` for the provider).
    Also create **`maestro.provider2@taskbuddy.test`** (a second provider for multi-applicant cases)

@@ -29,7 +29,7 @@ Handoff is the `docs/handoff/` number, filled in when the slice completes.
 | Slice | Name | Status | Handoff |
 |---|---|---|---|
 | 0.1 | Branch, scaffolding, tooling | Complete | 001 |
-| 0.2 | Deployment drift + account/data audit | Not started | — |
+| 0.2 | Deployment drift + account/data audit | Complete | 002 |
 | 0.3 | EAS preview build, install, baseline | Not started | — |
 | 1.1 | Login / logout / session | Not started | — |
 | 1.2 | Registration (both roles) | Not started | — |
