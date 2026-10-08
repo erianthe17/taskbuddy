@@ -10,7 +10,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
 | S3 | 2 | 0 | 0 | 0 | 1 |
-| S4 | 6 | 2 | 1 | 0 | 0 |
+| S4 | 13 | 2 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -140,6 +140,76 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** the field and the Sign In button stay visible above the keyboard.   **Actual:** the field's lower half is hidden behind the keyboard and Sign In is off screen until the user scrolls.
 - **Evidence:** `evidence/E2E-012-login-font13-keyboard.png`
 - **Suspected cause:** `KeyboardAvoidingView behavior="height"` with `justifyContent: center` on a taller form (`LoginScreen.tsx:343`). Not investigated.
+
+### E2E-013 — Register: "Passwords do not match." stays after Password is edited to match Confirm
+- **Found:** 2026-10-08, slice 1.2, case 1.2-19/1.2-20   **Role:** both
+- **Category:** app-bug
+- **Severity:** S4 low/cosmetic
+- **Status:** Open
+- **Steps:** 1. Register screen, Password `abc12345X`, Confirm `abc12345`, tap Sign Up (mismatch error shows). 2. Edit only the Password field (Backspace) so both read `abc12345`.
+- **Expected:** the mismatch error clears (or re-validates) once the two values are equal.   **Actual:** both fields show `abc12345` (visibility toggled on) and the red "Passwords do not match." is still shown until the next submit or an edit of the Confirm field.
+- **Evidence:** `evidence/E2E-013-confirm-error-stale.jpg`
+- **Suspected cause:** `RegisterScreen.tsx` password onChange calls `clearError('password')` only, not `confirmPassword` (about line 566). Not investigated further.
+
+### E2E-014 — Register: a consent's red error stays after its box is ticked
+- **Found:** 2026-10-08, slice 1.2, case 1.2-29   **Role:** both
+- **Category:** app-bug
+- **Severity:** S4 low/cosmetic
+- **Status:** Open
+- **Steps:** 1. Register screen, tap Sign Up empty so the three consent errors show. 2. Tick Terms (open the document, tap "I agree to the Terms & Conditions"); then tick Privacy the same way.
+- **Expected:** each consent's error disappears when it is ticked, like the field errors do.   **Actual:** the boxes are ticked but "Please accept the Terms & Conditions to continue." and "Please accept the Privacy Policy to continue." stay red until the next submit, so a ticked box sits under an error saying it is not accepted.
+- **Evidence:** `evidence/E2E-014-consent-error-stale.jpg`
+- **Suspected cause:** no `clearError` call on the terms/privacy/data-collection handlers (`RegisterScreen.tsx` around lines 505-508, 651-654, 671-674, 691). Not investigated further.
+
+### E2E-015 — Register banner shows raw class-validator text ("email must be an email")
+- **Found:** 2026-10-08, slice 1.2, case 1.2-12/13/14   **Role:** both
+- **Category:** app-bug
+- **Severity:** S4 low/cosmetic
+- **Status:** Open
+- **Steps:** 1. Register screen, fill a valid client form and tick all three consents. 2. Enter an email the app's regex accepts but the server's `@IsEmail()` rejects: `a@b.c`, `a..b@x.com`, `x@y.com';--`, `<script>@x.com`, or a 300-character local part. 3. Tap Sign Up.
+- **Expected:** friendly copy such as "Please enter a valid email address.", like the client-side check.   **Actual:** a red banner reading "email must be an email". No account is created, the spinner stops and the form values are kept. A 300-character email does not break the layout. Same defect as E2E-009 on Login.
+- **Evidence:** `evidence/E2E-015-register-raw-validation-copy.jpg`
+- **Suspected cause:** the client regex (`RegisterScreen.tsx:323`) is looser than the DTO's `@IsEmail()` (`auth.dto.ts:16`), and `api.ts:789` passes `message[0]` through verbatim. Fixing it would share one mapping with E2E-009. Not investigated further.
+
+### E2E-016 — At font scale 1.3 the focused Register Password and Confirm fields are half covered by the keyboard
+- **Found:** 2026-10-08, slice 1.2, case 1.2-50   **Role:** both
+- **Category:** ux
+- **Severity:** S4 low/cosmetic
+- **Status:** Open
+- **Steps:** 1. `adb shell settings put system font_scale 1.3`. 2. Open Register, dismiss the keyboard, scroll to Password (then Confirm Password) and tap the field.
+- **Expected:** the focused field sits fully above the keyboard.   **Actual:** the field's lower half is hidden behind the keyboard. The user can still scroll the form, and Name and Email stay fully visible. Same pattern as E2E-012 on Login. At this scale the Client / Service Provider buttons stack vertically, as designed.
+- **Evidence:** `evidence/E2E-016-register-font13-keyboard.jpg`
+- **Suspected cause:** `KeyboardAvoidingView behavior="height"` (`RegisterScreen.tsx` around 789-792), the same cause as E2E-012. Not investigated further.
+
+### E2E-017 — Register Full Name: the word "Mareng" turns into "Marengo" while typing
+- **Found:** 2026-10-08, slice 1.2, case 1.2-01/1.2-02   **Role:** client
+- **Category:** ux (cause unconfirmed, may be env: emulator keyboard)
+- **Severity:** S4 low/cosmetic
+- **Status:** Open
+- **Steps:** 1. Open Register. 2. Maestro `inputText: "Ate Mareng Paayos-Gripo"` into Full Name. 3. Read the field, then (burner.1) sign up and read `GET /auth/me`.
+- **Expected:** the field keeps exactly what was typed.   **Actual:** the field already shows "Ate Marengo Paayos-Gripo", and that value is what the backend stores (`full_name`). Filipino names are easily rewritten by a dictionary suggestion, so a real user could be hit too.
+- **Evidence:** `evidence/E2E-017-name-word-changed-while-typing.png`
+- **Suspected cause:** `autoCorrect={false}` is already set on the input (`RegisterScreen.tsx:146`), so the change probably comes from the emulator's keyboard suggestions applied on the space. Not confirmed on a physical device. Not investigated further.
+
+### E2E-018 — Register Full Name keyboard starts in lower-case (no auto-capitalisation)
+- **Found:** 2026-10-08, slice 1.2, case 1.2-53   **Role:** both
+- **Category:** ux
+- **Severity:** S4 low/cosmetic
+- **Status:** Open
+- **Steps:** 1. Open Register. 2. Tap Full Name.
+- **Expected:** the keyboard opens with Shift on, so names start with a capital letter (like "Alex Chen" in the placeholder).   **Actual:** the keyboard is in lower-case with Shift off, so users type "juan dela cruz" unless they press Shift themselves.
+- **Evidence:** `evidence/E2E-018-register-name-no-capitalize.png`
+- **Suspected cause:** the shared `FormInput` sets `autoCapitalize="none"` for every field including Name (`RegisterScreen.tsx:145`); there is no prop to override it for names. A `words` setting would only be needed on Name. Not investigated further.
+
+### E2E-019 — Delete Account dialog differs between client and provider
+- **Found:** 2026-10-08, slice 1.2, case 1.2-57/58   **Role:** both
+- **Category:** ux
+- **Severity:** S4 low/cosmetic
+- **Status:** Open (belongs to Slice 2.3, logged here because the cleanup flows hit it)
+- **Steps:** 1. Log in as a client, Home avatar, Settings, Delete Account. 2. Repeat as a provider (scroll to Settings on the profile).
+- **Expected:** the same confirmation wording and buttons for the same destructive action.   **Actual:** the client dialog reads "This permanently removes your personal details and signs you out. You must first clear any wallet balance, pending withdrawal, active job, escrow hold, or dispute." with buttons "Cancel" / "Delete Account". The provider dialog has an icon, different wording ("Your profile, contact details and settings are removed ... This can't be undone.") and buttons "Keep My Account" / "Delete". Maestro flows need role-specific selectors because of this (`settings_delete_account_burner.yaml` only works for clients).
+- **Evidence:** `evidence/E2E-019-delete-dialog-client.png` (provider dialog seen on screen, not saved)
+- **Suspected cause:** two separate dialog components. Not investigated.
 
 ## Found & solved
 

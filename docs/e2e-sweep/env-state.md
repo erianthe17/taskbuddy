@@ -68,6 +68,7 @@ Emails only. No passwords or tokens in this file.
 | maestro.provider2@taskbuddy.test | provider, second applicant | Registered 2026-10-08, Plumbing, unverified, no address, wallet 0 |
 | maestro.editprofile@taskbuddy.test | leftover burner (E2E-006) | **Alive, needs deleting.** From the 0.3 baseline run. An API delete was denied by the permission classifier |
 | maestro.burner.ep1791457159659@taskbuddy.test | leftover burner (E2E-006) | **Alive, needs deleting.** From a 0.3 retry that died before cleanup |
+| maestro.burner.reg.1@, .reg.2@, .reg.3@taskbuddy.test | Slice 1.2 burners (client, provider, client) | Created and **deleted in-app** on 2026-10-08, login now 401 |
 
 ## Wallet balances
 
@@ -116,3 +117,12 @@ Balance / available / pending, recorded at slice start and end.
 - Deployed login throttle is inconsistent (E2E-010). Auth routes can return 429 for about a minute after a burst; wait 65s if a flow hits it.
 - No wallet or job state changed in this slice. Balances as in 0.2/0.3: client 49,500 available (500 frozen), others 0.
 - Onboarding slides are keyed per profile id: tapping Skip once means they do not reappear for that profile, even after logout/login. `launchApp: clearState` resets this.
+
+## Slice 1.2 notes
+
+- Installed build unchanged: `fbe63d63…`. Emulator settings: font scale put back to 1.0 after the 1.3 check, nothing else changed.
+- Three real signups only (client, provider, client with padded/hostile input). All three burners were deleted through Settings, and `POST /auth/login` returns 401 for each. No stray accounts from the rejected-email and duplicate cases.
+- `maestro.client@` was not used for the duplicate-email cases (burner.1 was the target), so its wallet and escrow are untouched: client 49,500 available (500 frozen), others 0.
+- Server facts learned: register has no length cap on `full_name`/`password`; the server lower-cases and trims the email and trims `full_name` (a `<script>` name is stored verbatim); a duplicate email is case-insensitive (409); `forbidNonWhitelisted` wording is "property x should not exist".
+- Maestro `takeScreenshot` drops PNGs into the working directory; they were moved to `~/.taskbuddy-e2e/scratch/1.2/` and not committed.
+

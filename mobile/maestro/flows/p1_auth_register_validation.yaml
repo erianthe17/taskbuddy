@@ -1,0 +1,644 @@
+appId: com.taskbuddy.app
+---
+# Slice 1.2: Register screen client-side validation, role switching, modal
+# dismissal and the two ways back to Login. Verified in Slice 1.2 (2026-10-08).
+# Creates NO account: every Sign Up tap below leaves at least one consent
+# unticked or the email invalid, so a submit can never succeed.
+# Deliberately does not assert E2E-013 (stale mismatch error), E2E-014 (stale
+# consent errors) or E2E-015 (raw "email must be an email" banner). Each
+# scenario starts from clearState so no error state is carried over.
+# No eraseText: one fresh launch per input variant instead.
+
+# ---- (a) client, empty submit: 7 messages, confirm shows none ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn: "Client"
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- scrollUntilVisible:
+    element:
+      text: "Please accept the Data Collection consent to continue."
+    direction: DOWN
+    timeout: 20000
+- assertVisible: "Please accept the Data Collection consent to continue."
+- scrollUntilVisible:
+    element:
+      text: "Please accept the Privacy Policy to continue."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Please accept the Privacy Policy to continue."
+- scrollUntilVisible:
+    element:
+      text: "Please accept the Terms & Conditions to continue."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Please accept the Terms & Conditions to continue."
+- scrollUntilVisible:
+    element:
+      text: "Passwords do not match."
+    direction: UP
+    timeout: 5000
+    optional: true
+- assertNotVisible: "Passwords do not match."
+- scrollUntilVisible:
+    element:
+      text: "Password must be at least 8 characters."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Password must be at least 8 characters."
+- scrollUntilVisible:
+    element:
+      text: "Please enter your email address."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Please enter your email address."
+- scrollUntilVisible:
+    element:
+      text: "Please enter your full name."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Please enter your full name."
+
+# ---- (b) whitespace-only name still gives the name error ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn:
+    id: "input-name"
+- inputText: "   "
+- tapOn:
+    id: "input-email"
+- inputText: "consent.tester@y.com"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "input-confirm-password"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "input-confirm-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- scrollUntilVisible:
+    element:
+      text: "Please enter your full name."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Please enter your full name."
+
+# ---- (c1) malformed email: not-an-email ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn:
+    id: "input-email"
+- inputText: "not-an-email"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- scrollUntilVisible:
+    element:
+      text: "Please enter a valid email address."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Please enter a valid email address."
+
+# ---- (c2) malformed email: a@@b.com ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn:
+    id: "input-email"
+- inputText: "a@@b.com"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- scrollUntilVisible:
+    element:
+      text: "Please enter a valid email address."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Please enter a valid email address."
+
+# ---- (c3) malformed email: x@y (no dot) ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn:
+    id: "input-email"
+- inputText: "x@y"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- scrollUntilVisible:
+    element:
+      text: "Please enter a valid email address."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Please enter a valid email address."
+
+# ---- (d1) 7-char password rejects ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn:
+    id: "input-password"
+- inputText: "Abc1234"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- scrollUntilVisible:
+    element:
+      text: "Password must be at least 8 characters."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Password must be at least 8 characters."
+
+# ---- (d2) 8-char password accepted, mismatched confirm rejected ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn:
+    id: "input-password"
+- inputText: "Abc12345"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "input-confirm-password"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "input-confirm-password"
+- inputText: "Abc12346"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- scrollUntilVisible:
+    element:
+      text: "Passwords do not match."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Passwords do not match."
+- scrollUntilVisible:
+    element:
+      id: "input-password"
+    direction: UP
+    timeout: 20000
+- assertNotVisible: "Password must be at least 8 characters."
+
+# ---- (e1) only Terms missing: Privacy + Data Collection ticked ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn:
+    id: "input-name"
+- inputText: "Maestro Tester"
+- tapOn:
+    id: "input-email"
+- inputText: "consent.tester@y.com"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "input-confirm-password"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "input-confirm-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "chk-privacy"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-privacy"
+- extendedWaitUntil:
+    visible: "I agree to the Privacy Policy"
+    timeout: 20000
+- tapOn: "I agree to the Privacy Policy"
+- scrollUntilVisible:
+    element:
+      id: "chk-data-collection"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-data-collection"
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- scrollUntilVisible:
+    element:
+      text: "Please accept the Terms & Conditions to continue."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Please accept the Terms & Conditions to continue."
+- assertNotVisible: "Please accept the Privacy Policy to continue."
+- assertNotVisible: "Please accept the Data Collection consent to continue."
+
+# ---- (e2) only Privacy missing: Terms + Data Collection ticked ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn:
+    id: "input-name"
+- inputText: "Maestro Tester"
+- tapOn:
+    id: "input-email"
+- inputText: "consent.tester@y.com"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "input-confirm-password"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "input-confirm-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "chk-terms"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-terms"
+- extendedWaitUntil:
+    visible: "I agree to the Terms & Conditions"
+    timeout: 20000
+- tapOn: "I agree to the Terms & Conditions"
+- scrollUntilVisible:
+    element:
+      id: "chk-data-collection"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-data-collection"
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- scrollUntilVisible:
+    element:
+      text: "Please accept the Privacy Policy to continue."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Please accept the Privacy Policy to continue."
+- assertNotVisible: "Please accept the Terms & Conditions to continue."
+- assertNotVisible: "Please accept the Data Collection consent to continue."
+
+# ---- (e3) only Data Collection missing: Terms + Privacy ticked ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn:
+    id: "input-name"
+- inputText: "Maestro Tester"
+- tapOn:
+    id: "input-email"
+- inputText: "consent.tester@y.com"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "input-confirm-password"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "input-confirm-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "chk-terms"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-terms"
+- extendedWaitUntil:
+    visible: "I agree to the Terms & Conditions"
+    timeout: 20000
+- tapOn: "I agree to the Terms & Conditions"
+- scrollUntilVisible:
+    element:
+      id: "chk-privacy"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-privacy"
+- extendedWaitUntil:
+    visible: "I agree to the Privacy Policy"
+    timeout: 20000
+- tapOn: "I agree to the Privacy Policy"
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- scrollUntilVisible:
+    element:
+      text: "Please accept the Data Collection consent to continue."
+    direction: DOWN
+    timeout: 20000
+- assertVisible: "Please accept the Data Collection consent to continue."
+- assertNotVisible: "Please accept the Terms & Conditions to continue."
+- assertNotVisible: "Please accept the Privacy Policy to continue."
+
+# ---- (f) provider: empty submit also asks for a skill; picker lists 5 ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn: "Service Provider"
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- scrollUntilVisible:
+    element:
+      text: "Please select your skill category."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Please select your skill category."
+- tapOn: "Select your skill…"
+- assertVisible: "Plumbing"
+- assertVisible: "Cleaning"
+- assertVisible: "Handyman"
+- assertVisible: "Manicure"
+- assertVisible: "Pedicure"
+
+# ---- (g) role switch resets the skill picker ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn: "Service Provider"
+- tapOn: "Select your skill…"
+- tapOn: "Plumbing"
+- tapOn: "Client"
+- tapOn: "Service Provider"
+- assertVisible: "Select your skill…"
+
+# ---- (h) closing the Terms modal with Back leaves the box unticked ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "chk-terms"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-terms"
+- extendedWaitUntil:
+    visible: "I agree to the Terms & Conditions"
+    timeout: 20000
+- pressKey: Back
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- scrollUntilVisible:
+    element:
+      text: "Please accept the Terms & Conditions to continue."
+    direction: UP
+    timeout: 20000
+- assertVisible: "Please accept the Terms & Conditions to continue."
+
+# ---- (i) hardware Back from Register returns to Welcome! ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- pressKey: Back
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 20000
+
+# ---- (j) the Sign In link at the bottom returns to Welcome! ----
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "Sign In"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 20000

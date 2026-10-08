@@ -397,3 +397,15 @@ that account and delete it (Settings → Delete Account) before retrying.
 - **Provider Home reads "Jobs near you"** (lower case); the older helper text "Jobs Near You" still matches.
 - **Auth routes are throttled (10/min) but inconsistently** (E2E-010): wait 65s after a burst.
 - New flows: `p1_auth_login_validation`, `p1_auth_session_persistence`, `p1_auth_account_switch`.
+
+## Slice 1.2 notes (2026-10-08, release build `fbe63d63`)
+
+- **Register is a long ScrollView.** Fields below the fold are not tappable until `scrollUntilVisible`; `chk-data-collection` needs its own scroll after the Privacy modal closes. Behind an open keyboard the Password field also counts as off screen: `hideKeyboard`, scroll, then tap.
+- **The Terms and Privacy boxes open a modal; accepting is the only way to tick them.** `pressKey: Back` or the "Close" label closes the modal without ticking. Data collection is a plain toggle.
+- **`assertVisible` matches the whole text node.** "* Required to create your account" needs `.*Required to create your account.*`.
+- **Maestro `takeScreenshot` writes into the working directory** (here the repo root or `mobile/`). Move the PNGs out before staging, they are not meant to be committed.
+- **The emulator keyboard can rewrite typed words** ("Mareng" became "Marengo", E2E-017). Use plain words in names when the stored value matters.
+- **Delete Account dialogs differ by role** (E2E-019): client is "Cancel" / "Delete Account" (`rightOf: "Cancel"`), provider is "Keep My Account" / "Delete". The provider profile and Settings both need `scrollUntilVisible`.
+- **A freshly cleared app shows onboarding again after login**, even for an old account, so login helpers must tolerate it (`Skip` optional).
+- **In `scrollUntilVisible`, the back arrow on Register has no label**; tap point `8%,8%`.
+- New flows: `p1_auth_register_validation`, `p1_auth_register_client`, `p1_auth_register_provider`. The two that create accounts use a `Date.now()` email and delete the burner at the end. If a run dies midway, delete the leftover `maestro.burner.reg.<ts>@taskbuddy.test` by hand.

@@ -1,0 +1,212 @@
+appId: com.taskbuddy.app
+---
+# Slice 1.2: client registration end to end on a unique burner email, then
+# duplicate-email rejection, login with the new account, and cleanup via
+# Delete Account. Verified in Slice 1.2 (2026-10-08).
+# Re-runnable: the email is stamped with Date.now().
+# WARNING: a run that dies midway leaves a maestro.burner.reg.<ts>@taskbuddy.test
+# account behind that must be deleted by hand.
+- evalScript: ${output.RUN = Date.now()}
+- runFlow: _helpers/launch_fresh.yaml
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn: "Client"
+- tapOn:
+    id: "input-name"
+- inputText: "Maestro Tester"
+- tapOn:
+    id: "input-email"
+- inputText: "maestro.burner.reg.${output.RUN}@taskbuddy.test"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "input-confirm-password"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "input-confirm-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "chk-terms"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-terms"
+- extendedWaitUntil:
+    visible: "I agree to the Terms & Conditions"
+    timeout: 20000
+- tapOn: "I agree to the Terms & Conditions"
+- scrollUntilVisible:
+    element:
+      id: "chk-privacy"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-privacy"
+- extendedWaitUntil:
+    visible: "I agree to the Privacy Policy"
+    timeout: 20000
+- tapOn: "I agree to the Privacy Policy"
+- scrollUntilVisible:
+    element:
+      id: "chk-data-collection"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-data-collection"
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+# Brand-new account sees first-run onboarding.
+- extendedWaitUntil:
+    visible: ".*(Skip|Find a service).*"
+    timeout: 60000
+- tapOn: "Skip"
+- extendedWaitUntil:
+    visible: "Find a service"
+    timeout: 15000
+
+# Logout.
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "Log Out"
+- tapOn:
+    text: "Log Out"
+    below: "Are you sure you want to log out?"
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 20000
+
+# Register the SAME email again: rejected as a duplicate.
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn: "Sign Up"
+- runFlow:
+    when:
+      visible: "Welcome!"
+    commands:
+      - tapOn:
+          text: "Sign Up"
+          optional: true
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 30000
+- tapOn: "Client"
+- tapOn:
+    id: "input-name"
+- inputText: "Maestro Tester"
+- tapOn:
+    id: "input-email"
+- inputText: "maestro.burner.reg.${output.RUN}@taskbuddy.test"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "input-confirm-password"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "input-confirm-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "chk-terms"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-terms"
+- extendedWaitUntil:
+    visible: "I agree to the Terms & Conditions"
+    timeout: 20000
+- tapOn: "I agree to the Terms & Conditions"
+- scrollUntilVisible:
+    element:
+      id: "chk-privacy"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-privacy"
+- extendedWaitUntil:
+    visible: "I agree to the Privacy Policy"
+    timeout: 20000
+- tapOn: "I agree to the Privacy Policy"
+- scrollUntilVisible:
+    element:
+      id: "chk-data-collection"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "chk-data-collection"
+- scrollUntilVisible:
+    element:
+      text: "Sign Up"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign Up"
+- extendedWaitUntil:
+    visible: "Email already in use"
+    timeout: 30000
+- assertVisible: "Email already in use"
+
+# Back to Login via the Sign In link, then log in with the burner.
+- scrollUntilVisible:
+    element:
+      text: "Sign In"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 20000
+- tapOn:
+    id: "input-email"
+- inputText: "maestro.burner.reg.${output.RUN}@taskbuddy.test"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- tapOn:
+    id: "btn-sign-in"
+- extendedWaitUntil:
+    visible: ".*(Skip|Find a service).*"
+    timeout: 60000
+- tapOn:
+    text: "Skip"
+    optional: true
+- assertVisible: "Find a service"
+
+# Cleanup: delete the burner account (client dialog).
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "Settings"
+- tapOn: "Delete Account"
+- assertVisible: "Delete your account?"
+- tapOn:
+    text: "Delete Account"
+    rightOf: "Cancel"
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 20000
+- assertVisible: "Welcome!"
