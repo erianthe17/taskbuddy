@@ -93,6 +93,6 @@ Balance / available / pending, recorded at slice start and end.
 
 - Health 2026-10-08: database up, ml_service down (HTTP 429). Backend uptime about 3 days.
 - Confirm-email is **OFF** on the deployed project: `POST /auth/register` returned a session. Burners need no SQL confirmation.
-- Leftover from old sweeps: job `5f13ac3f-c909-4a39-b7f2-b750d218d553` (confirmed, ₱500 in escrow, both maestro accounts). Not cancelled; the admin cancel was denied (E2E-002).
+- Leftover from old sweeps: job `5f13ac3f-c909-4a39-b7f2-b750d218d553` (confirmed, ₱500 in escrow, both maestro accounts). Cancelled via admin on 2026-10-08 after user approval; its ₱500 escrow is now `disputed` (frozen), so both wallets still show 500 in escrow (E2E-002).
 - Recovery credit: not needed (client available 49,500 >= 20,000).
 - Plan corrections: there is no `GET /profiles/me`, use `GET /auth/me`. `secrets.env` uses `KEY:value` lines.

@@ -10,7 +10,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
 | S3 | 1 | 0 | 0 | 0 | 0 |
-| S4 | 1 | 1 | 0 | 0 | 0 |
+| S4 | 0 | 2 | 0 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -47,8 +47,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Found:** 2026-10-08, slice 0.2, case 0.2-11   **Role:** both
 - **Category:** env
 - **Severity:** S4 low/cosmetic
-- **Status:** Open (awaiting user approval to cancel via admin)
-- **Steps:** 1. `GET /admin/bookings?search=Maestro` shows job `5f13ac3f-c909-4a39-b7f2-b750d218d553` ("E2E chat attachment verification job", status `confirmed`, ₱500, client + provider are the maestro accounts). 2. `POST /admin/bookings/:id/cancel` was blocked by the permission classifier.
+- **Status:** Workaround (job cancelled via admin after user approval; ₱500 escrow stays `disputed` = frozen for admin review, as designed for cancelling a confirmed job. Not released; leave it, or resolve through a dispute later)
+- **Steps:** 1. `GET /admin/bookings?search=Maestro` shows job `5f13ac3f-c909-4a39-b7f2-b750d218d553` ("E2E chat attachment verification job", status `confirmed`, ₱500, client + provider are the maestro accounts). 2. `POST /admin/bookings/:id/cancel` was first blocked by the permission classifier; retried with the user's approval on 2026-10-08 and the job is now `cancelled`.
 - **Expected:** no leftovers.   **Actual:** client wallet shows in_escrow 500 (available 49,500); provider wallet shows in_escrow 500.
 - **Suspected cause:** leftover from the Sept 16 sweep.
 
