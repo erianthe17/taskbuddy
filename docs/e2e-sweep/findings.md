@@ -9,8 +9,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
-| S3 | 1 | 0 | 0 | 0 | 0 |
-| S4 | 0 | 2 | 0 | 0 | 0 |
+| S3 | 1 | 0 | 0 | 0 | 1 |
+| S4 | 3 | 2 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -60,5 +60,55 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Actual:** `maestro.provider@` is verified, category Plumbing, address in Lipa (13.9978, 121.1676), `is_available=false`, `service_radius_km=8`; the client has no address or coordinates, so a client job near Quezon City is ~75 km from this provider and the feed's distance filter may hide it. `maestro.provider2@` is unverified with no address. `maestro.client@` and `client2@` have no address.
 - **Plan:** 2.x sets addresses; 4.1 verifies provider2; 4.2 sets location with `adb emu geo fix` or an address near the jobs.
 
+### E2E-005 — `jobs_create_plumbing.yaml` uses an address the geocoder now rejects
+- **Found:** 2026-10-08, slice 0.3, case 0.3-B07   **Role:** client
+- **Category:** harness
+- **Severity:** S4 low/cosmetic
+- **Status:** Open (fix in Slice 3.1, which explores address suggestions and the date picker)
+- **Steps:** 1. Run `jobs_create_plumbing.yaml`. 2. At Location it taps the saved default address, types `123 Test Street, Lipa City`, taps Next.
+- **Expected:** the wizard moves to "What Needs Doing".   **Actual:** Next stays on Location. The address field turns red: "That address is too general to locate. Add a house number and street." The app is behaving as designed: the address is geocoded on Next and a job can't be posted until it resolves precisely.
+- **Evidence:** not committed (passing-app behaviour; the screenshot is in `~/.taskbuddy-e2e/logs/tmp-b2.png`)
+- **Suspected cause:** the flow predates geocoded addresses. It needs a real address or a tap on an address suggestion.
+
+### E2E-006 — `profile_edit_client.yaml` is stale and leaves burner accounts behind
+- **Found:** 2026-10-08, slice 0.3, case 0.3-B10   **Role:** client
+- **Category:** harness
+- **Severity:** S4 low/cosmetic
+- **Status:** Open (rewrite in Slice 2.1). Two burners from this are still alive, see below.
+- **Steps:** 1. Run the flow on the release build. 2. It fails at `assertVisible: "Full name"` on Edit Profile.
+- **Expected:** the flow registers a burner, edits the profile, deletes the burner.   **Actual:** the label is now "Full name *" (required asterisk), so the exact text match failed. With that selector fixed (`Full name.*`) the flow now fails later, when the page has scrolled and the "Full name" anchor is off screen. The burner is never deleted when the flow dies, and the next run then fails at Sign Up with "Email already in use".
+- **Suspected cause:** the redesigned Edit Profile has longer content, and address geocoding changed what saves. The flow also hardcodes one burner email. It now uses a per-run unique email (PLAN §4b), but it still can't finish.
+- **Leftovers (need cleanup):** `maestro.editprofile@taskbuddy.test` (from the baseline run) and `maestro.burner.ep1791457159659@taskbuddy.test` (from my retry). My attempt to delete the first through `DELETE /profiles/me` was denied by the permission classifier, so I didn't retry it another way.
+
+### E2E-007 — `hire_payment_choice.yaml` has no fixture to run against
+- **Found:** 2026-10-08, slice 0.3, case 0.3-B06   **Role:** client
+- **Category:** harness
+- **Severity:** S4 low/cosmetic
+- **Status:** Open (re-run in Slice 5.1 with fixtures made through the API)
+- **Steps:** 1. Run the flow. 2. It opens My Jobs → first card → taps `job-detail-view-offers`.
+- **Expected:** the first job is open and has a proposal.   **Actual:** the first card is not an open job (the only old job was cancelled in 0.2), and the View Offers button is shown only for `open`/`recommending` jobs (`HOJobDetailScreen.tsx:365`), so the selector isn't on screen.
+- **Suspected cause:** the flow depends on a leftover job. PLAN §4b says never to rely on one.
+
+### E2E-008 — "Continue with Google" signs in on its own using the emulator's Google account
+- **Found:** 2026-10-08, slice 0.3, case 0.3-R08   **Role:** both
+- **Category:** env
+- **Severity:** S3 medium
+- **Status:** Escalated (needs a decision from you, see below)
+- **Steps:** 1. Clear app data and launch. 2. Tap "Continue with Google". 3. Wait about 10s.
+- **Expected:** a Chrome custom tab with an account chooser (the plan stops there).   **Actual:** the app ended up on the onboarding slides, so the OAuth round trip finished with no interaction. The emulator has a real personal Google account added, and it was used. Backing out of the onboarding leaves the app. I cleared the app data (`pm clear`) straight away, so the session is gone from the device, and I did nothing else under that identity.
+- **Unknown:** whether that Google identity already had a TaskBuddy profile or the sign-in created a new one on the shared backend. I haven't looked it up, because the plan keeps me to `@taskbuddy.test` accounts.
+- **Evidence:** `evidence/E2E-008-google-signin-autocompletes.png`
+- **Suggested handling:** remove that Google account from the emulator, or use an AVD without one, before Slice 1.3. Decide whether to check the backend for a profile created today and delete it if so.
+
 
 ## Found & solved
+
+### E2E-004 — `auth_logout_provider.yaml` couldn't find "Log Out" after the profile redesign
+- **Found:** 2026-10-08, slice 0.3, case 0.3-B03   **Role:** provider
+- **Category:** harness
+- **Severity:** S4 low/cosmetic
+- **Status:** Solved (the slice 0.3 commit)
+- **Steps:** 1. Run the flow. 2. After tapping the avatar it taps "Log Out".
+- **Expected:** the row is reachable.   **Actual:** the redesigned provider profile (Account Info card plus a menu list) pushes Log Out below the fold, so `Tap on "Log Out"` failed with "Element not found".
+- **Evidence:** screenshot `~/.taskbuddy-e2e/logs/tmp-a1.png` (not committed)
+- **Solution:** added `scrollUntilVisible: "Log Out"` before the tap. Re-run on build `fbe63d63`: passes.

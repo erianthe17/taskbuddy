@@ -6,7 +6,7 @@ Values are filled in as slices run. `TBD` means not yet recorded.
 
 | Build id | versionCode | Git sha | APK sha256 | lastUpdateTime |
 |---|---|---|---|---|
-| TBD | TBD | TBD | TBD | TBD |
+| fbe63d63-018d-433e-bbda-d071586da894 (preview, apk, built 2026-10-08 ~10:21 UTC, about 24 min) | 1 (versionName 1.0.0) | f4f1f3d | 75B611C2306AA4EBAAFE80081813EE418E6D739B4CAD3A5FC669A0A1322426C4 | 2026-10-08 18:26:02 (emulator local time) |
 
 ## Tooling versions
 
@@ -66,6 +66,8 @@ Emails only. No passwords or tokens in this file.
 | maestro.provider@taskbuddy.test | provider | Exists, verified, Plumbing, address in Lipa (13.9978, 121.1676), is_available=false, radius 8 km |
 | maestro.client2@taskbuddy.test | client, unfunded (insufficient-balance cases) | Registered 2026-10-08, wallet 0, no address |
 | maestro.provider2@taskbuddy.test | provider, second applicant | Registered 2026-10-08, Plumbing, unverified, no address, wallet 0 |
+| maestro.editprofile@taskbuddy.test | leftover burner (E2E-006) | **Alive, needs deleting.** From the 0.3 baseline run. An API delete was denied by the permission classifier |
+| maestro.burner.ep1791457159659@taskbuddy.test | leftover burner (E2E-006) | **Alive, needs deleting.** From a 0.3 retry that died before cleanup |
 
 ## Wallet balances
 
@@ -81,12 +83,12 @@ Balance / available / pending, recorded at slice start and end.
 ## Deploy facts
 
 - Backend: `https://taskbuddy-kpek.onrender.com` (Render free tier; a 30–60s cold start after about 15 min idle is expected)
-- Backend health (db / ml): TBD (Slice 0.2)
+- Backend health (db / ml): up / down (HTTP 429), re-checked 2026-10-08 in Slice 0.3
 - App: `com.taskbuddy.app`, scheme `taskbuddy`, EAS owner `taskbuddy-android`
 - EAS `preview` profile: `distribution: internal`, `channel: preview`, `android.buildType: apk`
-- `EXPO_PUBLIC_API_URL` in the EAS preview environment: TBD (Slice 0.3)
-- EAS OTA on branch `preview`: TBD (Slice 0.3)
-- Android build quota remaining this month: TBD (Slice 0.3)
+- `EXPO_PUBLIC_API_URL` in the EAS preview environment: not set ("No variables found"), so the build uses the deployed kpek API
+- EAS OTA on branch `preview`: one group (6db95a7f..., runtime 1.0.0, android+ios, about 2 weeks old). It does **not** reach this build: the device logged `NoUpdatesAvailable` on both launches (the embedded bundle is newer). If a future build is made from older code, re-check.
+- Android build quota remaining this month: not readable from the CLI output. Not recorded; check on expo.dev if it matters.
 
 - Also changed: `settings secure autofill_service` set to `null` (original not read; restore in 9.1 if needed)
 
@@ -96,3 +98,12 @@ Balance / available / pending, recorded at slice start and end.
 - Leftover from old sweeps: job `5f13ac3f-c909-4a39-b7f2-b750d218d553` (confirmed, ₱500 in escrow, both maestro accounts). Cancelled via admin on 2026-10-08 after user approval; its ₱500 escrow is now `disputed` (frozen), so both wallets still show 500 in escrow (E2E-002).
 - Recovery credit: not needed (client available 49,500 >= 20,000).
 - Plan corrections: there is no `GET /profiles/me`, use `GET /auth/me`. `secrets.env` uses `KEY:value` lines.
+
+## Slice 0.3 notes
+
+- Preview APK installed over a clean uninstall of the dev client. Later rebuilds use `adb install -r`.
+- Typing trap: `aabbrrcc` types cleanly on the release build, so the doubled-letter rule no longer applies.
+- Notification permission is never requested during login (`POST_NOTIFICATIONS granted=false`).
+- `mobile/node_modules` was incomplete (`expo-image` missing), which made every `eas` command fail with `expo config` exiting 1. `npm ci` fixed it. `eas` in PowerShell needs `cmd /c` because its upgrade notice on stderr trips PowerShell's error handling.
+- The emulator has a real personal Google account added. "Continue with Google" completes by itself with it (E2E-008). Don't tap that button again until the account is removed or you decide otherwise.
+- Baseline log: `~/.taskbuddy-e2e/logs/baseline.log`. Crash sweep: `0.3-logcat.txt` (empty, clean).

@@ -367,3 +367,24 @@ If a run fails after registering the burner but before the cleanup step,
 `maestro.editprofile@taskbuddy.test` is left registered on the backend and
 the next attempt's Sign Up fails with "User already registered" — log in as
 that account and delete it (Settings → Delete Account) before retrying.
+
+## Release-build notes (2026-10-08, EAS preview `fbe63d63`)
+
+- **The helpers work unchanged on the release APK.** `launch_fresh.yaml`'s dev-launcher
+  steps are `optional`/guarded, so they show WARNED/SKIPPED and cost nothing. No Android
+  notification-permission dialog appears after login, so no guard is needed.
+- **The doubled-letter reload trap is dev-only.** `inputText: "aabbrrcc"` types cleanly on
+  the release build.
+- **Provider "Log Out" is below the fold** on the redesigned profile: use
+  `scrollUntilVisible: "Log Out"` before tapping it.
+- **Required-field labels carry an asterisk** (`Full name *`), so match them with a regex
+  such as `"Full name.*"`, not exact text.
+- **A flow's header `env:` wins over `maestro test -e`.** To vary a value per run, build it
+  in the flow with `evalScript` (`${output.RUN = Date.now()}`).
+- **`takeScreenshot` paths must stay inside the run's output folder** (use a bare name). For a
+  screenshot anywhere else, run `adb exec-out screencap -p > file.png` from Git Bash (PowerShell's
+  redirect corrupts the PNG).
+- **Don't tap "Continue with Google" on this emulator.** It has a Google account signed in, and
+  the OAuth round trip finishes by itself and signs the app in (E2E-008).
+- **Known stale flows** (see `docs/e2e-sweep/findings.md`): `jobs_create_plumbing` (E2E-005),
+  `profile_edit_client` (E2E-006), `hire_payment_choice` (E2E-007).

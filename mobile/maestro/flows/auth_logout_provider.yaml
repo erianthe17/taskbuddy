@@ -4,6 +4,10 @@ appId: com.taskbuddy.app
 - runFlow: _helpers/login_provider.yaml
 - tapOn:
     id: "btn-home-avatar"
+# The redesigned provider profile (menu rows + Account Info card) pushes Log Out
+# below the fold on a 1080x2400 screen, so scroll to it first.
+- scrollUntilVisible:
+    element: "Log Out"
 - tapOn: "Log Out"
 - assertVisible: "Are you sure you want to log out?"
 - tapOn:

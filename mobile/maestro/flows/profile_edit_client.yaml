@@ -46,7 +46,9 @@ env:
 - inputText: ${BURNER_NAME}
 - tapOn:
     id: "input-email"
-- inputText: ${BURNER_EMAIL}
+# Unique per run (PLAN §4b): a run that dies before cleanup must not poison the next.
+- evalScript: ${output.RUN = Date.now()}
+- inputText: "maestro.burner.ep${output.RUN}@taskbuddy.test"
 - tapOn:
     id: "input-password"
 - inputText: ${BURNER_PASSWORD}
@@ -129,19 +131,19 @@ env:
 - tapOn:
     id: "btn-home-avatar"
 - tapOn: "Edit Profile"
-- assertVisible: "Full name"
+- assertVisible: "Full name.*"
 - tapOn:
     below: "Phone"
 - inputText: "+639171234567"
-- tapOn: "Full name"
+- tapOn: "Full name.*"
 - tapOn:
     below: "Address"
 - inputText: "123 Test Street"
-- tapOn: "Full name"
+- tapOn: "Full name.*"
 - tapOn:
     below: "City"
 - inputText: "Quezon City"
-- tapOn: "Full name"
+- tapOn: "Full name.*"
 - tapOn: "Save Changes"
 - assertVisible: "Save profile changes?"
 - tapOn: "Save Changes"
