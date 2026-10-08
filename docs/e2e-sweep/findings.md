@@ -9,8 +9,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
-| S3 | 1 | 0 | 0 | 0 | 1 |
-| S4 | 3 | 2 | 1 | 0 | 0 |
+| S3 | 2 | 0 | 0 | 0 | 1 |
+| S4 | 6 | 2 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -100,6 +100,46 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Evidence:** `evidence/E2E-008-google-signin-autocompletes.png`
 - **Suggested handling:** remove that Google account from the emulator, or use an AVD without one, before Slice 1.3. Decide whether to check the backend for a profile created today and delete it if so.
 
+
+### E2E-009 — Login banner shows raw class-validator text ("email must be an email")
+- **Found:** 2026-10-08, slice 1.1, cases 1.1-09, 1.1-13, 1.1-14, 1.1-30   **Role:** both
+- **Category:** ux
+- **Severity:** S4 low/cosmetic
+- **Status:** Open
+- **Steps:** 1. On Login type `a@b.c` (or `a..b@x.com`, or a 300-character local part) and any password. 2. Tap Sign In.
+- **Expected:** friendly copy such as "Please enter a valid email address." (the copy the client regex uses for `not-an-email`).   **Actual:** the red banner reads `email must be an email`, the first `message` of the backend's validation array.
+- **Evidence:** `evidence/E2E-009-raw-validation-copy.png`
+- **Suspected cause:** the client regex at `LoginScreen.tsx:135` is looser than the backend `@IsEmail()`, and `api.ts` shows `data.message[0]` as-is (api.ts:788-790). Fix by tightening the client check or mapping the server's email message.
+
+### E2E-010 — Login rate limit is not enforced reliably on the deployed API
+- **Found:** 2026-10-08, slice 1.1, case 1.1-36   **Role:** both
+- **Category:** backend-bug
+- **Severity:** S3 medium
+- **Status:** Open (backend, log only)
+- **Steps:** 1. Send 14 sequential `POST /auth/login` requests with a wrong password (a junk email, no real account touched) and read `x-ratelimit-remaining`. 2. Repeat 16 rapid requests.
+- **Expected:** 10 per minute, then 429 for every further request until the window ends (`ThrottleAuth`, `common/throttle.ts:44`).   **Actual:** the counter is not monotonic (remaining went 0, 2, 1, 7, 0, 6, 5 …) and statuses alternate between 401 and 429. A burst of 16 requests returned 16 x 401 with no 429, and a run of 12 returned 12 x 401.
+- **Suspected cause:** throttler storage is in-memory per process (comment in `app.module.ts`). More than one instance behind the Render proxy would multiply the ceiling and make it random. Not investigated further.
+- **Impact:** password guessing is cheaper than the design says. The app's 429 copy ("Too many attempts…", `api.ts:781`) could not be observed on a device, because a 429 could not be produced on demand.
+
+### E2E-011 — Provider avatar on Home is an empty white circle
+- **Found:** 2026-10-08, slice 1.1, case 1.1-22   **Role:** provider
+- **Category:** ux
+- **Severity:** S4 low/cosmetic
+- **Status:** Open
+- **Steps:** 1. Log in as `maestro.provider@` and look at the Home header.
+- **Expected:** initials or the same person placeholder the client Home shows.   **Actual:** a blank white circle (the account has no avatar and, apparently, no initials fallback on a dark header).
+- **Evidence:** not committed (screenshot in `~/.taskbuddy-e2e/scratch/out5`)
+- **Suspected cause:** not investigated (`OwnAvatar` on `SPHomeScreen`).
+
+### E2E-012 — At font scale 1.3 the focused Login password field is half covered by the keyboard
+- **Found:** 2026-10-08, slice 1.1, case 1.1-33   **Role:** both
+- **Category:** ux
+- **Severity:** S4 low/cosmetic
+- **Status:** Open
+- **Steps:** 1. `adb shell settings put system font_scale 1.3`. 2. Open Login, tap Password.
+- **Expected:** the field and the Sign In button stay visible above the keyboard.   **Actual:** the field's lower half is hidden behind the keyboard and Sign In is off screen until the user scrolls.
+- **Evidence:** `evidence/E2E-012-login-font13-keyboard.png`
+- **Suspected cause:** `KeyboardAvoidingView behavior="height"` with `justifyContent: center` on a taller form (`LoginScreen.tsx:343`). Not investigated.
 
 ## Found & solved
 

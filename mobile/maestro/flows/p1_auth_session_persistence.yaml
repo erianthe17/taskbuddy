@@ -1,0 +1,24 @@
+appId: com.taskbuddy.app
+---
+# Slice 1.1 (1.1-19, 1.1-18): a signed-in session survives a process restart
+# (launchApp without clearState), and logout removes it.
+- runFlow: _helpers/login_client.yaml
+- launchApp
+- extendedWaitUntil:
+    visible: "Find a service"
+    timeout: 60000
+- assertNotVisible: "Welcome!"
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "Log Out"
+- tapOn:
+    text: "Log Out"
+    below: "Are you sure you want to log out?"
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 15000
+- launchApp
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 30000
+- assertNotVisible: "Find a service"

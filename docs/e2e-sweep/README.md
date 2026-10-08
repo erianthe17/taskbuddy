@@ -31,7 +31,7 @@ Handoff is the `docs/handoff/` number, filled in when the slice completes.
 | 0.1 | Branch, scaffolding, tooling | Complete | 001 |
 | 0.2 | Deployment drift + account/data audit | Complete | 002 |
 | 0.3 | EAS preview build, install, baseline | Complete | 003 |
-| 1.1 | Login / logout / session | Not started | — |
+| 1.1 | Login / logout / session | Complete | 004 |
 | 1.2 | Registration (both roles) | Not started | — |
 | 1.3 | Forgot password, onboarding, Google, legal | Not started | — |
 | 2.1 | Client profile & settings | Not started | — |

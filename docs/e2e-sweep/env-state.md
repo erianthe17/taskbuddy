@@ -107,3 +107,12 @@ Balance / available / pending, recorded at slice start and end.
 - `mobile/node_modules` was incomplete (`expo-image` missing), which made every `eas` command fail with `expo config` exiting 1. `npm ci` fixed it. `eas` in PowerShell needs `cmd /c` because its upgrade notice on stderr trips PowerShell's error handling.
 - The emulator has a real personal Google account added. "Continue with Google" completes by itself with it (E2E-008). Don't tap that button again until the account is removed or you decide otherwise.
 - Baseline log: `~/.taskbuddy-e2e/logs/baseline.log`. Crash sweep: `0.3-logcat.txt` (empty, clean).
+
+## Slice 1.1 notes
+
+- Installed build unchanged: `fbe63d63…` (APK sha256 matched at session start). No rebuild.
+- Emulator: font scale put back to 1.0 after the 1.3 check; Wi-Fi and data re-enabled after the offline case. Timezone Asia/Manila as before.
+- App state at the end: logged out (the last flow was `p1_auth_account_switch`, which ends logged in as the client, then `pm clear` is not needed for the next slice because every flow starts with `launch_fresh`).
+- Deployed login throttle is inconsistent (E2E-010). Auth routes can return 429 for about a minute after a burst; wait 65s if a flow hits it.
+- No wallet or job state changed in this slice. Balances as in 0.2/0.3: client 49,500 available (500 frozen), others 0.
+- Onboarding slides are keyed per profile id: tapping Skip once means they do not reappear for that profile, even after logout/login. `launchApp: clearState` resets this.

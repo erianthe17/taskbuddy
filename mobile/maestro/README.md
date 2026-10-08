@@ -388,3 +388,12 @@ that account and delete it (Settings → Delete Account) before retrying.
   the OAuth round trip finishes by itself and signs the app in (E2E-008).
 - **Known stale flows** (see `docs/e2e-sweep/findings.md`): `jobs_create_plumbing` (E2E-005),
   `profile_edit_client` (E2E-006), `hire_payment_choice` (E2E-007).
+
+## Slice 1.1 notes (2026-10-08, release build `fbe63d63`)
+
+- **Provider tabs have no `nav-tab-*` ids for "My Work"/"Feed" that Maestro resolves** (`nav-tab-My Work` was not found). Tap them by text. The client tabs work by id (`nav-tab-Home`, `nav-tab-Wallet`, `nav-tab-My Jobs`).
+- **`eraseText: N` does not clear long text reliably** (400 left junk in the email field). For a long-input case, start from `launchApp: clearState` instead of erasing.
+- **`launchApp` without `clearState` restarts the process but keeps the session**, which makes it the way to test "still signed in after a restart".
+- **Provider Home reads "Jobs near you"** (lower case); the older helper text "Jobs Near You" still matches.
+- **Auth routes are throttled (10/min) but inconsistently** (E2E-010): wait 65s after a burst.
+- New flows: `p1_auth_login_validation`, `p1_auth_session_persistence`, `p1_auth_account_switch`.

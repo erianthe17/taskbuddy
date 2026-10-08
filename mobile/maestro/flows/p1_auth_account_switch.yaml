@@ -1,0 +1,65 @@
+appId: com.taskbuddy.app
+---
+# Slice 1.1 (1.1-22/23): switching accounts shows no data of the previous one.
+# Logged in as the client, log out, log in as the provider, then reverse it.
+- runFlow: _helpers/login_client.yaml
+- tapOn:
+    id: "nav-tab-Wallet"
+- waitForAnimationToEnd
+- tapOn:
+    id: "nav-tab-Home"
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "Log Out"
+- tapOn:
+    text: "Log Out"
+    below: "Are you sure you want to log out?"
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 15000
+# Space-padded email must be trimmed (1.1-11).
+- tapOn:
+    id: "input-email"
+- inputText: "  maestro.provider@taskbuddy.test  "
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- tapOn:
+    id: "btn-sign-in"
+- extendedWaitUntil:
+    visible: ".*(Skip|Jobs near you).*"
+    timeout: 60000
+- tapOn:
+    text: "Skip"
+    optional: true
+- extendedWaitUntil:
+    visible: "Hello, Maestro Provider"
+    timeout: 60000
+- assertNotVisible: "Maestro Client"
+- assertNotVisible: "Find a service"
+- tapOn:
+    id: "btn-home-avatar"
+- scrollUntilVisible:
+    element: "Log Out"
+- tapOn: "Log Out"
+- tapOn:
+    text: "Log Out"
+    below: "Are you sure you want to log out?"
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 15000
+- tapOn:
+    id: "input-email"
+- inputText: "maestro.client@taskbuddy.test"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- tapOn:
+    id: "btn-sign-in"
+- extendedWaitUntil:
+    visible: "Maestro Client"
+    timeout: 60000
+- assertNotVisible: "Hello, Maestro Provider"
+- assertNotVisible: "Jobs near you"
