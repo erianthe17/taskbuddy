@@ -1,7 +1,115 @@
 # E2E findings
 
 Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## Open` to
-`## Found & solved` and keep their id.
+`### E2E-025 — Edit Profile: a 121-character name reaches the server and comes back as raw validation text
+- **Found:** 2026-10-09, slice 2.1, case 2.1-13   **Role:** client
+- **Category:** ux
+- **Severity:** S4
+- **Status:** Open
+- **Steps:** 1. Log in as `maestro.editprofile@`. 2. Profile > Edit Profile. 3. Replace the name with 121 `b` characters. 4. Save Changes > Save Changes in the modal.
+- **Expected:** The input is capped at 120 (the DTO's `@Length(1,120)`) or friendly copy shows.
+- **Actual:** The request goes out and the red line above Save reads `full_name must be shorter than or equal to 120 characters`. The stored name stayed at the previous 120 characters. 120 characters saves fine (2.1-12) and wraps cleanly in the Profile hero.
+- **Evidence:** `evidence/E2E-025-name-121.png`
+- **Suspected cause:** `HOEditProfileScreen.tsx` has no `maxLength` on the name input (only the empty check). The raw message is the same class as E2E-009/015/020.
+- **Solution (if solved):** n/a
+
+### E2E-026 — Phone accepts any text: letters, symbols and 40 digits save and display as-is
+- **Found:** 2026-10-09, slice 2.1, cases 2.1-28/29/30   **Role:** client
+- **Category:** ux
+- **Severity:** S4
+- **Status:** Open (needs product sign-off)
+- **Steps:** 1. Edit Profile on `maestro.editprofile@`. 2. Set Phone to `abc`, `+-*#`, then 40 `1`s (typed through Maestro, which bypasses the number pad). 3. Save and confirm each.
+- **Expected:** Some format check, or a documented decision that phone is free text. The placeholder `+63 9XX XXX XXXX` implies a PH number.
+- **Actual:** All saved verbatim and Profile > Account Info shows them. Valid PH formats (`+63 917 123 4567`, `09171234567`, `9171234567`, `(02) 8123 4567`) also save as typed, with no normalising. Clearing the field saves `""` and Profile shows `—`.
+- **Evidence:** `evidence/E2E-026-phone-junk.png` (top: `abc`, bottom: 40 digits)
+- **Suspected cause:** `HOEditProfileScreen.tsx` has no phone validation and `profiles.dto.ts` declares `phone` as `@IsString()` only. Not a defect unless the spec wants one. Matters for SMS Alerts later.
+- **Solution (if solved):** n/a
+
+### E2E-027 — Edit Profile: address suggestions render below the fold, hidden behind the keyboard while typing
+- **Found:** 2026-10-09, slice 2.1, case 2.1-19   **Role:** client
+- **Category:** ux
+- **Severity:** S4
+- **Status:** Open
+- **Steps:** 1. Profile > Edit Profile. 2. Tap Address and type `Ayala Ave`. 3. Wait 2-4 s.
+- **Expected:** The matching suggestions are visible above the keyboard, or the field scrolls up to show them.
+- **Actual:** The Address field sits at the bottom edge with the keyboard directly beneath it, so the list that loaded (Ayala Avenue, Makati; Ayala Avenue Extension; Ayala Avenue, San Pascual) is invisible. After hiding the keyboard (hardware back) the dropdown is there and selecting a row fills Address and City. A user who doesn't dismiss the keyboard sees no suggestions and may think the lookup is broken.
+- **Evidence:** `evidence/E2E-027-address-suggestions-under-keyboard.png`
+- **Suspected cause:** `HOEditProfileScreen.tsx` uses `KeyboardAvoidingView behavior="height"` (same pattern as E2E-012/016/024) and the dropdown renders inline under the field. Not investigated further.
+- **Solution (if solved):** n/a
+
+### E2E-028 — Avatar: picking a non-image file (text renamed `.jpg`) leaves a blank white screen with no error
+- **Found:** 2026-10-09, slice 2.1, case 2.1-39   **Role:** client
+- **Category:** app-bug
+- **Severity:** S4
+- **Status:** Open
+- **Steps:** 1. Push `fake.jpg` (22 bytes of text) to `/sdcard/Pictures` and run the media scan. 2. Edit Profile > Change Photo. 3. Tap the blank tile in the system photo picker (second tile, top row).
+- **Expected:** An inline "couldn't use that image" message, or the crop step opens and fails clearly, and the Edit screen comes back.
+- **Actual:** The app area goes fully white (status and nav bars only). The view hierarchy is empty, `MainActivity` stays resumed, the process is alive, and nothing changes after 45 s. There's no crash and no JS error. Hardware back returns to the photo picker, and a second back leaves the app for the launcher (the user loses their place in Edit Profile). Nothing was uploaded (`avatar_url` unchanged).
+- **Evidence:** `evidence/E2E-028-fake-image-blank-screen.png`
+- **Suspected cause:** not investigated. The picker is `expo-image-picker` with `allowsEditing` (`AvatarPicker.tsx:44-51`), and the crop step probably can't decode the bytes and never reports back. Rare in practice: it needs a corrupt file that the system picker still lists.
+- **Solution (if solved):** n/a
+
+### E2E-029 — Avatar: a 36 MB image spins for about 3 minutes, then fails with "Check your connection"
+- **Found:** 2026-10-09, slice 2.1, case 2.1-40   **Role:** client
+- **Category:** ux
+- **Severity:** S4
+- **Status:** Open
+- **Steps:** 1. Push `large_over10mb.png` (36 MB noise PNG) to `/sdcard/Pictures`. 2. Edit Profile > Change Photo > pick it > CROP.
+- **Expected:** A quick, specific message ("That photo is too large") or a client-side size check. The migration-0011 `avatars` bucket has no `file_size_limit`, so a server rejection isn't guaranteed either.
+- **Actual:** After CROP a spinner covers the crop screen. About 3 minutes later (no change in `avatar_url` over a 2-minute poll, still not done at that point) the Edit screen shows red `Could not upload the image. Check your connection.` and the avatar is unchanged. The device was online and the 447 KB PNG uploaded fine, so the wording points the user at the wrong cause. The "Change Photo" link is usable again.
+- **Evidence:** `evidence/E2E-029-avatar-oversize-error.png`
+- **Suspected cause:** `AvatarPicker.tsx` has no size or type check; the catch-all copy is at `api.ts:1393`. Which step failed (signed URL, PUT, or timeout) is not investigated.
+- **Solution (if solved):** n/a
+
+### E2E-030 — Cold start with no connection shows the Login screen with no message, though the session is still valid
+- **Found:** 2026-10-09, slice 2.1, case 2.1-03 (offline Profile)   **Role:** both (seen as client)
+- **Category:** ux
+- **Severity:** S3
+- **Status:** Open (re-check in 8.2)
+- **Steps:** 1. Log in as `maestro.editprofile@` and reach Home. 2. `adb shell am force-stop com.taskbuddy.app`; `adb shell svc wifi disable; svc data disable`. 3. Launch the app and wait 25 s. 4. Re-enable the network and force-stop and relaunch the app.
+- **Expected:** Home from the stored session, or an "offline" notice with a retry. Never a bare Login form while the account is still signed in.
+- **Actual:** Step 3 shows the normal Login form ("Welcome!", empty fields) at 8 s and still at 25 s, with no offline wording. Re-enabling the network without relaunching doesn't change it. Step 4 goes straight to Home as the same user, so the session wasn't cleared. A user who logs in again at that moment gets a network error. They could also think they were signed out.
+- **Evidence:** `evidence/E2E-030-offline-cold-start-login.png` (thumbnail, 25 s, offline)
+- **Suspected cause:** not investigated. It looks like the startup profile fetch fails on the network error and the router falls back to the auth stack. `AuthContext` is out of this sweep's fix scope.
+- **Solution (if solved):** n/a
+
+### E2E-031 — Change Password: the API accepts a new password equal to the current one
+- **Found:** 2026-10-09, slice 2.1, case 2.1-62   **Role:** both
+- **Category:** backend-bug
+- **Severity:** S4
+- **Status:** Open
+- **Steps:** 1. Log in as the burner `maestro.burner.2.1.1@` and take the access token. 2. `POST /auth/change-password` with `{"current_password":"TestPass123!","new_password":"TestPass123!"}`.
+- **Expected:** 400, matching the app's own rule "Different from your current password".
+- **Actual:** `200 {"success":true}`. The app blocks it client-side, but a direct API caller doesn't hit that rule. The same call also made the caller's access token stop working (the next request with it got `401 Invalid or expired token`), so a password change ends existing sessions.
+- **Evidence:** curl only. Other probes behaved as expected: `new_password` of 5 chars gives 400 `new_password must be longer than or equal to 8 characters`; `{}` gives 400 listing both fields; an extra field `x` gives 400 `property x should not exist`.
+- **Suspected cause:** `ChangePasswordDto` has only `@IsNotEmpty` and `@MinLength(8)`; `auth.service.ts` has no equality check. Backend fix needs sign-off (auth is out of this sweep's fix scope).
+- **Solution (if solved):** n/a
+
+### E2E-032 — After "Password updated" the app signs the user out on the next action, with no explanation
+- **Found:** 2026-10-09, slice 2.1, case 2.1-65   **Role:** both (seen as client)
+- **Category:** ux
+- **Severity:** S3
+- **Status:** Open
+- **Steps:** 1. Log in as the burner `maestro.burner.2.1.1@`. 2. Settings > Change Password with the right current password and a valid new one > Update password. 3. See "Password updated — Use your new password the next time you sign in." and tap Done (still on Settings). 4. Tap any switch, e.g. SMS Alerts.
+- **Expected:** The session continues, as the success copy says, or the copy warns "You'll be signed out" and the app routes to Login with a message.
+- **Actual:** The next request drops the app to the plain Login form (empty fields, no message). Done itself doesn't sign out. The server rejects the old access token after a password change (E2E-031 observed the same on the API), and the app's refresh fails, so the user is signed out silently. The success sheet promises otherwise ("next time you sign in").
+- **Evidence:** `evidence/E2E-032-signed-out-after-password-change.png`
+- **Suspected cause:** not investigated. The refresh path is in `api.ts` / `AuthContext` (out of fix scope). A backend invalidation of all sessions on password change plus a client that treats the 401 as a plain sign-out would produce this.
+- **Solution (if solved):** n/a
+
+### E2E-033 — Header back arrows on Edit Profile, Settings and Help & Support have no accessibility label and are about 38dp
+- **Found:** 2026-10-09, slice 2.1, case 2.1-75   **Role:** client (the provider screens are checked in 2.2)
+- **Category:** ux
+- **Severity:** S4
+- **Status:** Open
+- **Steps:** 1. Open Settings, Edit Profile and Help & Support. 2. `maestro hierarchy` and look at the clickable node in the top-left.
+- **Expected:** An accessibility label such as "Back" and a tap target of at least 48dp.
+- **Actual:** On all three screens the back arrow is a clickable node with empty `text` and empty `accessibilityText`, bounds about 99 × 100 px (about 38dp at this density). Profile's arrow does have a label ("Back to Home"). Elsewhere in this slice the controls are labelled: the password eyes ("Show password" / "Hide password"), `Change password` sheet buttons, and the Help tutorial card. The switches on Settings carry only testIDs, with no extra a11y label (only Dark mode is labelled).
+- **Evidence:** hierarchy dumps, `~/.taskbuddy-e2e/logs/2.1/hier_*.json` (not committed)
+- **Suspected cause:** the shared back-button component in these screens lacks `accessibilityLabel` and `hitSlop`. Not investigated.
+- **Solution (if solved):** n/a
+
+## Found & solved` and keep their id.
 
 ## Summary
 
@@ -9,8 +117,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
-| S3 | 2 | 1 | 0 | 0 | 0 |
-| S4 | 18 | 2 | 1 | 0 | 0 |
+| S3 | 4 | 1 | 0 | 0 | 0 |
+| S4 | 25 | 2 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>

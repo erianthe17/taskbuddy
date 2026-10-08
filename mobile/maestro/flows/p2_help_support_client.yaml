@@ -1,0 +1,22 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.1 (2.1-67, 2.1-71): client Help & Support content. The tutorial card
+# is covered by p1_onboarding_tutorial_client.yaml. Read-only. Does not tap
+# Email support (opens Gmail on the emulator) or the attribution links.
+- runFlow: _helpers/login_client.yaml
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "Help & Support"
+- assertVisible: "Frequently Asked Questions"
+- assertVisible: "How do payments work?"
+- assertVisible: "How do I hire a provider?"
+- assertVisible: "How do I leave a review?"
+- assertVisible: "How do I report a problem with a job?"
+- scrollUntilVisible:
+    element: "Powered by Geoapify"
+- assertVisible: "support@taskbuddy.ph"
+- assertVisible: "© OpenStreetMap contributors"
+# header back arrow (it has no label, see E2E-033) returns to Profile
+- tapOn:
+    point: "10%,6%"
+- assertVisible: "Account Info"

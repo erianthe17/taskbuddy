@@ -1,0 +1,44 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.1 (2.1-10, 2.1-11, 2.1-16, 2.1-33): Edit Profile validation and the
+# no-save paths, on the persistent maestro.editprofile account. Nothing is
+# saved: every path ends by leaving Edit with the back arrow.
+# The name is cleared with eraseText after tapping the RIGHT end of the field
+# (92%,31%) so the cursor sits last; tapping the text puts it mid-string.
+- runFlow:
+    file: _helpers/login_as.yaml
+    env:
+      LOGIN_EMAIL: "maestro.editprofile@taskbuddy.test"
+      LOGIN_PASSWORD: "TestPass123!"
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "Edit Profile"
+- tapOn:
+    point: "92%,31%"
+- eraseText: 130
+- tapOn: "Full name *"
+- tapOn: "Save Changes"
+- assertVisible: "Full name cannot be empty."
+# whitespace only gives the same copy
+- tapOn: "Your full name"
+- inputText: "   "
+- tapOn: "Full name *"
+- tapOn: "Save Changes"
+- assertVisible: "Full name cannot be empty."
+# a real change, then Cancel in the confirm modal saves nothing
+- tapOn:
+    point: "92%,31%"
+- eraseText: 20
+- inputText: "Cancel Probe"
+- tapOn: "Full name *"
+- tapOn: "Save Changes"
+- assertVisible: "Save profile changes?"
+- tapOn: "Cancel"
+- assertVisible: "Edit Profile"
+# back arrow discards the edit without a prompt (ux sign-off item)
+- tapOn:
+    point: "10%,6%"
+- extendedWaitUntil:
+    visible: "Account Info"
+    timeout: 10000
+- assertNotVisible: "Cancel Probe"

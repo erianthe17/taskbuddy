@@ -1,0 +1,26 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.1 (2.1-21): an address with no street is rejected with friendly copy
+# and nothing is saved. Re-runnable: the failed save leaves the profile as it was.
+# After typing, the suggestion list pushes Save off screen, so hide the keyboard
+# and scroll to it (E2E-027).
+- runFlow:
+    file: _helpers/login_as.yaml
+    env:
+      LOGIN_EMAIL: "maestro.editprofile@taskbuddy.test"
+      LOGIN_PASSWORD: "TestPass123!"
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "Edit Profile"
+- tapOn: "House no., Barangay, Street"
+- inputText: "Quezon City"
+- pressKey: Back
+- scrollUntilVisible:
+    element: "Save Changes"
+- tapOn: "Save Changes"
+- tapOn:
+    text: "Save Changes"
+    rightOf: "Cancel"
+- extendedWaitUntil:
+    visible: "That address is too general to locate.*"
+    timeout: 60000

@@ -1,0 +1,45 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.1 (2.1-43, 2.1-44): SMS Alerts flips, is saved to the server, and
+# survives a process restart; the flow then flips it back. Uses the persistent
+# maestro.editprofile account. If a run dies midway, SMS Alerts may be left ON
+# (default is off).
+- runFlow:
+    file: _helpers/login_as.yaml
+    env:
+      LOGIN_EMAIL: "maestro.editprofile@taskbuddy.test"
+      LOGIN_PASSWORD: "TestPass123!"
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Notifications"
+    timeout: 10000
+- tapOn:
+    id: "toggle-sms_enabled"
+- extendedWaitUntil:
+    visible:
+      id: "toggle-sms_enabled"
+      checked: true
+    timeout: 10000
+# process restart, same session
+- launchApp
+- extendedWaitUntil:
+    visible: "Find a service"
+    timeout: 60000
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible:
+      id: "toggle-sms_enabled"
+      checked: true
+    timeout: 15000
+# restore
+- tapOn:
+    id: "toggle-sms_enabled"
+- extendedWaitUntil:
+    visible:
+      id: "toggle-sms_enabled"
+      checked: false
+    timeout: 10000

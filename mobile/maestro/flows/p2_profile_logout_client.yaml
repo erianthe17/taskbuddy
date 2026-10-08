@@ -1,0 +1,23 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.1 (2.1-50, 2.1-53): Log Out from Profile. Cancel keeps the session,
+# confirm lands on Login. The confirm button's text is also the Profile row's,
+# so the modal is confirmed by position (70%,56%), tapped twice to prove a
+# double tap logs out once.
+- runFlow: _helpers/login_client.yaml
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "Log Out"
+- assertVisible: "Confirm Log Out"
+- tapOn: "Cancel"
+- assertVisible: "Account Info"
+- tapOn: "Log Out"
+- waitForAnimationToEnd:
+    timeout: 1500
+- tapOn:
+    point: "70%,56%"
+- tapOn:
+    point: "70%,56%"
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 20000

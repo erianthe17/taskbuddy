@@ -62,12 +62,14 @@ Emails only. No passwords or tokens in this file.
 
 | Email | Role | Status |
 |---|---|---|
-| maestro.client@taskbuddy.test | client | Exists, logs in. No address/coordinates. id 400cbc27-… |
+| maestro.client@taskbuddy.test | client | Exists, logs in. Address since 2.1-18: "Ayala Avenue, Makati, 1226 Metro Manila, Philippines" (14.5609825, 121.0154926; street-level, no house number). id 400cbc27-… |
 | maestro.provider@taskbuddy.test | provider | Exists, verified, Plumbing, address in Lipa (13.9978, 121.1676), is_available=false, radius 8 km |
 | maestro.client2@taskbuddy.test | client, unfunded (insufficient-balance cases) | Registered 2026-10-08, wallet 0, no address |
 | maestro.provider2@taskbuddy.test | provider, second applicant | Registered 2026-10-08, Plumbing, unverified, no address, wallet 0 |
-| maestro.editprofile@taskbuddy.test | leftover burner (E2E-006) | **Alive, needs deleting.** From the 0.3 baseline run. An API delete was denied by the permission classifier |
+| maestro.editprofile@taskbuddy.test | edit/settings account for the p2 flows (was the E2E-006 leftover) | Alive and **in use**: the `p2_profile_edit_*` and `p2_settings_toggles_persist` flows log in as it. Don't delete it in 9.2 unless those flows are retired. State left by 2.1: name "Draft Text", no phone, no address, city "Makati", avatar set, toggles at defaults (push on, email on, sms off, dark off) |
 | maestro.burner.ep1791457159659@taskbuddy.test | leftover burner (E2E-006) | **Alive, needs deleting.** From a 0.3 retry that died before cleanup |
+| maestro.burner.2.1.1@taskbuddy.test | Slice 2.1 Change Password burner (client) | Created via API, password changed in-app, **deleted in-app**, login now 401 |
+| maestro.burner.2.1.<ts>@taskbuddy.test | made and deleted by `p2_settings_change_password_burner.yaml` on each run | Deleted at the end of the flow (the 2026-10-09 run completed) |
 | maestro.burner.reg.1@, .reg.2@, .reg.3@taskbuddy.test | Slice 1.2 burners (client, provider, client) | Created and **deleted in-app** on 2026-10-08, login now 401 |
 
 ## Wallet balances
@@ -133,3 +135,14 @@ Balance / available / pending, recorded at slice start and end.
 - Emulator: font scale back at 1.0, autofill null, timezone Asia/Manila. The Google account was removed by you before the Google cases. One Chrome task is left in Recents from the custom tab.
 - No wallet or job state changed. Balances as before: client 49,500 available (500 frozen), others 0. No account was created or deleted in this slice.
 - The Maestro MCP's device connection died mid-session (`UNAVAILABLE`, connection age ~3 h). All device work went through the `maestro test` CLI.
+
+## Slice 2.1 notes
+
+- Installed build unchanged: `fbe63d63…` (APK sha256 matched at session start). No rebuild.
+- Emulator: font scale back at 1.0; Wi-Fi and data re-enabled after each offline case; `READ_MEDIA_IMAGES` re-granted after the revoke; dark mode off. Test images are still in `/sdcard/Pictures` (icon.png, splash-icon.png, fake.jpg, large_over10mb.png).
+- No wallet, job or escrow state changed: client 49,500 balance / 49,500 available (in escrow 500), others 0. Profile "Balance" is `wallet.balance`.
+- The Maestro MCP device driver was dead again at session start (`UNAVAILABLE`). All device work went through `maestro test` and adb.
+- The deployed API answers quickly (0.9 s for a wrong-password change); the emulator's own uploads are slow (447 KB avatar about 40-60 s; a 36 MB image fails after about 3 min).
+- Server facts: `PATCH /profiles/me` turns null phone/address/city into `""` on the first save; clearing the address nulls latitude/longitude but keeps the city; the geocoder accepts "Ayala Ave" typed without a city and a street-only suggestion, and rejects "Quezon City" as too general; a password change makes the caller's old access token return 401.
+- Crash sweep: `~/.taskbuddy-e2e/logs/2.1-logcat.txt` is clean (logcat was cleared once mid-slice).
+

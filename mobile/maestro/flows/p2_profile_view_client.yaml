@@ -1,0 +1,18 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.1 (2.1-01): the client Profile shows the account facts, the stats row
+# and every menu row. Read-only; uses the persistent client account.
+- runFlow: _helpers/login_client.yaml
+- tapOn:
+    id: "btn-home-avatar"
+- extendedWaitUntil:
+    visible: "Account Info"
+    timeout: 20000
+- assertVisible: "maestro.client@taskbuddy.test"
+- assertVisible: "Jobs Posted"
+- assertVisible: "Balance"
+- assertVisible: "Edit Profile"
+- assertVisible: "Settings"
+- assertVisible: "Help & Support"
+- scrollUntilVisible:
+    element: "Log Out"

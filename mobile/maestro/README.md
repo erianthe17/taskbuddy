@@ -420,3 +420,17 @@ that account and delete it (Settings → Delete Account) before retrying.
 - **Tutorial replay:** client Profile > "Help & Support" > "View tutorial"; provider Profile (scroll) > "Help & Support". The buttons read "Continue" and "Get Started" (not "Next"). Skip and Get Started both return to Help & Support. Slide titles are split across nested Text nodes, so assert with a regex such as `Post a job in.*`.
 - **Hardware back on the first-run slides exits the app** (E2E-023), so don't use `back` there.
 - New flows: `p1_auth_forgot_validation`, `p1_auth_forgot_stage2_validation`, `p1_onboarding_tutorial_client`, `p1_onboarding_tutorial_provider`, `p1_auth_legal`. None sends mail or creates an account, and none freezes the raw server copy logged in E2E-020/022.
+
+## Slice 2.1 notes (2026-10-09, release build `fbe63d63`)
+
+- **Login for any account:** `_helpers/login_as.yaml` takes `LOGIN_EMAIL` and `LOGIN_PASSWORD` (`runFlow: {file: ..., env: {...}}`). `_helpers/register_burner.js` registers a client burner through the API with `http.post` (flow env `EMAIL`, `PASSWORD`), faster than the UI signup.
+- **`takeScreenshot` takes a relative name only** (an absolute path is refused). Files land in `~/.maestro/tests/<run>/<flow>/takeScreenshot/`. A name can embed a variable, e.g. `elapsed_${output.dt}ms`, which is a handy stopwatch.
+- **`tapOn: point:` takes whole percentages** (`10%,6%`, not `9.5%`). The header back arrow on Edit/Settings/Help has no label, so use `point: "10%,6%"`.
+- **Clearing a text field:** `eraseText` only deletes what is before the cursor, and tapping text puts the cursor mid-string. Tap the right end of the field (`point: "92%,31%"` for the Edit Profile name) and then `eraseText`. For long text use adb `input keycombination 113 29` (select all) then `input keyevent 67`. `eraseText` does not exit the app on the release build (BUG-003's warning no longer applies).
+- **Confirm modals:** Edit Profile's "Save profile changes?" hides the page's own Save, but the confirm button reads "Save Changes" too: use `tapOn: {text: "Save Changes", rightOf: "Cancel"}`. Log Out's confirm is best tapped by position (`70%,56%`). Settings' Delete Account is `rightOf: "Cancel"`.
+- **Address suggestions:** the list renders under the field, so the keyboard hides it and, once it is long, it pushes Save off screen (E2E-027). After typing: `pressKey: Back`, `scrollUntilVisible: Save Changes`.
+- **Photo picker:** Android's system Photo Picker needs no permission, so the revoke case is N-A. The pushed images show as tiles in the order newest first; a corrupt `.jpg` leaves a blank white screen (E2E-028).
+- **adb from Git Bash:** `MSYS_NO_PATHCONV=1` is needed for `/sdcard/...` arguments, and `adb push` wants a Windows-style source path (`C:/Users/...`). Don't leave that variable exported when you then call Python with `~` paths.
+- **Persistent accounts used:** `maestro.editprofile@` (edit/settings flows) and `maestro.client@` (view, logout, help). The Change Password flow makes and deletes its own burner and never touches the password of `maestro.client@`/`maestro.provider@`.
+- New flows: `p2_profile_view_client`, `p2_profile_logout_client`, `p2_help_support_client`, `p2_profile_edit_validation`, `p2_profile_edit_geocode_error`, `p2_settings_toggles_persist`, `p2_settings_change_password_burner`. The stale `profile_edit_client.yaml` is still stale (E2E-006); it was not rewritten because the geocoder now needs a real address and `p2_profile_edit_validation` covers its useful half.
+
