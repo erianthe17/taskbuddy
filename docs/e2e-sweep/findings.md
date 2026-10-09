@@ -7,9 +7,9 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | Severity | Open | Workaround | Solved | Fixed-on-main-not-deployed | Escalated |
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
-| S2 | 0 | 0 | 0 | 0 | 0 |
-| S3 | 9 | 1 | 0 | 0 | 0 |
-| S4 | 50 | 4 | 1 | 0 | 0 |
+| S2 | 0 | 0 | 0 | 0 | 1 |
+| S3 | 10 | 1 | 0 | 0 | 0 |
+| S4 | 52 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -642,7 +642,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Suspected cause:** `isValidBudget` (`HOCreateJobScreen.tsx:277-286`).
 
 ### E2E-063 — A budget above the database range returns the raw message "numeric field overflow"
-- **Found:** 2026-10-09, slice 3.2, case 3.2-64 (API probe, not typed in the app)   **Role:** client
+- **Found:** 2026-10-09, slice 3.2, case 3.2-64 (API probe; confirmed in the app 2026-10-10: typing 99999999999 and tapping Post Job shows the footer text "numeric field overflow" and creates no job, evidence `evidence/E2E-063-inapp-numeric-overflow.png`)   **Role:** client
 - **Category:** backend-bug   **Severity:** S4   **Status:** Open
 - **Steps:** `POST /jobs` with `budget: 10000000000` (or 99999999999) and otherwise valid fields.
 - **Expected:** a 400 from DTO validation ("budget must not be greater than …").   **Actual:** HTTP 400 with the message "numeric field overflow" (the database error text), which the app would show verbatim in the footer. Suggested fix: add `@Max()` to `CreateJobDto.budget` (`backend/src/jobs/dto/jobs.dto.ts:81-85`).
@@ -667,6 +667,38 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Steps:** 1. Post a Job with the title `Paayos ng gripo sa CR '; DROP TABLE jobs; --`. 2. Post Job. (API repro: `POST /jobs` with that title returns HTTP 403 and an HTML page titled "Blocked"; the same title with `<script>alert(1)</script>` or `' OR 1=1 --` returns 201.)
 - **Expected:** a normal job, or a clear "this text is not allowed" message.   **Actual:** the request never reaches the API (a WAF or proxy in front of the deployed backend answers 403); the footer says "The server is unavailable right now (HTTP 403). Please try again shortly.", which is misleading and retrying never helps.
 - **Suspected cause:** edge/WAF rule on the Render deployment, not application code. The app's generic 5xx/403 copy is in `mobile/src/lib/api.ts` (not touched).
+
+### E2E-067 — A double tap on Next shows the next step's validation error as soon as it opens
+- **Found:** 2026-10-10, slice 3.2, case 3.2-86   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Post a Job, Plumbing, saved location, step 2. 2. Double-tap Next quickly (`adb shell "input tap 794 2179; input tap 794 2179"`). 3. Repeat on step 3 after picking a task.
+- **Expected:** one step forward, and the new step opens clean.   **Actual:** the wizard advances exactly one step (no skip), but the second tap runs Next on the new, untouched step, so step 3 opens with "Pick at least one task so providers know what the job involves." and step 4 with "Please select a preferred date." in red before the user has done anything.
+- **Evidence:** `evidence/E2E-067-double-next-error-on-arrival.png`
+- **Suspected cause:** `handleNext` (`mobile/app/(homeowner)/screens/HOCreateJobScreen.tsx:572-581`) has no in-flight or debounce guard. The second tap is handled after `setStep` re-renders and validates the new step. A short guard (ignore Next for ~400 ms after a step change) or validating only the step the tap started on would fix it.
+
+### E2E-068 — An 11-digit budget clips its leading digit behind the peso sign
+- **Found:** 2026-10-10, slice 3.2, case 3.2-64   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Post a Job to step 4. 2. Type 99999999999 in Budget and blur.
+- **Expected:** the full amount stays readable (or the field refuses an amount this large, see E2E-062/063).   **Actual:** the formatted "99999999999.00" is wider than the box and its first digit is cut under the "₱" prefix. The review step shows "₱99,999,999,999.00" in full.
+- **Evidence:** `evidence/E2E-068-budget-clipped.png`
+- **Suspected cause:** the budget input's large font with no `adjustsFontSizeToFit`/max length; not investigated further. Goes away if a sane maximum is enforced (E2E-062).
+
+### E2E-069 — Picking a valid photo together with an unreadable file attaches nothing, silently
+- **Found:** 2026-10-10, slice 3.2, case 3.2-81   **Role:** client
+- **Category:** app-bug   **Severity:** S3   **Status:** Open
+- **Steps:** 1. Post a Job, step 3, Add photos. 2. In the system picker select a valid image (`p2a_A.png`) and a 22-byte text file named `.jpg` (`p2e_fake.jpg`); the picker shows "Add (2)". 3. Tap Add (2).
+- **Expected:** the valid image is attached (and the unreadable one is skipped with a message).   **Actual:** zero thumbnails, no message, no footer error (reproduced twice). The user's valid choice is lost with no explanation; posting then creates a job with `photo_urls` = 0. This widens E2E-061 (which assumed only the bad file is dropped).
+- **Evidence:** `evidence/E2E-069-picker-selection.png` (both selected, "Add (2)"), `evidence/E2E-069-nothing-attached.png`
+- **Suspected cause:** `pickPhotos` (`mobile/app/(homeowner)/screens/HOCreateJobScreen.tsx:481-512`) has `try/finally` with no `catch`. `launchImageLibraryAsync` with `quality: 0.8` re-encodes every asset, so one undecodable file plausibly rejects the whole call; the rejection is swallowed by `void pickPhotos()` (line 1050). The crash sweep checks for a matching ReactNativeJS error. Fix direction: catch, show "One of the files could not be read", and keep the readable assets (or pick with `quality: 1` and validate per asset).
+
+### E2E-070 — One Post Job tap after an offline failure created two identical jobs
+- **Found:** 2026-10-10, slice 3.2, case 3.2-87   **Role:** client
+- **Category:** app-bug   **Severity:** S2   **Status:** Escalated (needs a product/backend decision on idempotency)
+- **Steps:** 1. Post a Job to the review step (Plumbing, budget 300, no photos). 2. `adb shell svc wifi disable; adb shell svc data disable`. 3. Tap Post Job: footer "Cannot reach the server. Check your connection and try again.", draft kept, no job created (verified by GET). 4. Re-enable wifi and data, wait for connectivity. 5. Tap Post Job once.
+- **Expected:** exactly one job.   **Actual:** "Job Posted!" and **two** jobs, `a577c526…` at 18:56:52.35Z and `a644becd…` at 18:56:59.78Z (same title and budget). Maestro's own log shows a single tap at 02:56:51.48 local ("Tapping at (794, 2178)", once). Both jobs were cancelled.
+- **Evidence:** `evidence/E2E-070-offline-error.png`, `evidence/E2E-070-posted.png`; Maestro run log `~/.maestro/tests/2026-10-10_025641/maestro.log` (not committed).
+- **Suspected cause:** not isolated. `rawRequest` (`mobile/src/lib/api.ts:738-753`) never retries a POST (only `authRequest` on 401, :803-819), so the duplicate most likely comes from the transport. React Native's fetch on Android uses OkHttp, which with `retryOnConnectionFailure` (default on) can silently resend a request when a pooled connection, made stale by the network change, fails after the server already received it. The 7 s gap fits a lost-response-then-retry. The backend has no idempotency key on `POST /jobs`, so nothing de-duplicates. Fix options (escalated, not self-serve: transport/auth-adjacent): a client-generated idempotency key per wizard submit, honoured by `POST /jobs`, and/or disabling OkHttp retry for non-idempotent methods. Money impact is indirect (duplicate open jobs, no escrow until hire), but the same path exists for other POSTs (apply, hire, withdraw), so Phase 5/6/8 must re-check this.
 
 ## Found & solved
 

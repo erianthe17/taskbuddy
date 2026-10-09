@@ -40,11 +40,13 @@ with it) in every call that uses `adb` or `maestro`.
 | Tool | Usage |
 |---|---|
 | `mt.sh <flow.yaml>` | Runs `maestro test` quietly, printing the last 25 lines (`TAILN=n` for more). Save its output: `./mt.sh f.yaml > logs/<slice>/<TC>.log 2>&1; tail -5 logs/<slice>/<TC>.log` |
-| `hier.sh` | Prints the current screen's elements as `resource-id \| text \| bounds`. Use it before you target elements and after each step to see where you are. |
+| `hier.sh` | Prints the current screen's elements as `resource-id \| text \| bounds`. Use it before you target elements and after each step to see where you are. **Always run it as `PYTHONIOENCODING=utf-8:replace ~/.taskbuddy-e2e/hier.sh`**: the ₱ sign crashes the default encoding (₱ then shows as `?`; check screenshots for the real glyph). |
 | `cnt.sh "<regex>"` | Prints text length and bounds of on-screen text matching a regex (uses uiautomator) |
 | `api.sh` | `source ~/.taskbuddy-e2e/api.sh`, then `login client maestro.client@taskbuddy.test` and `call client GET /jobs/mine`, or `call client POST /jobs/<id>/cancel '{}'`. Tokens are stored in files, never printed. On HTTP 401, run `login` again. |
 | `devstate.sh` | Device baseline check: wifi/data on, font scale 1.0, photo permission granted, auto time on, night mode off. Exits non-zero if off. |
 | Slice 3.2 only: `goto3.yaml`, `nx.yaml`, `ad1.yaml` in `scratch/3.2/` | Wizard fragments: Plumbing → saved address → step 3; `hideKeyboard` + Next; tap the address field |
+| Wizard fragments (`scratch/3.2/`, usable by any slice via `runFlow` with an absolute path) | `w_step2.yaml` (fresh login → step 2), `w_step3.yaml` (→ step 3, one task, "Add photos" visible), `w_step4.yaml` (→ step 4, empty budget), `w_3to5.yaml` (step 3 → review with budget 300), `budget.yaml` (`mt.sh -e B=<v> budget.yaml`) |
+| Python on Windows | Pass paths through `cygpath -m` before handing them to Python. |
 
 Write inline flows to `~/.taskbuddy-e2e/scratch/<slice>/<TC>-<n>.yaml`. Each starts with:
 ```yaml
@@ -80,6 +82,10 @@ report it; the orchestrator handles waits.
   "CANCEL".
 - Uploads: the emulator uplink is slow (~15–30 KB/s, E2E-053). Never use the 10 MB+ image unless the
   packet says so.
+- The Android photo picker sorts by modification time at one-second granularity, and many old
+  test images look identical. The orchestrator supplies **labelled** fixtures (big coloured letters,
+  in `~/.taskbuddy-e2e/images/p2/`, pushed with distinct mtimes) and the verified tile points.
+  Always screenshot the grid and match it to the packet before tapping a tile.
 - A text file renamed `.jpg` is silently ignored by the photo picker (E2E-061). That is a known
   finding; record it, don't chase it.
 - Never put `'; DROP TABLE jobs; --` in a request body. An edge filter returns 403 (E2E-066).

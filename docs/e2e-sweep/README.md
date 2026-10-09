@@ -38,7 +38,7 @@ Handoff is the `docs/handoff/` number, filled in when the slice completes.
 | 2.2 | Provider profile & settings | Complete | 008 (partial), 009 |
 | 2.3 | Account deletion | Complete | 010 |
 | 3.1 | Create job: happy paths | Complete | 011 |
-| 3.2 | Create job: validation & edge | In progress — see test-cases/3.2.md (no handoff yet) | — |
+| 3.2 | Create job: validation & edge | In progress — all rows run; stopped on E2E-070 (S2) for the user; exploratory pass, flow, handoff pending | — |
 | 3.3 | My Jobs & job detail | Not started | — |
 | 4.1 | Verification | Not started | — |
 | 4.2 | Feed & job detail | Not started | — |
