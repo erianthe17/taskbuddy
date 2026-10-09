@@ -9,7 +9,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
 | S3 | 10 | 1 | 0 | 0 | 0 |
-| S4 | 53 | 4 | 1 | 0 | 0 |
+| S4 | 54 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -707,6 +707,14 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** "Check everything before posting" covers every posted field, including the description providers read (often auto-drafted, see E2E-059).   **Actual:** the card shows Service, Title, Location, Date, Time, Urgency, Budget and the task list; the description is never shown before posting.
 - **Evidence:** `evidence/E2E-071-review-no-description.png`
 - **Suspected cause:** the review rows array (`mobile/app/(homeowner)/screens/HOCreateJobScreen.tsx:1187-1195`) has no description entry. Fix: add a Description block (multi-line) under the card.
+
+### E2E-072 — My Jobs shows a stale "x mins ago" from its cache
+- **Found:** 2026-10-10, slice 3.3, case 3.3-02   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Post a job (03:41). 2. Open My Jobs at 03:43, leave, return to the All tab at 03:50.
+- **Expected:** the card says about "9 mins ago".   **Actual:** it still says "2 mins ago" (the cached render), and only the Active tab at 03:51 shows "10 mins ago". The detail's "Posted" label is correct.
+- **Evidence:** `evidence/E2E-072-stale-relative-time.png`
+- **Suspected cause:** the list renders cached data first (`useAsyncData` cacheKey, `HOMyJobs.tsx:57-60`), and relative labels are computed at render time with no tick, so the cached labels are the old ones until something re-renders. Not investigated further.
 
 ## Found & solved
 
