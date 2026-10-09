@@ -1,0 +1,96 @@
+appId: com.taskbuddy.app
+---
+# Slice 3.2 (3.2-84/85): a rapid triple tap on Post Job creates exactly one job. Posts a Plumbing
+# job (one task, Urgent, budget 300, no photos), taps Post Job three times with no waits, confirms
+# one Open job in My Jobs, then cancels it so the flow is re-runnable. Does not freeze E2E-067/070.
+- runFlow: _helpers/login_client.yaml
+- evalScript: |
+    ${output.DAYLABEL = (function () {
+      var d = new Date(Date.now() + 2 * 86400000);
+      var wd = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      var mo = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      return '.*' + wd[d.getDay()] + ' ' + d.getDate() + ' ' + mo[d.getMonth()] + ' ' + d.getFullYear() + '.*';
+    })()}
+- tapOn:
+    id: "nav-tab-My Jobs"
+- tapOn: "New"
+- extendedWaitUntil:
+    visible: "Step 1 of 5.*"
+    timeout: 30000
+- tapOn: "Plumbing"
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 2 of 5.*"
+    timeout: 20000
+- assertVisible: "Location confirmed"
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 3 of 5.*"
+    timeout: 30000
+- tapOn: "Fix leaking faucet"
+- assertVisible: "1/20 tasks selected"
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 4 of 5.*"
+    timeout: 20000
+- tapOn: "Urgent"
+- tapOn: "Select a date"
+- waitForAnimationToEnd
+- tapOn: ${output.DAYLABEL}
+- waitForAnimationToEnd
+- tapOn: "Select a time"
+- waitForAnimationToEnd
+- tapOn: "OK"
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: "0.00"
+- tapOn: "0.00"
+- inputText: "300"
+- tapOn: "Budget.*"
+- assertVisible: "300.00"
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Review & Post"
+    timeout: 20000
+# Triple tap with no waits between the taps. retryTapIfNoChange is off so Maestro cannot add
+# taps of its own. The two optional taps are the duplicate-submit attempts. On the preview build
+# they log "Element not found": the button swaps to its posting state on the first tap, which is
+# the guard this flow locks in (3.2-85). Maestro settles between commands, so this is not a
+# sub-100 ms double tap; the true raw double tap is covered by 8.1 with `adb shell input tap`.
+- tapOn:
+    text: "Post Job"
+    retryTapIfNoChange: false
+- tapOn:
+    text: "Post Job"
+    optional: true
+    retryTapIfNoChange: false
+- tapOn:
+    text: "Post Job"
+    optional: true
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible: "Job Posted!"
+    timeout: 90000
+- tapOn: "View My Jobs"
+- extendedWaitUntil:
+    visible: "Plumbing: Fix leaking faucet"
+    timeout: 30000
+- assertVisible: "Open"
+- tapOn:
+    id: "my-jobs-card-0"
+- extendedWaitUntil:
+    visible: "Cancel Job"
+    timeout: 20000
+- tapOn: "Cancel Job"
+- extendedWaitUntil:
+    visible: "Cancel this job.*"
+    timeout: 10000
+- tapOn:
+    text: "Cancel Job"
+    rightOf: "Keep Job"
+- extendedWaitUntil:
+    visible: "My Jobs"
+    timeout: 30000
+# All other jobs on this account are already cancelled, so an "Open" still on screen after the
+# cancel above means the triple tap created a duplicate job.
+- assertNotVisible: "Open"

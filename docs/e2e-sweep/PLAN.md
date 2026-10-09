@@ -489,6 +489,13 @@ availability screens.
 Before each slice: record both wallets (`balance`, `available`, `pending`). After each step: re-record
 them and assert the deltas in the test-case file.
 
+**Duplicate-POST re-check (added 2026-10-10 after E2E-070, user-approved "log and continue").** In 5.1
+(Hire), 6.2 (withdrawal request) and 8.1 (apply, post), add a row: reach the confirm step, go offline
+(`svc wifi/data disable`), tap once (expect the "Cannot reach the server" copy), go back online, tap
+once, then count the effects via the API (escrow holds, withdrawals, applications). Two effects from
+one tap means a new finding referencing E2E-070. In money slices it is **S1**: stop, then reverse the
+duplicate via the allowed admin actions.
+
 **5.1 Hire → escrow held.** Client accepts provider's application → job `assigned`, the client's
 `available` drops by the budget, escrow is `held`, provider2's application is auto-rejected (provider2
 sees it), a booking/calendar entry exists on both sides, and both roles get notifications. **Negative:**

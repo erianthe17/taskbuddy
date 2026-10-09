@@ -9,7 +9,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
 | S3 | 10 | 1 | 0 | 0 | 0 |
-| S4 | 52 | 4 | 1 | 0 | 0 |
+| S4 | 53 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -699,6 +699,14 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** exactly one job.   **Actual:** "Job Posted!" and **two** jobs, `a577c526…` at 18:56:52.35Z and `a644becd…` at 18:56:59.78Z (same title and budget). Maestro's own log shows a single tap at 02:56:51.48 local ("Tapping at (794, 2178)", once). Both jobs were cancelled.
 - **Evidence:** `evidence/E2E-070-offline-error.png`, `evidence/E2E-070-posted.png`; Maestro run log `~/.maestro/tests/2026-10-10_025641/maestro.log` (not committed).
 - **Suspected cause:** not isolated. `rawRequest` (`mobile/src/lib/api.ts:738-753`) never retries a POST (only `authRequest` on 401, :803-819), so the duplicate most likely comes from the transport. React Native's fetch on Android uses OkHttp, which with `retryOnConnectionFailure` (default on) can silently resend a request when a pooled connection, made stale by the network change, fails after the server already received it. The 7 s gap fits a lost-response-then-retry. The backend has no idempotency key on `POST /jobs`, so nothing de-duplicates. Fix options (escalated, not self-serve: transport/auth-adjacent): a client-generated idempotency key per wizard submit, honoured by `POST /jobs`, and/or disabling OkHttp retry for non-idempotent methods. Money impact is indirect (duplicate open jobs, no escrow until hire), but the same path exists for other POSTs (apply, hire, withdraw), so Phase 5/6/8 must re-check this.
+
+### E2E-071 — The review step leaves out the job description
+- **Found:** 2026-10-10, slice 3.2, exploratory case 3.2-X01   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Post a Job through steps 1-4. 2. On "Review & Post", scroll the whole step.
+- **Expected:** "Check everything before posting" covers every posted field, including the description providers read (often auto-drafted, see E2E-059).   **Actual:** the card shows Service, Title, Location, Date, Time, Urgency, Budget and the task list; the description is never shown before posting.
+- **Evidence:** `evidence/E2E-071-review-no-description.png`
+- **Suspected cause:** the review rows array (`mobile/app/(homeowner)/screens/HOCreateJobScreen.tsx:1187-1195`) has no description entry. Fix: add a Description block (multi-line) under the card.
 
 ## Found & solved
 
