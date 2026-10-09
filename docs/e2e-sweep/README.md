@@ -35,7 +35,7 @@ Handoff is the `docs/handoff/` number, filled in when the slice completes.
 | 1.2 | Registration (both roles) | Complete | 005 |
 | 1.3 | Forgot password, onboarding, Google, legal | Complete | 006 |
 | 2.1 | Client profile & settings | Complete | 007 |
-| 2.2 | Provider profile & settings | Complete (45 of 135 rows Not run, see handoff) | 008 |
+| 2.2 | Provider profile & settings | In progress — 35 rows not run, see test-cases/2.2.md | — |
 | 2.3 | Account deletion | Not started | — |
 | 3.1 | Create job: happy paths | Not started | — |
 | 3.2 | Create job: validation & edge | Not started | — |

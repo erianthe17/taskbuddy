@@ -150,10 +150,10 @@ Balance / available / pending, recorded at slice start and end.
 
 - Installed build unchanged: `fbe63d63…` (APK sha256 `75b611c2…` matched at session start). No rebuild.
 - Emulator: font scale back at 1.0, dark mode off (turned on for 2.2-62, then off), `READ_MEDIA_IMAGES` untouched, autofill null. New test images in `~/.taskbuddy-e2e/images` and `/sdcard/Pictures`: `9_9mb.jpg`, `10_1mb.jpg`, `small.gif`, `small.webp`, plus several `pick_<ts>.png` copies of icon.png.
-- Accounts: `maestro.provider@` (verified, Plumbing, category 1) was only viewed, never saved: no skill requests, no portfolio entries, avatar unchanged. `maestro.provider2@` was used read-only (unverified, no address). Burners `maestro.burner.2.2.1`-`.7@` and three flow burners (`maestro.burner.2.2.<13-digit ts>@`) were all deleted (204, then login 401). Still alive from earlier slices: `maestro.burner.ep1791457159659@taskbuddy.test` (E2E-006, 9.2 cleans it).
+- Accounts: `maestro.provider@` (verified, Plumbing, category 1) was only viewed, never saved: no skill requests, no portfolio entries, avatar unchanged. `maestro.provider2@` was used read-only (unverified, no address). Burners `maestro.burner.2.2.1`-`.7@`, `.11@`, `.12@` and the flow burners (`maestro.burner.2.2.<13-digit ts>@`, five runs) (`maestro.burner.2.2.<13-digit ts>@`) were all deleted (204, then login 401). Still alive from earlier slices: `maestro.burner.ep1791457159659@taskbuddy.test` (E2E-006, 9.2 cleans it).
 - Registering a provider without `category_id` is accepted (burner 4 had no `provider_profiles` row), which is how the "Complete your provider profile first" case was reached.
 - Admin used (read and mutating, test accounts only): skill-request approve/reject on burners 2 and 6; read-only `GET /admin/users?search=`. The admin token was held in a shell variable only.
 - Auth throttle: 429/empty tokens appeared after bursts of about 10 logins in a minute (E2E-010); a bounded retry loop with 10-12 s sleeps worked.
 - No wallet, job or escrow state changed: client 49,500 available (500 frozen), others 0.
-- Crash sweep: `~/.taskbuddy-e2e/logs/2.2-logcat.txt` is empty (clean).
+- Crash sweep: crash buffer empty for the whole session; the main log buffer only reached back to 08:25, so JS errors earlier are not covered (`~/.taskbuddy-e2e/logs/2.2-logcat.txt`).
 

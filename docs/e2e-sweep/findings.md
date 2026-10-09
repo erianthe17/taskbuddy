@@ -8,8 +8,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
-| S3 | 5 | 1 | 0 | 0 | 0 |
-| S4 | 31 | 2 | 1 | 0 | 0 |
+| S3 | 6 | 1 | 0 | 0 | 0 |
+| S4 | 32 | 2 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -124,7 +124,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Found:** 2026-10-08, slice 1.1, case 1.1-22   **Role:** provider
 - **Category:** ux
 - **Severity:** S4 low/cosmetic
-- **Status:** Not a bug (corrected 2026-10-09, slice 2.2, case 2.2-06): `maestro.provider@` HAS an avatar. Its `avatar_url` points at an uploaded 1080x1080 JPEG that is an accidental near-blank screenshot, so the app is drawing that image. A provider with no avatar (burner `maestro.burner.2.2.1@`) shows the person placeholder on Home, Profile and Edit Profile. Replacing P1's avatar with a real photo would remove the confusion (test-data clean-up only).
+- **Status:** Not a bug (corrected 2026-10-09, slice 2.2, case 2.2-06): `maestro.provider@` HAS an avatar. Its `avatar_url` points at an uploaded 1080x1080 JPEG that is mostly white (mean grey 247 of 255, darkest pixel 61), so the app is drawing that image rather than failing to draw one. I could not view the image itself, only measure it. A provider with no avatar (burner `maestro.burner.2.2.1@`) shows the person placeholder on Home, Profile and Edit Profile. Replacing P1's avatar with a real photo would remove the confusion (test-data clean-up only).
 - **Steps:** 1. Log in as `maestro.provider@` and look at the Home header.
 - **Expected:** initials or the same person placeholder the client Home shows.   **Actual:** a blank white circle (the account has no avatar and, apparently, no initials fallback on a dark header).
 - **Evidence:** not committed (screenshot in `~/.taskbuddy-e2e/scratch/out5`)
@@ -457,6 +457,28 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** a 400 with a validation message (the DTO has `@Length(1,400)` but no trim check).   **Actual:** `400 new row for relation "provider_portfolio" violates check constraint "provider_portfolio_caption_check"`. The app trims before sending, so users do not see it today.
 - **Evidence:** curl response (tokens not recorded).
 - **Suggested fix:** `@Transform(({value}) => typeof value === 'string' ? value.trim() : value)` before `@Length(1,400)` in `portfolio.dto.ts`.
+- **Solution (if solved):** n/a
+
+### E2E-042 — Portfolio: removing an entry that is already gone shows the error but leaves the stale card on screen
+- **Found:** 2026-10-09, slice 2.2, case 2.2-124   **Role:** provider
+- **Category:** ux
+- **Severity:** S4
+- **Status:** Open
+- **Steps:** 1. Provider with two portfolio entries, My Portfolio open. 2. Delete the first entry through the API (`DELETE /providers/me/portfolio/<id>`). 3. In the app tap its Remove photo > Remove.
+- **Expected:** the list reloads and the removed card disappears.   **Actual:** a red `Portfolio entry not found` line appears above the list, but the deleted card stays and can be tapped again. Leaving and reopening the screen refreshes it.
+- **Evidence:** screenshot in `~/.maestro/tests` only; API list read-back.
+- **Suspected cause:** a failed remove does not reload the list (flagged in the 2.2 case-design notes for `SPPortfolioScreen.tsx` and, for cancel, `SPSkillRequestScreen.tsx`).
+- **Solution (if solved):** n/a
+
+### E2E-043 — Edit Profile: a save started while offline sits on "Saving..." for minutes and never resolves, even after reconnecting
+- **Found:** 2026-10-09, slice 2.2, case 2.2-50   **Role:** provider (the client shares the pattern; not checked)
+- **Category:** app-bug
+- **Severity:** S3 medium
+- **Status:** Open
+- **Steps:** 1. Log in as `maestro.burner.2.2.12@`, Edit Profile, pick an address suggestion, type a 20+ character bio. 2. `adb shell svc wifi disable; adb shell svc data disable`. 3. Save Changes > Save Changes in the modal. 4. Re-enable Wi-Fi and data about 20 seconds later and watch the screen.
+- **Expected:** a friendly "no connection" message within a few seconds and a usable Save button, or the request completes after reconnecting.   **Actual:** the button reads "Saving..." and stays that way for at least 224 seconds, including about 4 minutes after the network came back. No error, no retry. `GET /auth/me` shows nothing was saved. The user has to leave the screen.
+- **Evidence:** screenshots in `~/.maestro/tests` only; API read-back.
+- **Suspected cause:** no request timeout or abort on `updateProfile` in `mobile/src/lib/api.ts` (out of this sweep's fix scope: shared network layer). Related to the avatar spinner in E2E-029 and to Slice 8.2's offline cases.
 - **Solution (if solved):** n/a
 
 ## Found & solved
