@@ -1,0 +1,26 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.2 (2.2-02, 2.2-11, 2.2-12): the unverified provider sees the Not verified
+# pill, the Get Verified row and the Home banner. READ-ONLY: maestro.provider2@ must
+# stay unverified with no profile data (slices 4.1 and 8.4 depend on it). Nothing is
+# submitted or saved.
+- runFlow:
+    file: _helpers/login_as_provider.yaml
+    env:
+      LOGIN_EMAIL: "maestro.provider2@taskbuddy.test"
+      LOGIN_PASSWORD: "TestPass123!"
+- assertVisible: "Verification required to apply"
+- tapOn:
+    id: "btn-home-avatar"
+- extendedWaitUntil:
+    visible: "Account Info"
+    timeout: 20000
+- assertVisible: "Not verified"
+- assertVisible: "Get Verified"
+- tapOn: "Get Verified"
+- waitForAnimationToEnd:
+    timeout: 2000
+- back
+- extendedWaitUntil:
+    visible: "Account Info"
+    timeout: 10000

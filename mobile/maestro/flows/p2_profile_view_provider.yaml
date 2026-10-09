@@ -1,0 +1,60 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.2 (2.2-01, 2.2-10, 2.2-13, 2.2-20, 2.2-75, 2.2-79, 2.2-104): the verified
+# provider's Profile, its menu rows and the read-only screens behind them. Nothing is
+# saved or sent; uses the persistent maestro.provider@ account.
+- runFlow: _helpers/login_provider.yaml
+- tapOn:
+    id: "btn-home-avatar"
+- extendedWaitUntil:
+    visible: "Account Info"
+    timeout: 20000
+- assertVisible: "maestro.provider@taskbuddy.test"
+- assertVisible: "Verified"
+- assertVisible: "Jobs Done"
+- assertVisible: "Edit Profile"
+- assertVisible: "My Portfolio"
+- assertVisible: "My Services"
+# a verified provider has no Get Verified row (2.2-13)
+- assertNotVisible: "Get Verified"
+# Edit Profile opens prefilled with the locked service (2.2-20)
+- tapOn: "Edit Profile"
+- extendedWaitUntil:
+    visible: "Full name.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element: "Request a change"
+- assertVisible: "Plumbing"
+- tapOn:
+    point: "10%,6%"
+- extendedWaitUntil:
+    visible: "Account Info"
+    timeout: 10000
+# My Services: main service and the change form, nothing sent (2.2-79)
+- tapOn: "My Services"
+- extendedWaitUntil:
+    visible: "Send to admins"
+    timeout: 15000
+- assertVisible: "Plumbing"
+- back
+- extendedWaitUntil:
+    visible: "Account Info"
+    timeout: 10000
+# My Portfolio empty state (2.2-104)
+- tapOn: "My Portfolio"
+- extendedWaitUntil:
+    visible: "Publish photo"
+    timeout: 15000
+- scrollUntilVisible:
+    element: "No portfolio photos yet."
+- back
+- extendedWaitUntil:
+    visible: "Account Info"
+    timeout: 10000
+# Help & Support (2.2-75)
+- scrollUntilVisible:
+    element: "Help & Support"
+- tapOn: "Help & Support"
+- extendedWaitUntil:
+    visible: "View tutorial"
+    timeout: 15000

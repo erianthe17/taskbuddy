@@ -1,0 +1,24 @@
+appId: com.taskbuddy.app
+---
+# Reusable: log in as any provider account. Pass LOGIN_EMAIL and LOGIN_PASSWORD with
+# `runFlow: {file: ..., env: {...}}`. Same steps as login_as.yaml; the provider
+# home is asserted by "Jobs Near You".
+- runFlow: launch_fresh.yaml
+- tapOn:
+    id: "input-email"
+- inputText: ${LOGIN_EMAIL}
+- tapOn:
+    id: "input-password"
+- inputText: ${LOGIN_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "btn-sign-in"
+- extendedWaitUntil:
+    visible: ".*(Skip|Jobs Near You).*"
+    timeout: 60000
+- tapOn:
+    text: "Skip"
+    optional: true
+- extendedWaitUntil:
+    visible: "Jobs Near You"
+    timeout: 60000

@@ -1,0 +1,72 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.2 (2.2-81, 2.2-84, 2.2-91): My Services on a throwaway provider registered
+# through the API. The Send button stays greyed below 10 characters, a valid request
+# shows the pending card, and Cancel request asks first ("Keep it") and then moves the
+# request to Past requests. The burner is deleted at the end.
+# WARNING: a run that dies midway leaves maestro.burner.2.2.<ts>@taskbuddy.test.
+- evalScript: ${output.RUN = Date.now()}
+- runScript:
+    file: _helpers/register_burner_provider.js
+    env:
+      EMAIL: "maestro.burner.2.2.${output.RUN}@taskbuddy.test"
+      PASSWORD: "TestPass123!"
+      CATEGORY_ID: "1"
+- runFlow:
+    file: _helpers/login_as_provider.yaml
+    env:
+      LOGIN_EMAIL: "maestro.burner.2.2.${output.RUN}@taskbuddy.test"
+      LOGIN_PASSWORD: "TestPass123!"
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "My Services"
+- extendedWaitUntil:
+    visible: "Send to admins"
+    timeout: 20000
+- tapOn: "Cleaning"
+- tapOn: "Years of experience.*"
+- inputText: "123456789"
+- pressKey: Back
+- assertVisible: "9/500"
+- inputText: "0"
+- pressKey: Back
+- assertVisible: "10/500"
+- tapOn: "Send to admins"
+- extendedWaitUntil:
+    visible: "Request under review"
+    timeout: 30000
+- tapOn: "Cancel request"
+- extendedWaitUntil:
+    visible: "Cancel this request?"
+    timeout: 10000
+- tapOn: "Keep it"
+- assertVisible: "Request under review"
+- tapOn: "Cancel request"
+- extendedWaitUntil:
+    visible: "Cancel this request?"
+    timeout: 10000
+- tapOn:
+    text: "Cancel request"
+    rightOf: "Keep it"
+- extendedWaitUntil:
+    visible: "Send to admins"
+    timeout: 30000
+- scrollUntilVisible:
+    element: "Cancelled"
+# cleanup: delete the burner
+- back
+- extendedWaitUntil:
+    visible: "Account Info"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Settings"
+- tapOn: "Settings"
+- tapOn: "Delete Account"
+- waitForAnimationToEnd:
+    timeout: 1500
+- tapOn:
+    text: "Delete"
+    rightOf: "Keep My Account"
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 60000

@@ -357,8 +357,8 @@ content.
 **2.2 Provider profile & settings** (`SPProfileScreen`, `SPEditProfileScreen`, `SPSettingsScreen`,
 `SPSkillRequestScreen`, `SPPortfolioScreen`). Same as 2.1 for the provider, plus: skill/secondary-service
 request (submit, duplicate, pending state, admin approve/reject via `GET /admin/skill-requests` + the
-approve/reject endpoints if they exist in drift), the portfolio screen (HANDOFF §4 says the portfolio
-doesn't exist on the backend → check it's honestly labelled, not faked), and the "Get Verified"
+approve/reject endpoints if they exist in drift), the portfolio screen (corrected in slice 2.2: the portfolio is real CRUD on the
+backend and deployed, `GET/POST /providers/me/portfolio`, so test add/edit/remove, limits and access rules), and the "Get Verified"
 incomplete-profile warning.
 
 **2.3 Account deletion.** Delete a burner with no data → 204 → logged out → login fails. **Blockers
