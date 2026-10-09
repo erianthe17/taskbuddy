@@ -1,0 +1,86 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.2 (2.2-105, 2.2-123): My Portfolio on a throwaway provider registered through
+# the API. Adds one photo (the app icon, put in the gallery with addMedia and taken from
+# the first tile of the system photo picker), checks the card appears, then removes it:
+# "Keep" leaves it, "Remove" deletes it and brings back the empty state. The burner is
+# deleted at the end.
+# NOTE: the publish takes ~20-40 s on the emulator's slow uplink, hence the long wait.
+# WARNING: a run that dies midway leaves maestro.burner.2.2.<ts>@taskbuddy.test.
+- evalScript: ${output.RUN = Date.now()}
+- runScript:
+    file: _helpers/register_burner_provider.js
+    env:
+      EMAIL: "maestro.burner.2.2.${output.RUN}@taskbuddy.test"
+      PASSWORD: "TestPass123!"
+      CATEGORY_ID: "1"
+- runFlow:
+    file: _helpers/login_as_provider.yaml
+    env:
+      LOGIN_EMAIL: "maestro.burner.2.2.${output.RUN}@taskbuddy.test"
+      LOGIN_PASSWORD: "TestPass123!"
+- addMedia:
+    - "../../assets/icon.png"
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "My Portfolio"
+- extendedWaitUntil:
+    visible: "Choose portfolio photo"
+    timeout: 30000
+- tapOn: "Choose portfolio photo"
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    point: "16%,31%"
+- waitForAnimationToEnd:
+    timeout: 4000
+- tapOn: "Portfolio caption"
+- inputText: "Maestro flow photo"
+- pressKey: Back
+- scrollUntilVisible:
+    element: "Publish photo"
+- tapOn: "Publish photo"
+- scrollUntilVisible:
+    element: "Remove photo"
+    timeout: 150000
+- assertVisible: "Maestro flow photo"
+- assertNotVisible: "No portfolio photos yet."
+# Remove: Keep first, then Remove
+- tapOn: "Remove photo"
+- extendedWaitUntil:
+    visible: "Remove portfolio photo?"
+    timeout: 10000
+- tapOn: "Keep"
+- assertVisible: "Maestro flow photo"
+- tapOn: "Remove photo"
+- extendedWaitUntil:
+    visible: "Remove portfolio photo?"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 1000
+- tapOn:
+    point: "70%,57%"
+- scrollUntilVisible:
+    element: "No portfolio photos yet."
+    timeout: 60000
+# cleanup: delete the burner
+- scrollUntilVisible:
+    direction: UP
+    element: "My Portfolio"
+- tapOn:
+    point: "10%,7%"
+- extendedWaitUntil:
+    visible: "Account Info"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Settings"
+- tapOn: "Settings"
+- tapOn: "Delete Account"
+- waitForAnimationToEnd:
+    timeout: 1500
+- tapOn:
+    text: "Delete"
+    rightOf: "Keep My Account"
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 60000

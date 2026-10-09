@@ -9,7 +9,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
 | S3 | 6 | 1 | 0 | 0 | 0 |
-| S4 | 32 | 2 | 1 | 0 | 0 |
+| S4 | 34 | 2 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -306,6 +306,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Steps:** 1. Push `fake.jpg` (22 bytes of text) to `/sdcard/Pictures` and run the media scan. 2. Edit Profile > Change Photo. 3. Tap the blank tile in the system photo picker (second tile, top row).
 - **Expected:** An inline "couldn't use that image" message, or the crop step opens and fails clearly, and the Edit screen comes back.
 - **Actual:** The app area goes fully white (status and nav bars only). The view hierarchy is empty, `MainActivity` stays resumed, the process is alive, and nothing changes after 45 s. There's no crash and no JS error. Hardware back returns to the photo picker, and a second back leaves the app for the launcher (the user loses their place in Edit Profile). Nothing was uploaded (`avatar_url` unchanged).
+- **Update 2026-10-09 (slice 2.2, case 2.2-55):** reproduced on the provider Edit Profile (burner B8). The fake image is the blank first tile once its mtime is fresh (`adb shell touch` before the media scan, because `adb push` keeps the old file date and the picker sorts by date). After the pick: a fully white screen, process alive, crash buffer empty; one hardware back went straight to the launcher this time.
 - **Evidence:** `evidence/E2E-028-fake-image-blank-screen.png`
 - **Suspected cause:** not investigated. The picker is `expo-image-picker` with `allowsEditing` (`AvatarPicker.tsx:44-51`), and the crop step probably can't decode the bytes and never reports back. Rare in practice: it needs a corrupt file that the system picker still lists.
 - **Solution (if solved):** n/a
@@ -318,6 +319,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Steps:** 1. Push `large_over10mb.png` (36 MB noise PNG) to `/sdcard/Pictures`. 2. Edit Profile > Change Photo > pick it > CROP.
 - **Expected:** A quick, specific message ("That photo is too large") or a client-side size check. The migration-0011 `avatars` bucket has no `file_size_limit`, so a server rejection isn't guaranteed either.
 - **Actual:** After CROP a spinner covers the crop screen. About 3 minutes later (no change in `avatar_url` over a 2-minute poll, still not done at that point) the Edit screen shows red `Could not upload the image. Check your connection.` and the avatar is unchanged. The device was online and the 447 KB PNG uploaded fine, so the wording points the user at the wrong cause. The "Change Photo" link is usable again.
+- **Update 2026-10-09 (slice 2.2, case 2.2-56):** reproduced on the provider Edit Profile (burner B8, same 36 MB PNG). After CROP at 12:04:47 the spinner was still up at the 332 s check; the red "Could not upload the image. Check your connection." was on screen by 12:10 (so well over 3 minutes, at most ~5m20s; my UI-dump poller missed the exact moment). Avatar unchanged, device online throughout.
+- **Update 2026-10-09 (slice 2.2, case 2.2-112, important for the diagnosis):** the same copy and delay appear for a file that is within the size limit. On the portfolio screen a 9.9 MB JPEG passes the app's 10 MB check (preview shown, Publish enabled), sits on "Saving..." for about 6 minutes and then fails with "Could not upload the image. Check your connection." with the device online, while the same file goes to the same bucket from the host in 9 s (HTTP 200). On this emulator the uplink looked slow (a 447 KB PNG took 30-40 s to publish, about 15-30 KB/s; `gsm.network.type` is HSPA; the emulator was cold-booted earlier that day, and whether its network profile was this slow in the first session is unknown). **Hypothesis, not confirmed:** the 36 MB failure above is the same client-side upload timeout and not a server size rejection; if so, the defect is that uploads have no progress, no early size message for avatars and no useful error text ("Check your connection" is wrong while online). Re-check on a fast link before deciding the fix.
 - **Evidence:** `evidence/E2E-029-avatar-oversize-error.png`
 - **Suspected cause:** `AvatarPicker.tsx` has no size or type check; the catch-all copy is at `api.ts:1393`. Which step failed (signed URL, PUT, or timeout) is not investigated.
 - **Solution (if solved):** n/a
@@ -330,6 +333,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Steps:** 1. Log in as `maestro.editprofile@` and reach Home. 2. `adb shell am force-stop com.taskbuddy.app`; `adb shell svc wifi disable; svc data disable`. 3. Launch the app and wait 25 s. 4. Re-enable the network and force-stop and relaunch the app.
 - **Expected:** Home from the stored session, or an "offline" notice with a retry. Never a bare Login form while the account is still signed in.
 - **Actual:** Step 3 shows the normal Login form ("Welcome!", empty fields) at 8 s and still at 25 s, with no offline wording. Re-enabling the network without relaunching doesn't change it. Step 4 goes straight to Home as the same user, so the session wasn't cleared. A user who logs in again at that moment gets a network error. They could also think they were signed out.
+- **Update 2026-10-09 (slice 2.2, case 2.2-05):** reproduced as the provider (`maestro.provider@`): force-stop, offline, launch, 25 s later the bare Login form with no message. After re-enabling the network, force-stop and relaunch go straight to the provider Feed, so the session was intact. So it is both roles; role line above is now "both".
 - **Evidence:** `evidence/E2E-030-offline-cold-start-login.png` (thumbnail, 25 s, offline)
 - **Suspected cause:** not investigated. It looks like the startup profile fetch fails on the network error and the router falls back to the auth stack. `AuthContext` is out of this sweep's fix scope.
 - **Solution (if solved):** n/a
@@ -455,6 +459,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Status:** Open (log only; backend fixes are out of this sweep's scope)
 - **Steps:** 1. As a provider with one portfolio entry, `PATCH /providers/me/portfolio/<id>` with `{"caption":"   ","position":0,"category_id":null}`.
 - **Expected:** a 400 with a validation message (the DTO has `@Length(1,400)` but no trim check).   **Actual:** `400 new row for relation "provider_portfolio" violates check constraint "provider_portfolio_caption_check"`. The app trims before sending, so users do not see it today.
+- **Update 2026-10-09 (slice 2.2, case 2.2-115):** reusing an already-registered `image_path` in a second `POST /providers/me/portfolio` also returns the raw database text: `duplicate key value violates unique constraint "provider_portfolio_image_path_key"` (HTTP 400). Not reachable from the app, which asks for a fresh signed upload for each photo.
 - **Evidence:** curl response (tokens not recorded).
 - **Suggested fix:** `@Transform(({value}) => typeof value === 'string' ? value.trim() : value)` before `@Length(1,400)` in `portfolio.dto.ts`.
 - **Solution (if solved):** n/a
@@ -479,6 +484,28 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** a friendly "no connection" message within a few seconds and a usable Save button, or the request completes after reconnecting.   **Actual:** the button reads "Saving..." and stays that way for at least 224 seconds, including about 4 minutes after the network came back. No error, no retry. `GET /auth/me` shows nothing was saved. The user has to leave the screen.
 - **Evidence:** screenshots in `~/.maestro/tests` only; API read-back.
 - **Suspected cause:** no request timeout or abort on `updateProfile` in `mobile/src/lib/api.ts` (out of this sweep's fix scope: shared network layer). Related to the avatar spinner in E2E-029 and to Slice 8.2's offline cases.
+- **Solution (if solved):** n/a
+
+### E2E-044 — My Portfolio: saving an edit with a blank caption says "Choose a photo, add a caption…", but edit mode has no photo picker
+- **Found:** 2026-10-09, slice 2.2, case 2.2-121   **Role:** provider
+- **Category:** ux
+- **Severity:** S4 low/cosmetic
+- **Status:** Open
+- **Steps:** 1. Log in as a provider with one portfolio entry (burner `maestro.burner.2.2.10@`), My Portfolio. 2. Edit photo details on the entry. 3. Clear the caption, type three spaces, press Save photo details.
+- **Expected:** a message about the caption only ("Add a caption"), since the photo cannot be changed while editing.   **Actual:** the red line reads "Choose a photo, add a caption and enter an order from 0 to 10000.", the same text as when publishing a new photo. In edit mode there is no photo tile to choose from, so the first part is confusing. (The same single message is used for an empty or invalid order, so it never says which field is wrong.)
+- **Evidence:** screenshot in `~/.maestro/tests` only; API read-back shows the caption unchanged.
+- **Suspected cause:** one shared validation message in `SPPortfolioScreen.tsx` for both modes (not investigated further).
+- **Solution (if solved):** n/a
+
+### E2E-045 — My Portfolio: after an offline open, "Retry portfolio" reloads the list but the service chips and their error stay broken
+- **Found:** 2026-10-09, slice 2.2, case 2.2-129   **Role:** provider
+- **Category:** ux
+- **Severity:** S4 low/cosmetic
+- **Status:** Open
+- **Steps:** 1. Log in as a provider (burner `maestro.burner.2.2.10@`, two entries). 2. `adb shell svc wifi disable; svc data disable`. 3. Profile > My Portfolio. 4. Re-enable the network and tap "Retry portfolio".
+- **Expected:** Retry brings back everything that failed to load: the list and the "Service (optional)" chips.   **Actual:** offline the screen shows two red lines ("Cannot reach the server…"), under the chip row (only "No service category" is present) and above "Retry portfolio". After reconnecting and tapping Retry, the two cards load, but the categories error and the missing chips stay on screen. A new entry can still be published, but only without a service category, until the user leaves and reopens the screen.
+- **Evidence:** screenshots in `~/.maestro/tests` only.
+- **Suspected cause:** the retry link only calls the portfolio reload, not the categories reload (`SPPortfolioScreen.tsx`, not investigated further).
 - **Solution (if solved):** n/a
 
 ## Found & solved

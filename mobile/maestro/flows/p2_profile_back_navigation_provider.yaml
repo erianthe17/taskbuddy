@@ -1,0 +1,60 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.2 (2.2-07, 2.2-09, 2.2-72, 2.2-77): back behaviour on the provider Profile
+# screens, run read-only on the persistent maestro.provider@ account (nothing is saved).
+#   - "Back to Feed" arrow and hardware back from Profile both return to the Feed.
+#   - Settings: hardware back and the top-left arrow (no label, so by position) both
+#     return to Profile, never to the launcher.
+#   - Help & Support > View tutorial: Skip returns to Help, not to the Feed.
+- runFlow: _helpers/login_provider.yaml
+- tapOn:
+    id: "btn-home-avatar"
+- assertVisible: "Account Info"
+- tapOn: "Back to Feed"
+- assertVisible: "Jobs Near You"
+- tapOn:
+    id: "btn-home-avatar"
+- assertVisible: "Account Info"
+- pressKey: Back
+- assertVisible: "Jobs Near You"
+# Settings: hardware back
+- tapOn:
+    id: "btn-home-avatar"
+- scrollUntilVisible:
+    element: "Settings"
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Dark Mode"
+    timeout: 15000
+- pressKey: Back
+- extendedWaitUntil:
+    visible: "Log Out"
+    timeout: 10000
+- assertNotVisible: "Dark Mode"
+# Settings: top-left arrow (unlabelled, E2E-033)
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Dark Mode"
+    timeout: 15000
+- tapOn:
+    point: "10%,8%"
+- extendedWaitUntil:
+    visible: "Log Out"
+    timeout: 10000
+- assertNotVisible: "Dark Mode"
+# Help & Support > View tutorial > Skip returns to Help
+- scrollUntilVisible:
+    element: "Help & Support"
+- tapOn: "Help & Support"
+- extendedWaitUntil:
+    visible: "View tutorial"
+    timeout: 15000
+- tapOn: "View tutorial"
+- extendedWaitUntil:
+    visible: "Skip"
+    timeout: 10000
+- tapOn: "Skip"
+- extendedWaitUntil:
+    visible: "FREQUENTLY ASKED QUESTIONS"
+    timeout: 10000
+- assertVisible: "View tutorial"
