@@ -9,7 +9,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
 | S3 | 9 | 1 | 0 | 0 | 0 |
-| S4 | 48 | 4 | 1 | 0 | 0 |
+| S4 | 50 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -616,7 +616,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Found:** 2026-10-09, slice 3.2, case 3.2-47   **Role:** client
 - **Category:** app-bug   **Severity:** S3   **Status:** Open
 - **Steps:** 1. Post a Job, Plumbing, step 3. 2. Add 10 custom tasks of about 100 characters each (maxLength 120 each). 3. Leave the description untouched, tap Next.
-- **Expected:** a draft that fits (truncated, or only the first tasks listed), or a clear hint to shorten it.   **Actual:** the draft is "Plumbing service needed. Tasks: <all tasks joined>." with no cap; the counter reads 947/750 and Next shows "Description cannot exceed 750 characters." The field can only be shortened by hand (typing is capped at 750, so a longer draft cannot be fixed by typing more). A first task of 120 characters likewise drafts a 130-character title (code reading only, not run: 3.2-48).
+- **Expected:** a draft that fits (truncated, or only the first tasks listed), or a clear hint to shorten it.   **Actual:** the draft is "Plumbing service needed. Tasks: <all tasks joined>." with no cap; the counter reads 947/750 and Next shows "Description cannot exceed 750 characters." The field can only be shortened by hand (typing is capped at 750, so a longer draft cannot be fixed by typing more). A first custom task of 120 characters likewise drafts a 130-character title and Next shows "Title cannot exceed 120 characters." (run on device, 3.2-48; the field only displays the first 120).
 - **Evidence:** `~/.maestro/tests` screenshot `s3_long_auto_desc2` (not committed)
 - **Suspected cause:** `HOCreateJobScreen.tsx:397-405` (the drafts have no length cap).
 
@@ -653,6 +653,20 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Steps:** 1. Step 3 with no task, tap Next (tasks error). 2. Pick a task: the auto-drafted description fills in. 3. Scroll down.
 - **Expected:** the tasks error and the "Description must be at least 20 characters." inline error disappear once resolved.   **Actual:** both stay (the description error sits under a 43/750 description) until Next is tapped again; the footer banner also keeps the old tasks message.
 - **Suspected cause:** field errors are only cleared on focus or Next, not when the draft changes (`HOCreateJobScreen.tsx:395-406`).
+
+### E2E-065 — Address errors show the raw validator text ("address must be longer than or equal to 5 characters")
+- **Found:** 2026-10-09, slice 3.2, cases 3.2-06, 3.2-08   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Post a Job, step 2. 2. Clear the address and type "Abcd" (or a 301+ character string). 3. Tap Next.
+- **Expected:** friendly copy like the other address errors ("We couldn't find that address. Check the street and city.").   **Actual:** the inline error is the class-validator message: "address must be longer than or equal to 5 characters" / "address must be shorter than or equal to 300 characters".
+- **Suspected cause:** `GET /jobs/geocode` DTO messages (`backend/src/jobs/dto/jobs.dto.ts:123-124`) are passed to the field unchanged by the app (`HOCreateJobScreen.tsx:~380`). Suggested fix: map 400 messages for this route, or add custom `message:` strings.
+
+### E2E-066 — A job whose title contains `'; DROP TABLE jobs; --` is blocked by an edge filter and the app says "The server is unavailable (HTTP 403)"
+- **Found:** 2026-10-09, slice 3.2, case 3.2-22   **Role:** client
+- **Category:** env   **Severity:** S4   **Status:** Open (needs infra sign-off)
+- **Steps:** 1. Post a Job with the title `Paayos ng gripo sa CR '; DROP TABLE jobs; --`. 2. Post Job. (API repro: `POST /jobs` with that title returns HTTP 403 and an HTML page titled "Blocked"; the same title with `<script>alert(1)</script>` or `' OR 1=1 --` returns 201.)
+- **Expected:** a normal job, or a clear "this text is not allowed" message.   **Actual:** the request never reaches the API (a WAF or proxy in front of the deployed backend answers 403); the footer says "The server is unavailable right now (HTTP 403). Please try again shortly.", which is misleading and retrying never helps.
+- **Suspected cause:** edge/WAF rule on the Render deployment, not application code. The app's generic 5xx/403 copy is in `mobile/src/lib/api.ts` (not touched).
 
 ## Found & solved
 
