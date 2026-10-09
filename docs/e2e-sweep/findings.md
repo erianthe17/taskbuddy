@@ -9,7 +9,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
 | S3 | 10 | 1 | 0 | 0 | 0 |
-| S4 | 54 | 4 | 1 | 0 | 0 |
+| S4 | 59 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -715,6 +715,46 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** the card says about "9 mins ago".   **Actual:** it still says "2 mins ago" (the cached render), and only the Active tab at 03:51 shows "10 mins ago". The detail's "Posted" label is correct.
 - **Evidence:** `evidence/E2E-072-stale-relative-time.png`
 - **Suspected cause:** the list renders cached data first (`useAsyncData` cacheKey, `HOMyJobs.tsx:57-60`), and relative labels are computed at render time with no tick, so the cached labels are the old ones until something re-renders. Not investigated further.
+
+### E2E-073 — Job detail shows ₱349.5 where the card shows ₱349.50
+- **Found:** 2026-10-10, slice 3.3, case 3.3-20   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. A job with budget 349.50. 2. Compare its My Jobs card with its Job Details hero.
+- **Expected:** one money format everywhere ("₱349.50").   **Actual:** card "₱349.50", detail hero "₱349.5"; whole amounts show "₱300" on the detail but "₱300.00" on the card.
+- **Evidence:** `evidence/E2E-073-card-349-50.png`, `evidence/E2E-073-hero-349-5.png`
+- **Suspected cause:** the hero formats with a bare `toLocaleString` (`mobile/app/(homeowner)/screens/HOJobDetailScreen.tsx:206`) instead of the shared `peso()` helper (`mobile/src/lib/format.ts:5-11`) used by the card. Fix: use `peso(job.budget)`.
+
+### E2E-074 — A cancelled job's progress timeline still shows "Posted" as the current stage
+- **Found:** 2026-10-10, slice 3.3, case 3.3-37   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Cancel an open job. 2. Open it from the Cancelled tab and read Job Progress.
+- **Expected:** no current stage, or an explicit cancelled state.   **Actual:** the "Cancelled" badge sits above a timeline whose "Posted" dot is the active blue ring, as if the job were still live.
+- **Evidence:** `evidence/E2E-074-cancelled-timeline-posted.png`
+- **Suspected cause:** `stageIndex` falls back to 0 for statuses outside the five stages (`mobile/app/(homeowner)/screens/HOJobDetailScreen.tsx:76-77`, rendered at :256-260). Fix: hide the timeline or render a cancelled marker for cancelled/expired.
+
+### E2E-075 — My Jobs and Job Details have no way to refresh, so server-side changes stay invisible
+- **Found:** 2026-10-10, slice 3.3, cases 3.3-14, 3.3-15, 3.3-43   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Open My Jobs (or a job's detail). 2. Change the job server-side (e.g. it is cancelled by the API/admin, or a provider applies). 3. Swipe down on the list.
+- **Expected:** pull-to-refresh (PLAN 3.3) or an automatic refresh on focus.   **Actual:** no refresh gesture on My Jobs (3.3-14); the list kept "Open" for about 3 min after a cancel (3.3-15) and the detail kept "Open" with live Find Providers / Cancel Job buttons (3.3-43). Only leaving the screen and coming back updates it.
+- **Evidence:** `evidence/E2E-075-stale-detail-after-cancel.png`
+- **Suspected cause:** no `refreshControl` on the ScrollViews (`HOMyJobs.tsx:123-131`, `HOJobDetailScreen.tsx:186-191`, `HOJobApplicationsScreen.tsx:237-241`) and no focus/foreground refetch in `useAsyncData` (`mobile/src/hooks/useAsyncData.ts:36-76`). The Wallet screen already has the pattern (`HOWalletScreen.tsx:282-284`).
+
+### E2E-076 — My Jobs status tabs don't tell screen readers which one is selected
+- **Found:** 2026-10-10, slice 3.3, case 3.3-56   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. My Jobs, All tab active. 2. `uiautomator dump`, read the tab node.
+- **Expected:** the active tab exposes a selected state (PLAN §4a accessibility).   **Actual:** tab "All" is a plain clickable ViewGroup with `selected="false"`; the category chip "All services" next to it is a RadioButton with `selected="true"`. TalkBack users can't tell which status filter is on.
+- **Evidence:** `evidence/E2E-076-tab-not-selected.png`, dump `~/.taskbuddy-e2e/scratch/3.3/u-3.3-56.xml` (not committed)
+- **Suspected cause:** the tab Taps set no `accessibilityRole="tab"` / `accessibilityState={{ selected }}` (`mobile/app/(homeowner)/screens/HOMyJobs.tsx:90-102`), unlike the chips (:110-111).
+
+### E2E-077 — My Jobs takes 5-10 s to show content on a warm backend
+- **Found:** 2026-10-10, slice 3.3, case 3.3-58   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Warm backend (`curl GET /jobs/mine` answers in 1.0-1.2 s). 2. From Home tap the My Jobs tab; time until cards replace the skeleton.
+- **Expected:** content within about 3 s (PLAN §4a).   **Actual:** 5.1 s and 9.8 s in two valid trials (the account has 42 jobs); the Job Details screen loads in about 2.2 s.
+- **Evidence:** `evidence/E2E-077-myjobs-skeleton.png`; timings in `~/.taskbuddy-e2e/logs/3.3/3.3-58.log` (not committed)
+- **Suspected cause:** not isolated. The list request pages by 100 (`mobile/src/lib/api.ts:1192-1209`) and the screen may refetch per tab/chip key (`HOMyJobs.tsx:57-60`); the gap between the 1 s API time and 5-10 s render suggests client-side work or serial requests. Worth a profiling pass.
 
 ## Found & solved
 

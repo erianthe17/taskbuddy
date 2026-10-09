@@ -88,6 +88,11 @@ report it; the orchestrator handles waits.
   Always screenshot the grid and match it to the packet before tapping a tile.
 - A text file renamed `.jpg` is silently ignored by the photo picker (E2E-061). That is a known
   finding; record it, don't chase it.
+- **Before any raw `adb shell input tap X Y`, screenshot or `hier.sh` first and confirm which screen is on top.** On Job Details the sticky footer (Find Providers / Cancel Job) covers the area where the bottom tab bar sits on other screens (y ≈ 1900-2250), so a "Home tab" coordinate tap there opens the cancel dialog (happened in 3.3-Q8; recovered with Keep Job). Prefer `tapOn: {id: "nav-tab-Home"}`. If a tap ever opens a destructive dialog, tap "Keep Job"/cancel, then STOP and report.
+- **Never tap "Find Providers"** on a job detail unless the packet explicitly says so. It runs the
+  recommendation engine on the shared deployed backend and notifies up to 8 providers, who may be
+  real people. Open jobs older than their deadline (5/10/15 min by urgency) show the badge
+  "Finding Provider": that's the scheduler, not a bug.
 - Never put `'; DROP TABLE jobs; --` in a request body. An edge filter returns 403 (E2E-066).
 - `inputText` is unreliable for non-ASCII (₱, ñ, emoji). Use ASCII unless the packet says otherwise.
 - Avoid a phone-shaped string followed immediately by a tap (Gboard suggestion chip). Use `pressKey: Enter` first.

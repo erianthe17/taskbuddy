@@ -39,7 +39,7 @@ Handoff is the `docs/handoff/` number, filled in when the slice completes.
 | 2.3 | Account deletion | Complete | 010 |
 | 3.1 | Create job: happy paths | Complete | 011 |
 | 3.2 | Create job: validation & edge | Complete | 012 |
-| 3.3 | My Jobs & job detail | In progress — last case 3.3-08 (Q1 gated) | — |
+| 3.3 | My Jobs & job detail | Complete | 013 |
 | 4.1 | Verification | Not started | — |
 | 4.2 | Feed & job detail | Not started | — |
 | 4.3 | Apply / withdraw / decline | Not started | — |
