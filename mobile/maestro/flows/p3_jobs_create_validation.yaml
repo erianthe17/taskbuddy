@@ -1,0 +1,64 @@
+appId: com.taskbuddy.app
+---
+# Slice 3.2 (3.2-01, 3.2-11, 3.2-14, 3.2-15, 3.2-52, 3.2-54, 3.2-59, 3.2-69): step-by-step validation messages in
+# the Post a Job wizard. Posts nothing; leaves through the discard prompt. The footer Back and header arrow are
+# tapped by position (the label "Back" also matches the system nav bar).
+- runFlow: _helpers/login_client.yaml
+- tapOn:
+    id: "nav-tab-Create Job"
+- extendedWaitUntil:
+    visible: "Step 1 of 5.*"
+    timeout: 30000
+- tapOn: "Next"
+- assertVisible: "Please select a service."
+- tapOn: "Plumbing"
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 2 of 5.*"
+    timeout: 30000
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 3 of 5.*"
+    timeout: 30000
+- tapOn: "Next"
+- assertVisible: "Pick at least one task so providers know what the job involves."
+- tapOn: "Fix toilet"
+- scrollUntilVisible:
+    element: "Job Title.*"
+- tapOn: "Plumbing: Fix toilet"
+- eraseText: 130
+- inputText: "abcd"
+- hideKeyboard
+- tapOn: "Next"
+- assertVisible: "Title must be at least 5 characters."
+- tapOn: "abcd"
+- inputText: "e"
+- hideKeyboard
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 4 of 5.*"
+    timeout: 20000
+- tapOn: "Next"
+- assertVisible: "Please select a preferred date."
+- assertVisible: "Please select a preferred time."
+- assertVisible: "Please set a budget for this job."
+- tapOn: "Select a date"
+- waitForAnimationToEnd
+- evalScript: ${output.DAY = new Date(Date.now() - 86400000).toISOString().slice(0, 10)}
+- tapOn:
+    id: "undefined.day_${output.DAY}"
+    optional: true
+- assertVisible: "Select a date"
+- tapOn: "Close"
+- scrollUntilVisible:
+    element: "0.00"
+- tapOn: "0.00"
+- inputText: "0"
+- tapOn: "Budget.*"
+- tapOn: "Next"
+- assertVisible: "Enter a valid amount greater than 0, up to 2 decimal places."
+- tapOn:
+    point: "9%,6%"
+- tapOn: "Discard & Exit"
+- waitForAnimationToEnd
+- assertVisible: "Find a service"

@@ -8,8 +8,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
-| S3 | 8 | 1 | 0 | 0 | 0 |
-| S4 | 43 | 4 | 1 | 0 | 0 |
+| S3 | 9 | 1 | 0 | 0 | 0 |
+| S4 | 48 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -611,6 +611,48 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Category:** harness   **Severity:** S4   **Status:** Open (not isolated; success path Blocked)
 - **Steps:** `adb emu geo fix 121.0437 14.6760`, `settings put secure location_mode 3` (already 3), `pm grant … ACCESS_FINE_LOCATION`, tap "Use my current location" twice.
 - **Actual:** "Current location is unavailable. Make sure that location services are on…". Either the emulator never delivered a fix to the app or the app's location call fails; the feed's radius filter (4.2) will show which. The copy and the quiet failure itself are fine.
+
+### E2E-059 — The auto-drafted description (and title) can exceed the limits and block Next with an error about text the user never typed
+- **Found:** 2026-10-09, slice 3.2, case 3.2-47   **Role:** client
+- **Category:** app-bug   **Severity:** S3   **Status:** Open
+- **Steps:** 1. Post a Job, Plumbing, step 3. 2. Add 10 custom tasks of about 100 characters each (maxLength 120 each). 3. Leave the description untouched, tap Next.
+- **Expected:** a draft that fits (truncated, or only the first tasks listed), or a clear hint to shorten it.   **Actual:** the draft is "Plumbing service needed. Tasks: <all tasks joined>." with no cap; the counter reads 947/750 and Next shows "Description cannot exceed 750 characters." The field can only be shortened by hand (typing is capped at 750, so a longer draft cannot be fixed by typing more). A first task of 120 characters likewise drafts a 130-character title (code reading only, not run: 3.2-48).
+- **Evidence:** `~/.maestro/tests` screenshot `s3_long_auto_desc2` (not committed)
+- **Suspected cause:** `HOCreateJobScreen.tsx:397-405` (the drafts have no length cap).
+
+### E2E-060 — "Discard job draft?" appears on a wizard the user has not touched
+- **Found:** 2026-10-09, slice 3.2, case 3.2-88   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Open Post a Job from the tab bar. 2. Without picking anything, tap the header arrow (the first attempt also happened after a Discard & Exit, on a freshly reopened wizard).
+- **Expected:** the wizard closes without a prompt.   **Actual:** the "Discard job draft?" modal appears, because the saved address is pre-filled and counts as progress.
+- **Suspected cause:** `hasProgress` includes `location.trim()` (`HOCreateJobScreen.tsx:583-586`).
+
+### E2E-061 — Picking a non-image file in the photo picker does nothing and says nothing
+- **Found:** 2026-10-09, slice 3.2, case 3.2-80   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Push a text file renamed `fake.jpg` to `/sdcard/Pictures`, scan it. 2. Step 3, Add photos, select it, tap Add (1).
+- **Expected:** a message that the file is not a usable image.   **Actual:** the picker closes, no thumbnail, no message (the 3.1 notes' "photos 0" state is indistinguishable from a dead tap).
+- **Suspected cause:** not investigated (the picker may drop undecodable files before the app sees them).
+
+### E2E-062 — Budget accepts "1e3" and "0x10" and has no ceiling (₱99,999,999 posts)
+- **Found:** 2026-10-09, slice 3.2, cases 3.2-63, 3.2-66   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open (needs product sign-off)
+- **Steps:** 1. Step 4, type 1e3, blur: the field becomes "1000.00". 2. Type 0x10: becomes "16.00". 3. Type 99999999, post: the job is created (open, budget 99,999,999; cancelled afterwards).
+- **Expected:** digits and one decimal point only, and some sanity ceiling.   **Actual:** `Number()` semantics; no maximum in the app or the DTO (the database ceiling is about 9,999,999,999.99).
+- **Suspected cause:** `isValidBudget` (`HOCreateJobScreen.tsx:277-286`).
+
+### E2E-063 — A budget above the database range returns the raw message "numeric field overflow"
+- **Found:** 2026-10-09, slice 3.2, case 3.2-64 (API probe, not typed in the app)   **Role:** client
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open
+- **Steps:** `POST /jobs` with `budget: 10000000000` (or 99999999999) and otherwise valid fields.
+- **Expected:** a 400 from DTO validation ("budget must not be greater than …").   **Actual:** HTTP 400 with the message "numeric field overflow" (the database error text), which the app would show verbatim in the footer. Suggested fix: add `@Max()` to `CreateJobDto.budget` (`backend/src/jobs/dto/jobs.dto.ts:81-85`).
+
+### E2E-064 — Stale validation messages stay on screen after the problem is fixed
+- **Found:** 2026-10-09, slice 3.2, cases 3.2-11, 3.2-34   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Step 3 with no task, tap Next (tasks error). 2. Pick a task: the auto-drafted description fills in. 3. Scroll down.
+- **Expected:** the tasks error and the "Description must be at least 20 characters." inline error disappear once resolved.   **Actual:** both stay (the description error sits under a 43/750 description) until Next is tapped again; the footer banner also keeps the old tasks message.
+- **Suspected cause:** field errors are only cleared on focus or Next, not when the draft changes (`HOCreateJobScreen.tsx:395-406`).
 
 ## Found & solved
 
