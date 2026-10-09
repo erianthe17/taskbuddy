@@ -18,12 +18,21 @@ User decisions (2026-10-08):
   **PUBLIC**, so no secrets go in. No push or PR without asking.
 - **Fix delivery:** a new `eas build --profile preview`. Fixes are batched. No OTA updates.
 
-**Implementor:** Sonnet 5.5 (medium effort) is the main/orchestrator agent. It may spawn subagents
-(see §3). Follow this plan as written. Where it doesn't cover something, the escalation rules in §6
-decide.
+**Roles (changed 2026-10-10, from slice 3.2's resume onward):** Opus is the **orchestrator** (the
+main session). Haiku 5.5 subagents are the **implementors** (`Agent` with
+`subagent_type: "general-purpose"`, `model: "haiku"`). Haiku drafts matrices, executes rows on the
+device, writes and runs flows, and applies fixes that Opus has specified. Opus never hands over
+judgment: severity and category, E2E ids, blocker triage, fix design, admin and money actions, EAS
+builds, commits and handoffs stay with it. Follow this plan as written. Where it doesn't cover
+something, the escalation rules in §6 decide.
 
-**Hard rule, every slice:** finish the slice → write the handoff → commit → print the continuation
-prompt → **STOP** (end the session turn; do not start the next slice).
+**Per slice:** finish the slice → write the handoff → commit → **continue with the next slice in the
+same session.** Stop (print the continuation prompt, then end the turn) only for:
+1. a §6 tier-4 escalation;
+2. a user-gated step: the burner confirm SQL, maintenance approval, a missing secret, or EAS quota
+   below 5;
+3. the pilot rule in §3b;
+4. a context compaction during the slice. Finish that slice first, then stop.
 
 ---
 
@@ -55,6 +64,7 @@ prompt → **STOP** (end the session turn; do not start the next slice).
 |---|---|
 | `docs/e2e-sweep/README.md` | Sweep overview + **status board** (table of every slice: Not started / In progress / Complete + handoff #) |
 | `docs/e2e-sweep/findings.md` | **The bug/problem document.** Two sections: `## Open` and `## Found & solved`, plus a summary count table at the top |
+| `docs/e2e-sweep/HAIKU-BRIEF.md` | Standing brief every Haiku packet reads first: role limits, env, tools, traps, per-row protocol, cleanup, return format (added 2026-10-10) |
 | `docs/e2e-sweep/env-state.md` | Build IDs/APK version installed, drift table, test-account ledger (emails only), wallet balances at slice start/end |
 | `docs/e2e-sweep/test-cases/<slice-id>.md` | Per-slice test-case matrix + results (e.g. `test-cases/3.2.md`) |
 | `docs/e2e-sweep/evidence/` | Screenshots copied from `~/.maestro/tests/...`, named `E2E-###-<short>.png` |
@@ -94,31 +104,90 @@ Build: <EAS build id / app version>   Date: <date>   Accounts: <emails>
 
 ## 3. Agent orchestration
 
-**Main agent (Sonnet 5.5):** owns the plan, the **emulator (exclusive lock)**, all `maestro`/`adb`
-interaction, triage decisions, fixes, commits, handoffs. **Only the main agent may drive the device.**
-Flows share accounts, jobs, escrow and wallet state, so two drivers corrupt each other.
+**Device lock.** Flows share accounts, jobs, escrow and wallet state, so two drivers corrupt each
+other. At most **one** device-driving Haiku agent exists at any time. While it runs, Opus does not
+touch `adb`, `maestro` or the Maestro MCP. Non-device Haiku agents may run in parallel with it
+(matrix drafting, testID inventory, `check-syntax`, log summaries, read-only GETs), but they never
+write to a file the device agent is writing. Opus takes the lock itself only between packets: for
+startup, the exploratory pass, or root-causing.
 
-**Spawn subagents with the Agent tool. Never let a subagent drive the device, commit, or spawn more agents.**
+**Haiku may:**
+- run `adb`, `maestro` and `curl` (GETs, plus only the fixture POSTs named in its packet);
+- edit the Result, Finding and Flow cells of the rows named in its packet;
+- write the flow files named in its packet;
+- write under `~/.taskbuddy-e2e/logs/<slice>/` and `~/.taskbuddy-e2e/scratch/<slice>/`;
+- apply an Opus fix spec to exactly the files the spec names.
 
-| Use `model: "haiku"` (Haiku 5.5) for mechanical/bounded work | Use `model: "sonnet"` for judgment-light-but-reasoning work |
-|---|---|
-| `maestro check-syntax` over a list of flow files and report failures | Draft the slice's test-case matrix from the screen source + `backend/BACKEND_SCHEMA.md` + DTOs (read-only) |
-| Build a testID / visible-text inventory for given screen files (grep `testID=`, button labels) | Write regression flow YAML from settled, passing exploration steps (it writes files; the main agent runs them) |
-| Summarise a long log (EAS build log, `adb logcat` dump) to the error lines | Read-only root-cause investigation of a finding (returns file:line + hypothesis, no edits) |
-| Read-only API state checks via `curl` GET (wallet, jobs, notifications) given a token passed in the prompt — *never* mutating calls | Review a fix diff against the finding before commit |
-| Format raw notes into findings.md entries / fill the handoff skeleton from `git diff --stat` + test-case files | |
-| Route-drift probe (Slice 0.2) | |
+**Haiku may not:**
+- commit, push, or spawn agents;
+- edit PLAN.md, README.md, findings.md, env-state.md, the handoffs, app source (except under a fix
+  spec) or `mobile/maestro/README.md`;
+- assign `E2E-###` ids or severities;
+- make any admin call or hold the admin token;
+- use the Maestro MCP (it uses the CLI only);
+- try one row more than twice.
 
-Parallelism: subagents run in the background while the main agent explores the device. Typical slice:
-spawn a Sonnet test-design agent for the **current** slice first (wait for it), then while exploring,
-spawn Haiku agents for inventory, syntax checks and log summaries. Give every subagent prompt the
-absolute paths, the exact output file or format wanted, and "read-only except <file>".
+**Opus owns:** the startup checklist; every admin mutation, wallet snapshot and money fixture; the
+packets (§3a) and the review gate (§3b); findings.md, README.md and env-state.md; fix specs; EAS
+builds and installs; commits; handoffs; and `docs/e2e-sweep/HAIKU-BRIEF.md`. When a slice teaches a
+new trap, Opus appends it to the brief.
+
+**Admin token isolation.** The Haiku helper `~/.taskbuddy-e2e/api.sh` has no admin login. Opus's admin
+helper and token live only in `~/.taskbuddy-e2e/opus/`. No `tok.admin` may exist under `scratch/`.
+
+**Packet sizing.**
+- At most **6 rows**, from one screen or wizard step, or one coherent group.
+- At most **3 rows** in slices 4.1, Phase 5, Phase 6 and 7.4. Opus snapshots both wallets before and
+  after each packet.
+- **Split a packet at any real-time wait** (deadlines, the 5.4 ML poll). Opus waits with a `Monitor`
+  until-loop, then dispatches the verify packet.
+- For 8.5, Opus writes the exact curl list, Haiku runs it and records the raw codes and bodies, and
+  Opus judges the results.
+
+**Follow-ups:** a formatting or cleanup correction goes to the same agent via `SendMessage`. A
+substantive retry gets a fresh packet.
+
+### 3a. Packet template (Opus fills it in for every dispatch)
+```
+Read docs/e2e-sweep/HAIKU-BRIEF.md in full and obey it. Packet <slice>-P<n>. APK sha256 must be <sha>.
+Run ONLY these rows of docs/e2e-sweep/test-cases/<slice>.md:
+  <TC id> — steps — expected — exact inline YAML / commands where known
+Fixtures you may create: <exact POSTs, or "none">.
+Allowed file writes: the Result/Finding/Flow cells of the rows above; ~/.taskbuddy-e2e/logs/<slice>/;
+~/.taskbuddy-e2e/scratch/<slice>/<, plus named flow files>.
+Slice-specific traps: <list>.
+Cleanup (always, even after a failure): <exact commands>.
+Return exactly the brief's "Return" section.
+```
+Non-device packets (matrix draft, flow writing, crash sweep, fix application) use the same skeleton:
+inputs, the files allowed to change, and the return format. A matrix draft must cite `file:line` for
+every expected value. Opus greps each DTO limit used before approving the matrix.
+
+### 3b. Review gate (Opus, after every packet, before the next device packet)
+- (a) `git status --porcelain` shows only allowed files. Look at anything else, then revert it.
+- (b) The test-case diff touches only the packet's rows. Each Result is an observation, never a bare
+  verdict. Cells are single-line with no `|`.
+- (c) Every reported row has `logs/<slice>/<TC>.log` and `<TC>.png` with an mtime later than the
+  dispatch.
+- (d) Opus reads every Fail/Blocked screenshot and at least one Pass log.
+- (e) Opus re-runs the GET for every row that touched server state (jobs, applications, wallet).
+- (f) `~/.taskbuddy-e2e/devstate.sh` exits 0.
+- (g) Opus triages `scratch/<slice>/candidates.md` and the "Odd things seen" list into findings.md
+  (id, category, severity, evidence copied to `evidence/`) and fills each row's Finding cell.
+- (h) Opus updates the board row: `In progress — last case <TC id>`.
+
+A packet that fails (a)–(c) twice → Opus does those rows itself and records it in the handoff.
+**Pilot rule (slice 3.2 only):** if 2 or more packets fail a gate, stop after 3.2 and ask the user
+whether to keep this model.
 
 ## 4. Standard slice procedure (every slice, in order)
 
-1. **Load state:** read the latest `docs/handoff/###-handoff.md`, `docs/e2e-sweep/README.md` (status board),
+Owners: **[O]** = Opus (orchestrator), **[H]** = Haiku packet (§3a), gated by §3b.
+
+1. **[O] Load state:** read the latest `docs/handoff/###-handoff.md`, `docs/e2e-sweep/README.md` (status board),
    `docs/e2e-sweep/findings.md` (Open section), and this plan's section for the slice.
-2. **Session startup checklist** (skip what Slice 0.x hasn't set up yet):
+2. **[O] Session startup checklist** (skip what Slice 0.x hasn't set up yet). Also run
+   `~/.taskbuddy-e2e/devstate.sh` and confirm that no `tok.admin` exists under `~/.taskbuddy-e2e/scratch/`:
    - Bash env: `export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"; export ANDROID_HOME="$LOCALAPPDATA/Android/Sdk"; export PATH="$PATH:$HOME/.maestro/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator"`
    - Emulator up: `adb devices` shows `emulator-5554  device`. If not, boot it **detached**:
      PowerShell `Start-Process "$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe" -ArgumentList '-avd','Medium_Phone' -WindowStyle Minimized`,
@@ -131,33 +200,39 @@ absolute paths, the exact output file or format wanted, and "read-only except <f
    - Clear the logs for this session: `adb logcat -c`.
    - Warm the backend: `curl -s -m 90 https://taskbuddy-kpek.onrender.com/health` returns JSON (repeat once if it times out; a 30–60s cold start is expected).
    - Maestro MCP: `list_devices` returns the emulator id.
-3. **Design cases:** spawn a Sonnet subagent to draft `docs/e2e-sweep/test-cases/<slice>.md` from the
-   slice's screen files and the case list in §5, applying the **checklist in §4a**. Review it and add
-   anything missing. Every row starts as `Result` = blank.
-4. **Explore and execute** each case on the device. Use Maestro MCP `inspect_screen` → `run` with
-   inline YAML (one coherent sequence per call) and `take_screenshot` for evidence. Verify server-side
-   effects with `curl` where the case touches data (wallet, job status, escrow).
-   Write each result into the test-case file **as you go**.
-5. **Log findings immediately** in `findings.md` (template §2). Copy evidence to `docs/e2e-sweep/evidence/`.
+3. **[H→O] Design cases:** a Haiku packet drafts `docs/e2e-sweep/test-cases/<slice>.md` from the
+   slice's screen files, the DTOs and the case list in §5, applying the **checklist in §4a**. Every
+   expected value cites `file:line`. **Opus reviews it**: verifies the DTO limits by grep, adds
+   missing cases, fixes wrong expectations, then groups the rows into device packets. Every row starts
+   with `Result` blank. Fixtures that involve money or admin calls are created by Opus. Plain fixture
+   POSTs may go into a packet.
+4. **[H] Execute** the rows in device packets, one packet at a time, each followed by the §3b gate.
+   Haiku drives the device with Maestro CLI inline YAML files plus `adb exec-out screencap` for
+   evidence. It verifies server-side effects with `curl` GETs and writes each result into the
+   test-case file **as it goes**.
+5. **[O] Log findings** from each gate in `findings.md` (template §2). Copy evidence to `docs/e2e-sweep/evidence/`.
    Commit **only finding evidence**, not screenshots of passing cases (repo bloat). Keep those in `~/.maestro/tests`.
    For crashes and transient glitches, record video with `adb shell screenrecord /sdcard/e2e.mp4`
    (≤180s), pull it to `~/.taskbuddy-e2e/logs/`, and don't commit it.
-6. **Blocker triage** (§6). Workaround if one exists → log it and continue. Fix only if testing can't
+6. **[O] Blocker triage** (§6). Workaround if one exists → log it and continue. Fix only if testing can't
    continue without it and the fix is inside the allowed fix scope.
-7. **Automate:** for each behaviour settled as **correct** (Pass cases, plus fixed bugs), have a
-   Sonnet subagent write flows into `mobile/maestro/flows/`. A Haiku agent then runs
-   `maestro check-syntax <file>` on each. The main agent runs each new flow **one file per `maestro test`
-   invocation**, and each must pass. Don't freeze a behaviour you're unsure is correct; log it as `ux`
-   "needs product sign-off" instead.
-8. **Crash sweep** before closing: `adb logcat -b crash -d` and `adb logcat -d ReactNativeJS:E AndroidRuntime:E *:S`.
-   Any FATAL/JS error not already explained by a finding → a new finding (S1 if it's a crash).
-   Save the excerpt to `~/.taskbuddy-e2e/logs/<slice>-logcat.txt`.
-9. **Exit criteria:** every case has a terminal Result (Pass / Fail+finding / Blocked+finding / N-A+reason),
-   findings are logged, new flows are green, the crash sweep is clean or logged, and the status board is
-   updated.
+7. **[O] Exploratory pass:** Opus takes the device lock for at most ~15 minutes over the slice's
+   screens. It looks for what the scripted rows miss: adjacent states, copy, layout, odd transitions.
+   Each thing checked becomes a row `<slice>-X01…` with its Result.
+8. **[H→O] Automate:** for each behaviour settled as **correct** (Pass cases, plus fixed bugs), a Haiku
+   packet writes flows into `mobile/maestro/flows/`, runs `maestro check-syntax <file>` on each, then runs
+   each new flow **one file per `maestro test` invocation**. Opus checks the logs: each must pass. Don't
+   freeze a behaviour you're unsure is correct; log it as `ux` "needs product sign-off" instead.
+9. **[H→O] Crash sweep** before closing: `adb logcat -b crash -d` and `adb logcat -d ReactNativeJS:E AndroidRuntime:E *:S`,
+   saved to `~/.taskbuddy-e2e/logs/<slice>-logcat.txt`. Opus reads it. Any FATAL/JS error not already
+   explained by a finding → a new finding (S1 if it's a crash).
+10. **[O] Exit criteria:** every case has a terminal Result (Pass / Fail+finding / Blocked+finding / N-A+reason)
+   backed by a log in `~/.taskbuddy-e2e/logs/<slice>/`, findings are logged, new flows are green, the
+   crash sweep is clean or logged, `devstate.sh` is clean, and the status board is updated.
+11. **[O] Handoff** → **commit** → **continue** (§7).
 
-**Mid-slice save point (not a handoff):** after every ~5 executed cases, set the status board row to
-`In progress — last case <TC id>` and make sure the test-case file is written. If a session dies
+**Mid-slice save point (not a handoff):** after every gate, Opus sets the status board row to
+`In progress — last case <TC id>` and makes sure the test-case file is written. If a session dies
 mid-slice, the next session resumes the slice from the first blank Result. It doesn't count as
 complete and doesn't get a handoff.
 
@@ -183,7 +258,6 @@ complete and doesn't get a handoff.
 - **Maestro `inputText` on Android is unreliable for non-ASCII** (emoji, ñ, ₱). Test unicode rendering
   by creating that data through the API and viewing it in the app. If typing it in-app fails, log a
   `harness` note, not an app bug.
-10. **Handoff** → **commit** → **continuation prompt** → **STOP** (§7).
 
 ### 4a. Test-design checklist (apply to every screen and form)
 - **Happy path** for each role that can reach the screen.
@@ -563,12 +637,19 @@ went through the API only), Stripe-hosted pages, load testing.
    options). The slice stays incomplete. **No handoff** for it. Results so far stay saved in the
    test-case file and findings.md.
 
-**Allowed fix scope (implementor may self-serve):** test-harness changes (helpers, selectors, flow
+**Allowed fix scope (orchestrator may approve):** test-harness changes (helpers, selectors, flow
 guards); inert `testID` additions; unambiguous **mobile JS/TS** bugs that are not in money, auth or
-native code. **Process for app fixes (CLAUDE.md, TDD is mandatory):** write the failing jest/RNTL test
-first in the matching `__tests__` dir → `cd mobile && npx jest <file>` fails → implement →
-`npx jest <file>` passes → `npm test` and `npm run typecheck` both pass (show the real output) → commit
-`fix(mobile-ui): …`. Fixes reach the device only through a **new EAS preview build** (repeat Slice 0.3
+native code. **Process for app fixes (CLAUDE.md, TDD is mandatory):**
+1. **Opus writes a fix spec:** the finding id, the test file path and the full failing jest/RNTL test
+   (in the matching `__tests__` dir), the exact find/replace edits, and the commands to run with
+   their expected outcomes.
+2. **A Haiku packet applies it:** add the test → `cd mobile && npx jest <file>` (must FAIL) → apply the
+   edits → `npx jest <file>` (must PASS) → `npm test` and `npm run typecheck` (must pass) → return
+   the raw output of every command. Any outcome that differs from the spec → STOP and return.
+3. **Opus reviews** `git diff` against the finding and re-reads the outputs, then commits
+   `fix(mobile-ui): …`.
+
+Haiku never designs a fix and never edits beyond the spec. Fixes reach the device only through a **new EAS preview build** (repeat Slice 0.3
 steps 2–4). Batch them: at most **one rebuild per phase** unless a fix is required to continue. Record
 every build in env-state.md and re-run the previously passing flows for the touched screens after
 installing it.
@@ -590,7 +671,7 @@ installing it.
 
 ## 7. End-of-slice protocol (strict)
 
-Only when the slice's exit criteria in §4 step 9 are met:
+Only when the slice's exit criteria in §4 step 10 are met. Opus does every step:
 
 1. Update the `docs/e2e-sweep/README.md` status board (slice → Complete, handoff number) and the
    findings.md summary counts.
@@ -622,13 +703,15 @@ Date: <date>   Branch: test/e2e-full-sweep   Last commit: <sha after step 3, ame
    was learned; **no Co-Authored-By or any AI attribution**). No push.
 4. Print the continuation prompt in chat, in a code block, filled in:
 ```
-Continue the TaskBuddy mobile e2e sweep. Read docs/handoff/###-handoff.md first, then follow the plan
-in docs/e2e-sweep/PLAN.md, starting at Slice <next x.y> — <name>.
-Run the §4 session startup checklist before touching the device. You are the main agent and own the
-emulator exclusively; spawn Haiku/Sonnet subagents per §3 for non-device work. When the slice is
-complete: handoff → commit → print the next continuation prompt → stop.
+Continue the TaskBuddy mobile e2e sweep as the orchestrator. Read docs/handoff/###-handoff.md, then
+follow docs/e2e-sweep/PLAN.md from Slice <next x.y> — <name>. You own the startup checklist,
+admin/money actions, triage, fix specs and commits; dispatch Haiku 5.5 subagents per §3/§3a with the
+brief in docs/e2e-sweep/HAIKU-BRIEF.md, and gate every packet per §3b. Chain slices; stop only on the
+PLAN header's stop conditions.
 ```
-5. **STOP.** Do not begin the next slice in this session.
+5. **Continue** with the next slice in this session, starting at §4 step 1 (step 2's startup checklist
+   only needs a quick re-check: devstate, APK sha, backend warm). If a header stop condition applies
+   instead, the printed prompt is the hand-off and the session ends.
 
 The plan lives at `docs/e2e-sweep/PLAN.md` (committed in Slice 0.1), so every continuation prompt
 points at a path that exists in any session. If a slice teaches something that changes the plan,
@@ -636,8 +719,9 @@ edit PLAN.md in that slice's commit and say so in the handoff.
 
 ## 8. Verification (how we know the sweep worked)
 
-- After every slice: the test-case file has no blank Result cells; every Fail/Blocked links to a
-  finding; new flows pass on a single run (`maestro test <file>`, the real output pasted into the
+- After every slice: the test-case file has no blank Result cells; every executed row is backed by
+  a log (and screenshot) in `~/.taskbuddy-e2e/logs/<slice>/`; every Haiku packet passed its §3b gate
+  or was redone by Opus (noted in the handoff); every Fail/Blocked links to a finding; new flows pass on a single run (`maestro test <file>`, the real output pasted into the
   handoff's "flows green" line, or a link to the log in `~/.taskbuddy-e2e/logs`).
 - After any app fix: `npm test` + `npm run typecheck` output shown, the fix re-verified on a new preview
   build, and the finding moved to "Found & solved" with the commit sha.
