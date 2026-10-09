@@ -8,8 +8,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
-| S3 | 6 | 1 | 0 | 0 | 0 |
-| S4 | 34 | 2 | 1 | 0 | 0 |
+| S3 | 8 | 1 | 0 | 0 | 0 |
+| S4 | 35 | 3 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -507,6 +507,50 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Evidence:** screenshots in `~/.maestro/tests` only.
 - **Suspected cause:** the retry link only calls the portfolio reload, not the categories reload (`SPPortfolioScreen.tsx`, not investigated further).
 - **Solution (if solved):** n/a
+
+### E2E-046 — A deleted client's open job stays open, is visible under "Deleted user" and still accepts applications
+- **Found:** 2026-10-09, slice 2.3, case 2.3-20   **Role:** both
+- **Category:** backend-bug
+- **Severity:** S3
+- **Status:** Open
+- **Steps:** 1. Burner client posts a job (`POST /jobs`, status `open`). 2. Delete the account in Settings (204; `open` is not in `ACTIVE_JOB_STATUSES`, so no blocker). 3. `GET /jobs/<id>` as a provider, then `POST /jobs/<id>/applications` as a verified provider.
+- **Expected:** the job leaves the marketplace (cancelled or expired) when its owner is deleted, so nobody applies to a job nobody can hire for.
+- **Actual:** the job stays `open` (admin bookings shows client "Deleted user"), a provider can still read it, and the apply returned 201 (withdrawn again afterwards). The client's auth user is banned, so the application can never be accepted. The test job was cancelled through the admin API afterwards.
+- **Evidence:** API responses only (job `e0842231-d1ea-4689-a8ad-d57b4e81f415`, application `a7b5a8d5-9ef3-4428-b44e-1b1fca450ccd`).
+- **Suspected cause:** `ProfilesService.deleteAccount` (`backend/src/profiles/profiles.service.ts:258`) soft-deletes the profile and never touches the client's `open` jobs or their pending applications. Suggested fix (backend, not applied): in `deleteAccount`, cancel the user's `open` jobs and reject their pending applications; for a provider, withdraw pending applications.
+
+### E2E-047 — Code read: frozen (`disputed`) escrow is queried by the deletion check but never blocks deletion
+- **Found:** 2026-10-09, slice 2.3, case 2.3-30   **Role:** both
+- **Category:** backend-bug
+- **Severity:** S3
+- **Status:** Open (code read only, not reproduced: the only accounts with a frozen escrow are the persistent test accounts, which must not be deleted)
+- **Steps:** read `deletionBlockers` in `backend/src/profiles/profiles.service.ts`.
+- **Expected:** money frozen in escrow blocks deletion the way `held` escrow does.
+- **Actual:** the escrow query selects `status in ('held','disputed')` (line 328), but only `held` rows are counted into the `escrow_held` blocker (line 349). A `disputed` escrow blocks only if an `open` row also exists in `disputes`. An admin-cancelled in-progress job freezes its escrow as `disputed` with no dispute row (see the 2026-10-08 leftover in env-state.md), so that user could delete their account with money frozen against it.
+- **Evidence:** source lines above.
+- **Suspected cause:** the filter at line 349 should count both statuses (or add a separate code). Not fixed: backend code. To reproduce, hire a burner pair (Phase 5.1), have an admin cancel the job, then delete the client.
+
+### E2E-048 — Client Delete Account dialog: after a blocker the title and red button still say "Delete your account?" / "Try Again", and blockers are plain lines
+- **Found:** 2026-10-09, slice 2.3, cases 2.3-14, 2.3-16   **Role:** client
+- **Category:** ux
+- **Severity:** S4
+- **Status:** Open (extends E2E-019, the provider dialog differs)
+- **Steps:** 1. Client with PHP 100 in the wallet: Settings → Delete Account → Delete Account. 2. Add a pending withdrawal and tap Try Again.
+- **Expected:** a clear "can't delete yet" state, as the provider has ("Not just yet", bullet list, neutral "Got it").
+- **Actual:** the client dialog keeps the title "Delete your account?", shows the blocker text as the body, and turns the destructive button into a red "Try Again" (retrying cannot succeed until the user settles it elsewhere). Two blockers are joined by a line break with no bullets. The wallet blocker says "Withdraw it" even when a withdrawal is already pending. After Cancel and reopen, the default text is back (2.3-15 pass).
+- **Evidence:** `evidence/E2E-048-blocker-title.png`, `evidence/E2E-048-two-blockers.png`.
+- **Suspected cause:** `HOSettingsScreen.tsx:64-80` joins `blockers[].message` into `deleteError` for a generic `ConfirmationModal`; the provider screen uses `DeleteAccountModal`, which already has the blocked view. Using the same component on the client side would fix it.
+
+### E2E-049 — Emulator loses DNS when the host network changes; the app shows "Cannot reach the server"
+- **Found:** 2026-10-09, slice 2.3, session start   **Role:** both
+- **Category:** harness
+- **Severity:** S4
+- **Status:** Workaround (cold boot the AVD with an explicit resolver, see the README note)
+- **Steps:** 1. Leave the emulator running while the host moves networks. 2. Log in from the app: "Cannot reach the server. Check your connection and try again." 3. `adb shell ping 8.8.8.8` works; `adb shell ping taskbuddy-kpek.onrender.com` says "unknown host"; the host itself reaches the API (HTTP 200).
+- **Expected:** n/a (environment).   **Actual:** the emulator's forwarded DNS stayed dead; toggling Wi-Fi/data did not help.
+- **Evidence:** `adb shell ping` output (not committed).
+- **Suspected cause:** the emulator kept the resolvers of the old host network. Not an app bug (the copy was right for the situation).
+- **Solution (workaround):** `adb emu kill`, then start with `emulator -avd Medium_Phone -no-snapshot-load -dns-server 8.8.8.8,1.1.1.1`, then `adb shell service call alarm 3 s16 Asia/Manila`; a "System UI isn't responding" dialog can appear right after the boot (tap Wait).
 
 ## Found & solved
 

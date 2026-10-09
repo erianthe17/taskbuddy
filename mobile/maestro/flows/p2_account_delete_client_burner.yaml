@@ -1,0 +1,54 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.3: client account deletion with no blockers. Cancel, backdrop tap and
+# hardware Back each dismiss the dialog without deleting; confirming signs out
+# to Login, and the deleted account's credentials are then refused. Own burner,
+# deleted by the flow itself, so it is re-runnable.
+- evalScript: ${output.RUN = Date.now()}
+- runScript:
+    file: _helpers/register_burner.js
+    env:
+      EMAIL: "maestro.burner.2.3.${output.RUN}@taskbuddy.test"
+      PASSWORD: "TestPass123!"
+- runFlow:
+    file: _helpers/login_as.yaml
+    env:
+      LOGIN_EMAIL: "maestro.burner.2.3.${output.RUN}@taskbuddy.test"
+      LOGIN_PASSWORD: "TestPass123!"
+- tapOn:
+    id: "btn-home-avatar"
+- tapOn: "Settings"
+- tapOn: "Delete Account"
+- assertVisible: "Delete your account?"
+- tapOn: "Cancel"
+- assertNotVisible: "Delete your account?"
+- assertVisible: "Settings"
+- tapOn: "Delete Account"
+- assertVisible: "Delete your account?"
+- tapOn:
+    point: "50%,90%"
+- assertNotVisible: "Delete your account?"
+- tapOn: "Delete Account"
+- assertVisible: "Delete your account?"
+- pressKey: Back
+- assertNotVisible: "Delete your account?"
+- assertVisible: "Settings"
+- tapOn: "Delete Account"
+- tapOn:
+    text: "Delete Account"
+    rightOf: "Cancel"
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 30000
+- tapOn:
+    id: "input-email"
+- inputText: "maestro.burner.2.3.${output.RUN}@taskbuddy.test"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- tapOn:
+    id: "btn-sign-in"
+- extendedWaitUntil:
+    visible: "Invalid login credentials"
+    timeout: 30000

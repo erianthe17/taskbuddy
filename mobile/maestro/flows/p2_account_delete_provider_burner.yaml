@@ -1,0 +1,47 @@
+appId: com.taskbuddy.app
+---
+# Slice 2.3: provider account deletion with no blockers. "Keep My Account"
+# closes the dialog without deleting; "Delete" signs out to Login and the
+# deleted account's credentials are then refused. Own burner, deleted by the
+# flow itself, so it is re-runnable.
+- evalScript: ${output.RUN = Date.now()}
+- runScript:
+    file: _helpers/register_burner_provider.js
+    env:
+      EMAIL: "maestro.burner.2.3.${output.RUN}@taskbuddy.test"
+      PASSWORD: "TestPass123!"
+      CATEGORY_ID: "1"
+- runFlow:
+    file: _helpers/login_as_provider.yaml
+    env:
+      LOGIN_EMAIL: "maestro.burner.2.3.${output.RUN}@taskbuddy.test"
+      LOGIN_PASSWORD: "TestPass123!"
+- tapOn:
+    id: "btn-home-avatar"
+- scrollUntilVisible:
+    element: "Settings"
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Delete Account"
+- tapOn: "Delete Account"
+- assertVisible: "Delete your account?"
+- tapOn: "Keep My Account"
+- assertNotVisible: "Delete your account?"
+- assertVisible: "Settings"
+- tapOn: "Delete Account"
+- tapOn: "Delete"
+- extendedWaitUntil:
+    visible: "Welcome!"
+    timeout: 30000
+- tapOn:
+    id: "input-email"
+- inputText: "maestro.burner.2.3.${output.RUN}@taskbuddy.test"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- tapOn:
+    id: "btn-sign-in"
+- extendedWaitUntil:
+    visible: "Invalid login credentials"
+    timeout: 30000
