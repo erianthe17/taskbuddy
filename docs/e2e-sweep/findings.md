@@ -9,7 +9,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 0 |
 | S3 | 8 | 1 | 0 | 0 | 0 |
-| S4 | 35 | 3 | 1 | 0 | 0 |
+| S4 | 43 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -551,6 +551,66 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Evidence:** `adb shell ping` output (not committed).
 - **Suspected cause:** the emulator kept the resolvers of the old host network. Not an app bug (the copy was right for the situation).
 - **Solution (workaround):** `adb emu kill`, then start with `emulator -avd Medium_Phone -no-snapshot-load -dns-server 8.8.8.8,1.1.1.1`, then `adb shell service call alarm 3 s16 Asia/Manila`; a "System UI isn't responding" dialog can appear right after the boot (tap Wait).
+
+### E2E-050 — "Post Another Job" leaves the address empty while step 1 still highlights "Use default"
+- **Found:** 2026-10-09, slice 3.1, case 3.1-48   **Role:** client
+- **Category:** app-bug   **Severity:** S4   **Status:** Open (workaround: tap "Use my saved address" on step 2)
+- **Steps:** 1. Post any job. 2. On the success screen tap "Post Another Job". 3. Pick a category, Next (step 1 still shows "Use default" active). 4. On step 2 the address box is empty; tap Next.
+- **Expected:** the saved address is prefilled again, or "Use default" is not shown as active. **Actual:** the address is empty, step 2 says "Please enter where the job is." and the "Use default" chip is still highlighted.
+- **Evidence:** `evidence/E2E-050-post-another-empty-location.png`
+- **Suspected cause:** `HOCreateJobScreen.tsx` `startAnother()` clears `location` but keeps `useProfileLocation = true`, and the prefill effect only runs when `profile.address` changes (`:333-341`).
+
+### E2E-051 — Hardware Back inside the wizard leaves it with no "Discard job draft?" prompt
+- **Found:** 2026-10-09, slice 3.1, case 3.1-33 (seen while driving Run D)   **Role:** client
+- **Category:** app-bug   **Severity:** S4   **Status:** Open (3.2 covers the full draft behaviour)
+- **Steps:** 1. Home, tap the Manicure tile (wizard opens on step 2 with a category chosen). 2. Press hardware/system Back.
+- **Expected:** the same "Discard job draft?" modal the header arrow shows, or one step back. **Actual:** the wizard closes straight to Home and the draft is lost. The header arrow does show the modal ("Keep Editing" / "Discard & Exit"). The same exit also happened once from step 3 with typed tasks.
+- **Evidence:** none saved (Maestro `back`, hierarchy showed Home). **Suspected cause:** `App.tsx` handles the Android back event itself and never reaches the screen's `handleExit`; not investigated.
+
+### E2E-052 — The location-preview map never appears on step 2
+- **Found:** 2026-10-09, slice 3.1, case 3.1-04   **Role:** client
+- **Category:** app-bug   **Severity:** S4   **Status:** Open (not isolated)
+- **Steps:** 1. Post a Job, reach step 2 with a confirmed address (default or a picked suggestion). 2. Wait 30 s.
+- **Expected:** a map image above "Location confirmed". **Actual:** only the "Location confirmed" card; no "Map of the confirmed job location" node in the hierarchy. The API is fine: `GET /jobs/static-map?lat=14.676&lon=121.0437` with a client token returns 200, `image/png`, 175 KB (and 401 without a token).
+- **Suspected cause:** the `Image` source with an `Authorization` header fails silently (`onError` hides it, `HOCreateJobScreen.tsx:850`); one bounded look only, not isolated.
+
+### E2E-053 — Posting a job with 6 photos took 62 s and the first attempt failed
+- **Found:** 2026-10-09, slice 3.1, case 3.1-31   **Role:** client
+- **Category:** env   **Severity:** S4   **Status:** Workaround (tap Post Job again; it posted in 62 s)
+- **Steps:** 1. Attach 6 photos (447 KB each, 2.7 MB in all). 2. Post Job.
+- **Expected:** posted, or a clear retry. **Actual:** after a long wait "Could not upload the image. Check your connection." (nothing created, so no duplicate job); a second tap posted fine. The emulator's uplink is about 15-30 KB/s (same as 2.1/2.2), so this is mostly the AVD, but uploads are parallel with no progress and no per-photo retry, and PNGs are not recompressed.
+- **Evidence:** `evidence/E2E-053-photo-upload-failed.png`
+
+### E2E-054 — After "Enter custom" and typing, the "Location confirmed" card still shows the old address
+- **Found:** 2026-10-09, slice 3.1, case 3.1-23   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Step 1: "Enter custom". 2. Step 2: type "Quezon City" without picking a suggestion.
+- **Expected:** the confirmed card clears or says the new text is unverified. **Actual:** the card still reads "Location confirmed — Ayala Avenue, Makati…" under a field that says "Quezon City". Next re-geocodes the typed text, so the stored coordinates follow the text; only the card misleads.
+- **Evidence:** `evidence/E2E-054-stale-location-confirmed.png`. **Suspected cause:** `Enter custom` clears only `location` (`HOCreateJobScreen.tsx:768-772`); `resolvedCoordinates`/`geocodedAddress` stay, and `AddressField` calls `onResolve(null)` only after its own resolve.
+
+### E2E-055 — Wizard accessibility: unlabeled back arrow and add-task "+", tiny photo "×"
+- **Found:** 2026-10-09, slice 3.1, case 3.1-49   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Details:** the header back arrow and the "+" next to "Add your own task" expose no label in the hierarchy; the photo "Remove photo n" button is about 57 x 58 px (about 22 dp, under the 48 dp guide). Footer Back/Next are fine. Also, a duplicate custom task is silently ignored and its text stays in the box (no message).
+- **Suspected cause:** `HOCreateJobScreen.tsx:714` and `:968` have no `accessibilityLabel`; `removePhoto` style size.
+
+### E2E-056 — Success copy says providers in the area "will be notified"
+- **Found:** 2026-10-09, slice 3.1, case 3.1-16   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open (needs product sign-off)
+- **Details:** "Job Posted! … Service providers in your area will be notified." In the real flow providers find the job in their feed and apply; invites go out only after the recommendation deadline (5/10/15 min) and only to the top 8. Step 4's own text ("matched after 5 minutes") is accurate.
+- **Suspected cause:** copy at `HOCreateJobScreen.tsx:675`.
+
+### E2E-057 — The typed address text is saved as the job address, and job photos are stored as full public URLs
+- **Found:** 2026-10-09, slice 3.1, cases 3.1-26 and 3.1-27   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open (needs product sign-off)
+- **Details:** typing "Katipunan Avenue Quezon City 1108" and pressing Next stores exactly that text as `address` (lat/lng come from the geocoder), whereas picking a suggestion stores the formatted address; providers see whichever was typed. Separately `photo_urls` holds `https://<project>.supabase.co/storage/v1/object/public/job-photos/<profile id>/<uuid>.png`, while CLAUDE.md describes clients submitting a storage path (the bucket is public, so it works).
+- **Suspected cause:** `resolveAddress` keeps `location.trim()` as `address` (`:545`); backend expands the path.
+
+### E2E-058 — "Use my current location" only says "Current location is unavailable" on the AVD
+- **Found:** 2026-10-09, slice 3.1, case 3.1-22   **Role:** client
+- **Category:** harness   **Severity:** S4   **Status:** Open (not isolated; success path Blocked)
+- **Steps:** `adb emu geo fix 121.0437 14.6760`, `settings put secure location_mode 3` (already 3), `pm grant … ACCESS_FINE_LOCATION`, tap "Use my current location" twice.
+- **Actual:** "Current location is unavailable. Make sure that location services are on…". Either the emulator never delivered a fix to the app or the app's location call fails; the feed's radius filter (4.2) will show which. The copy and the quiet failure itself are fine.
 
 ## Found & solved
 

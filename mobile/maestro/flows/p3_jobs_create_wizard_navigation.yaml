@@ -1,0 +1,61 @@
+appId: com.taskbuddy.app
+---
+# Slice 3.1 (3.1-33, 3.1-34, 3.1-35, 3.1-27): a Home category tile opens the wizard at step 2 with that
+# category selected, Back reaches step 1 with it highlighted, changing category clears the picked tasks,
+# the saved-address shortcut restores the confirmed address, and the keyboard hides the Back/Next bar.
+# Posts nothing. The footer Back is tapped by position: the label also matches the system nav Back.
+- runFlow: _helpers/login_client.yaml
+- tapOn: "Manicure"
+- extendedWaitUntil:
+    visible: "Step 2 of 5.*"
+    timeout: 30000
+- tapOn:
+    point: "27%,91%"
+- extendedWaitUntil:
+    visible: "Step 1 of 5.*"
+    timeout: 20000
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 2 of 5.*"
+    timeout: 20000
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 3 of 5.*"
+    timeout: 30000
+- assertVisible: "Basic manicure"
+- tapOn: "Basic manicure"
+- tapOn: "Gel polish"
+- assertVisible: "2/20 tasks selected"
+- tapOn:
+    point: "27%,91%"
+- tapOn:
+    point: "27%,91%"
+- extendedWaitUntil:
+    visible: "Step 1 of 5.*"
+    timeout: 20000
+- scrollUntilVisible:
+    element: "Pedicure"
+- tapOn: "Pedicure"
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 2 of 5.*"
+    timeout: 20000
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 3 of 5.*"
+    timeout: 30000
+- assertVisible: "0/20 tasks selected"
+- assertVisible: "Foot spa"
+- tapOn:
+    point: "27%,91%"
+- tapOn:
+    id: "create-job-address"
+- eraseText: 80
+- inputText: "Some other text"
+- assertNotVisible: "Next"
+- hideKeyboard
+- waitForAnimationToEnd
+- tapOn: "Use my saved address.*"
+- waitForAnimationToEnd
+- assertVisible: "Location confirmed"
+- assertVisible: "Ayala Avenue, Makati.*"

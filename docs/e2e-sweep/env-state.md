@@ -168,3 +168,13 @@ Balance / available / pending, recorded at slice start and end.
 - `maestro.provider@` now has one **withdrawn** application on a job of a deleted burner (the E2E-046 probe). That job was cancelled by the admin. Wallets of the four persistent accounts unchanged: client 49,500 available (500 frozen), others 0.
 - Server facts: deleted profile keeps its row (`Deleted user`, PII null, email `deleted-<id>@deleted.invalid`), the admin users search stops listing it, `GET /admin/users/:id` still returns it, `GET /providers/:id` of a deleted provider still returns 200 with `is_available` false. Re-registering a deleted email gives a brand-new profile id.
 - Maestro: `-e KEY=value` did not override a placeholder in the flow text here (typed `${EMAIL}` literally), so the throwaway navigation flows were generated with `sed`.
+
+## Slice 3.1 notes
+
+- Installed build unchanged: `fbe63d63…` (APK sha256 `75b611c2…` matched at session start). No rebuild. DNS fine (ping resolved), backend health db up / ml down (429, E2E-001).
+- Emulator: `location_mode` was already 3; a geo fix (121.0437, 14.6760) is set and `ACCESS_FINE_LOCATION` was granted to the app (E2E-058). Six `job31_*.png` test images (447 KB) are in `/sdcard/Pictures`. Nothing else changed; font 1.0, night off, autofill null.
+- Jobs of `maestro.client@` made this slice: 6 wizard jobs (J1-J6), J7 via the API without budget/date, plus one job from the new flow (cancelled in-app). **All cancelled**; J1 and J3 had already flipped to `recommending` (ML down, nobody invited), J5 too before cancel. No fixture is kept for Phase 4 (§4b: recreate).
+- Wallets unchanged: client 49,500 balance / available (500 frozen from the 2.x job), others 0. Posting never touches the wallet.
+- Server facts: urgency deadlines are exact (+5 / +10 / +15 min from `created_at`); `scheduled_at` is stored UTC (16:12 Manila -> 08:12Z); `photo_urls` are full Supabase public URLs; the typed address text is stored as typed; a job with no budget or schedule is accepted (201) and renders cleanly. A client access token lasted under about 1.5 h (401 mid-session), so helpers re-login.
+- Maestro MCP driver died again (`UNAVAILABLE`); everything ran through `maestro test` and `maestro hierarchy` via `~/.taskbuddy-e2e/hier.sh` and `mt.sh`.
+- Crash sweep: crash buffer empty, `ReactNativeJS:E AndroidRuntime:E` output 0 lines (`~/.taskbuddy-e2e/logs/3.1-logcat.txt`).

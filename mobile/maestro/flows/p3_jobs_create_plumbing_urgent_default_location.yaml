@@ -1,0 +1,100 @@
+appId: com.taskbuddy.app
+---
+# Slice 3.1 (3.1-01..17): post a Plumbing job, urgent, at the saved default location, no photos,
+# through the five-step wizard; confirm it lands in My Jobs as Open / Urgent / the right budget,
+# then cancel it so the flow is re-runnable. Uses the persistent client (a burner can't be deleted
+# cleanly while it owns an open job, E2E-046). Does not freeze E2E-050/051/052.
+- runFlow: _helpers/login_client.yaml
+- evalScript: |
+    ${output.DAYLABEL = (function () {
+      var d = new Date(Date.now() + 2 * 86400000);
+      var wd = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      var mo = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      return '.*' + wd[d.getDay()] + ' ' + d.getDate() + ' ' + mo[d.getMonth()] + ' ' + d.getFullYear() + '.*';
+    })()}
+- tapOn:
+    id: "nav-tab-My Jobs"
+- tapOn: "New"
+- extendedWaitUntil:
+    visible: "Select a Service.*"
+    timeout: 30000
+- assertVisible: "Step 1 of 5.*"
+- assertVisible: "Use your default location.*"
+- assertVisible: "Cleaning"
+- assertVisible: "Handyman"
+- tapOn: "Plumbing"
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 2 of 5.*"
+    timeout: 20000
+- assertVisible: "Location confirmed"
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 3 of 5.*"
+    timeout: 30000
+- tapOn: "Fix leaking faucet"
+- tapOn: "Unclog drain"
+- tapOn: "Fix toilet"
+- tapOn: "Fix toilet"
+- assertVisible: "2/20 tasks selected"
+- scroll
+- scroll
+- assertVisible: "Plumbing: Fix leaking faucet"
+- assertVisible: "Plumbing service needed. Tasks: Fix leaking faucet, Unclog drain."
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Step 4 of 5.*"
+    timeout: 20000
+- tapOn: "Urgent"
+- assertVisible: ".*matched after 5 minutes.*"
+- tapOn: "Select a date"
+- waitForAnimationToEnd
+- tapOn: ${output.DAYLABEL}
+- waitForAnimationToEnd
+- tapOn: "Select a time"
+- waitForAnimationToEnd
+- tapOn: "CANCEL"
+- assertVisible: "Select a time"
+- tapOn: "Select a time"
+- waitForAnimationToEnd
+- tapOn: "OK"
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: "0.00"
+- tapOn: "0.00"
+- inputText: "300"
+- tapOn: "Budget.*"
+- assertVisible: "300.00"
+- tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Review & Post"
+    timeout: 20000
+- assertVisible: "Plumbing"
+- assertVisible: "Urgent"
+- assertVisible: ".*300.00"
+- tapOn: "Post Job"
+- extendedWaitUntil:
+    visible: "Job Posted!"
+    timeout: 90000
+- tapOn: "View My Jobs"
+- extendedWaitUntil:
+    visible: "Plumbing: Fix leaking faucet"
+    timeout: 30000
+- assertVisible: "Open"
+- assertVisible: "Urgent"
+- assertVisible: ".*300.00"
+- tapOn:
+    id: "my-jobs-card-0"
+- extendedWaitUntil:
+    visible: "Cancel Job"
+    timeout: 20000
+- tapOn: "Cancel Job"
+- extendedWaitUntil:
+    visible: "Cancel this job.*"
+    timeout: 10000
+- tapOn:
+    text: "Cancel Job"
+    rightOf: "Keep Job"
+- extendedWaitUntil:
+    visible: "My Jobs"
+    timeout: 30000
