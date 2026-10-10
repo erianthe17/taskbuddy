@@ -1,0 +1,60 @@
+appId: com.taskbuddy.app
+name: p4 provider feed lists in-range jobs, filters by urgency and opens a read-only detail
+tags:
+  - provider
+  - feed
+onFlowComplete:
+  - runScript: _helpers/feed_fixture_cancel.js
+---
+# Slice 4.2 (rows 4.2-01, 05, 08, 19, 21, 23, 24): maestro.client@ posts two Plumbing jobs and one
+# Cleaning job 0.6 km from maestro.provider@'s profile point. The provider's feed lists both Plumbing
+# jobs with their distance, never the Cleaning one; the Urgent chip narrows the list; Job Details is
+# read-only ("What This Job Includes", Submit Proposal) and the header arrow returns to the feed.
+# The Open/Urgent strip is NOT asserted (E2E-087: it follows the chip). Jobs are cancelled by
+# onFlowComplete. Needs maestro.provider@ verified, Plumbing-only, profile point in Lipa (radius 8).
+- evalScript: ${output.RUN = Date.now()}
+- runScript:
+    file: _helpers/feed_fixture_post.js
+    env:
+      RUN: ${output.RUN}
+- runFlow: _helpers/login_provider.yaml
+- tapOn:
+    text: "Allow"
+    optional: true
+- tapOn: "Search open jobs"
+- inputText: "Maestro feed"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "Maestro feed normal ${output.RUN}"
+    timeout: 30000
+- assertVisible: "Maestro feed urgent ${output.RUN}"
+- assertNotVisible: "Maestro feed cleaning ${output.RUN}"
+- assertVisible: "602 m away"
+# Urgency chip (E2E-089: tap only with the keyboard down, done above).
+- tapOn:
+    id: "feed-urgency-urgent"
+- extendedWaitUntil:
+    notVisible: "Maestro feed normal ${output.RUN}"
+    timeout: 20000
+- assertVisible: "Maestro feed urgent ${output.RUN}"
+- tapOn:
+    id: "feed-urgency-all"
+- extendedWaitUntil:
+    visible: "Maestro feed normal ${output.RUN}"
+    timeout: 20000
+# Read-only detail.
+- tapOn: "Maestro feed normal ${output.RUN}"
+- extendedWaitUntil:
+    visible: "PLUMBING OPPORTUNITY"
+    timeout: 20000
+- assertVisible: "What This Job Includes"
+- assertVisible: "Fix toilet"
+- assertVisible:
+    id: "btn-submit-proposal"
+- tapOn: "Fix toilet"
+- assertVisible: "What This Job Includes"
+- tapOn:
+    point: "9%,6%"
+- extendedWaitUntil:
+    visible: "Jobs near you"
+    timeout: 15000

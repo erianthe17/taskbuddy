@@ -8,8 +8,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
-| S3 | 12 | 1 | 0 | 0 | 0 |
-| S4 | 64 | 4 | 1 | 0 | 0 |
+| S3 | 13 | 1 | 0 | 0 | 0 |
+| S4 | 76 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -811,6 +811,111 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** 400, the uploads are not images.   **Actual:** HTTP 201, a `pending` manual verification (`bbf34f04`) lands in the admin review queue with two text files as the ID and selfie. Rejected afterwards by the orchestrator.
 - **Evidence:** API transcript in `~/.taskbuddy-e2e/logs/4.1/` notes (no tokens); repro is the three calls above.
 - **Suspected cause:** `UploadsService.assertValidImage` (`backend/src/uploads/uploads.service.ts:98-124`) trusts the Storage object's recorded mimetype, which is whatever the uploader declared; magic bytes are only checked for generic types (application/octet-stream). The comment says it is a usability guard, not a decode. Fix: always check the image signature (it already exists as `hasImageSignature`), at least for verification-docs. The private bucket and image/jpeg serving limit the blast radius, but admins are shown arbitrary uploaded content.
+
+### E2E-085 — A provider can open any open job by id, even in a category they are not approved for
+- **Found:** 2026-10-10, slice 4.2, case 4.2-39   **Role:** provider
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open (backend, not self-serve)
+- **Steps:** (test accounts) 1. `maestro.client@` posts a Cleaning job (category 2), H `36bbf08f`. 2. As `maestro.provider@` (approved for Plumbing only) `GET /jobs/36bbf08f-…`.
+- **Expected:** 403/404, the same gate the feed applies (H is correctly absent from `GET /jobs`).   **Actual:** HTTP 200 with the full job record (title, description, address, coordinates, budget, status `open`, `category_id` 2).
+- **Evidence:** `~/.taskbuddy-e2e/logs/4.2/API.log` (no tokens); repro is the call above.
+- **Suspected cause:** `JobsService.getById` (`backend/src/jobs/jobs.service.ts:273-283`) lets any provider read any `open`/`recommending` job (`isBrowsable` checks role and status only); `browse` filters by `provider_approved_categories` (`:154-171`) but getById does not. Whether a provider can also **apply** outside their categories is checked in slice 4.3 (no category check found in `backend/src/applications`). Suggested fix: reuse the approved-categories check in getById for non-owner, non-assigned providers.
+
+### E2E-086 — Feed paging accepts zero and negative `limit`/`offset`
+- **Found:** 2026-10-10, slice 4.2, case 4.2-46   **Role:** provider
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open (backend, not self-serve)
+- **Steps:** As `maestro.provider@`, `GET /jobs?latitude=13.9977608&longitude=121.167579&radius_km=8` with `limit=0`, `limit=-1`, `offset=-1`, `limit=1000000`.
+- **Expected:** 400 for zero/negative paging values, and an upper bound on `limit`.   **Actual:** all HTTP 200. `limit=0` returns no jobs with the full summary (5/1/2400); `limit=-1` returns every job but the last; `offset=-1` returns only the last job; `limit=1000000` is accepted.
+- **Evidence:** `~/.taskbuddy-e2e/logs/4.2/API.log`.
+- **Suspected cause:** `BrowseJobsQueryDto.limit`/`offset` (`backend/src/jobs/dto/jobs.dto.ts:181-189`) have `@IsInt()` only, no `@Min`/`@Max`; `browse` passes them to `Array.slice` (`jobs.service.ts:225-231`), where negatives count from the end. The app always sends `limit: 20`, so users are not affected. Suggested fix: `@Min(1) @Max(100)` on limit and `@Min(0)` on offset.
+
+### E2E-087 — The feed's Open/Urgent counts change with the urgency chip (Normal chip shows "0 Urgent" while an urgent job is open)
+- **Found:** 2026-10-10, slice 4.2, cases 4.2-03/04/05   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open (needs product sign-off)
+- **Steps:** 1. Log in as `maestro.provider@` with five open jobs in range (one urgent). 2. Home shows Open 5 / Urgent 1. 3. Tap the Urgent, Normal, Flexible chips.
+- **Expected:** the hero strip summarises the provider's feed (5 open, 1 urgent) whatever chip filters the list below; the list line already says how many match the chip.   **Actual:** the strip follows the chip: Urgent → Open 1 / Urgent 1, Normal → Open 3 / **Urgent 0**, Flexible → Open 1 / Urgent 0; All → 5 / 1 again.
+- **Evidence:** `evidence/E2E-087-strip-follows-chip.png` (Urgent chip, strip 1/1).
+- **Suspected cause:** the browse request carries `urgency` (`mobile/app/(provider)/screens/SPHomeScreen.tsx:116`) and the server builds `summary` after the urgency filter (`backend/src/jobs/jobs.service.ts:175, 216-223`). The screen's own comment (`SPHomeScreen.tsx:234-235`) says the strip counts the location-filtered feed. Fix options: filter urgency client-side only (the list is already re-filtered at `:154`), or have the server compute `summary` before the urgency filter.
+
+### E2E-088 — Switching urgency chips flashes "No matching jobs / 0 jobs available" before the list loads
+- **Found:** 2026-10-10, slice 4.2, case 4.2-04   **Role:** provider
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Feed with the Urgent chip selected (one job, A). 2. Tap Normal.
+- **Expected:** the old list or a loading state until the Normal results arrive.   **Actual:** the first frame after the tap shows the empty state "No matching jobs — Adjust your search or urgency filter to see more opportunities." and "0 jobs available around your service area"; the three Normal jobs replace it a moment later.
+- **Evidence:** `evidence/E2E-088-chip-empty-flash.png`.
+- **Suspected cause:** while the new request is in flight, `data` still holds the previous chip's jobs, and the screen re-filters them by the new chip (`SPHomeScreen.tsx:152-156`), which leaves zero, so the empty state (`:359-367`) renders. Fix: show the skeleton (or keep the previous list unfiltered) while the urgency key differs from the key of the data shown.
+
+### E2E-089 — With the keyboard up, the first tap on a feed urgency chip only closes the keyboard
+- **Found:** 2026-10-10, slice 4.2, case 4.2-12   **Role:** provider
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Feed: tap "Search open jobs" and type (keyboard up). 2. Tap the Normal chip.
+- **Expected:** Normal is selected (the outer feed list already opts into handled taps).   **Actual:** the keyboard closes and All stays selected; a second tap selects Normal.
+- **Evidence:** `~/.taskbuddy-e2e/logs/4.2/4.2-12.log` (first tap on `feed-urgency-normal` completed, selection unchanged; retry with the keyboard hidden worked).
+- **Suspected cause:** the chips sit in a nested horizontal `ScrollView` (`mobile/app/(provider)/screens/SPHomeScreen.tsx:324`) without `keyboardShouldPersistTaps`; the outer ScrollView sets `"handled"` (`:162`) but nested scroll views need their own. Fix: add `keyboardShouldPersistTaps="handled"` to the chip row ScrollView (RNTL test can assert the prop).
+
+### E2E-090 — The feed's search text is cleared after opening a job and coming back, while the urgency chip is kept
+- **Found:** 2026-10-10, slice 4.2, case 4.2-13   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Feed: select Normal, type "7.8" in "Search open jobs" (only D listed). 2. Open D. 3. Header back.
+- **Expected:** both filters still applied (D only).   **Actual:** the chip is still Normal, but the search box is back to its placeholder and the list shows B, C, D ("3 jobs available ...").
+- **Evidence:** `evidence/E2E-090-search-lost.png`.
+- **Suspected cause:** the chip uses `useRetainedState('sp.feed.urgency')` (`mobile/app/(provider)/screens/SPHomeScreen.tsx:111`) but the search is plain `useState` (`:128`), and Home remounts on return (`mobile/App.tsx` stack navigation). Fix: retain the search the same way (e.g. `useRetainedState('sp.feed.search', '')`).
+
+### E2E-091 — The provider feed has no pull-to-refresh: new jobs don't appear and cancelled jobs stay listed until Home is remounted
+- **Found:** 2026-10-10, slice 4.2, cases 4.2-14, 4.2-16   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Provider on the feed. 2. A client posts a job in range (I-photo) / cancels a listed job (B). 3. Swipe down on the feed and wait 5 s.
+- **Expected:** a refresh gesture that loads the new job and drops the cancelled one.   **Actual:** nothing happens; the list stays as it was ("6 jobs available"), I-photo appears only after switching to My Work and back, and the cancelled B stays listed (tapping it shows "This job isn't available — You do not have access to this job"). The client-side counterpart is E2E-075.
+- **Update 2026-10-11 (case 4.2-48):** returning from the background does not refresh either: Home, KEYCODE_HOME, the client cancels I-photo, the app is brought back after 10 s, and I-photo is still listed at +5 s and +25 s ("7 jobs available") although `GET /jobs` no longer returns it.
+- **Evidence:** `evidence/E2E-091-no-pull-refresh.png` (after the swipe, I-photo missing; the server already listed it).
+- **Suspected cause:** the feed `ScrollView` (`mobile/app/(provider)/screens/SPHomeScreen.tsx:162-165`) has no `RefreshControl`; `useAsyncData` (`mobile/src/hooks/useAsyncData.ts`) only refetches on a dependency change or remount, and the foreground hook (`SPHomeScreen.tsx:100`) runs only for unverified providers and reloads only profile/verification. Fix: add a `RefreshControl` bound to the feed's `reload`, and reload on foreground.
+
+### E2E-092 — Job Details drops the distance that the feed card shows
+- **Found:** 2026-10-10, slice 4.2, case 4.2-21   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Provider feed: card A shows "445 m away". 2. Open A.
+- **Expected:** the Location fact repeats the distance (the screen has a slot for it).   **Actual:** Location shows only the address; no distance line anywhere on Job Details.
+- **Evidence:** `evidence/E2E-092-detail-no-distance.png`.
+- **Suspected cause:** `SPJobDetailScreen.tsx:243-245` renders `distanceLabel(job.distance_km)`, but `GET /jobs/:id` (`backend/src/jobs/jobs.service.ts:273-283`) never computes `distance_km`; only `browse` adds it (`:227-231`). Fix options: pass the card's distance through navigation, or compute it on the client from the profile and job coordinates.
+
+### E2E-093 — The feed jumps back to the top after opening a job and coming back
+- **Found:** 2026-10-10, slice 4.2, case 4.2-44   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Feed with six jobs; scroll to the bottom (E and X visible). 2. Open E. 3. Header back.
+- **Expected:** the feed returns at the same scroll offset.   **Actual:** the feed is at the top (hero and A visible); the provider has to scroll down again after every job they look at.
+- **Evidence:** `evidence/E2E-093-scroll-reset.png`.
+- **Suspected cause:** Home remounts on return and its ScrollView (`mobile/app/(provider)/screens/SPHomeScreen.tsx:162-165`) does not use the existing `useRetainedScroll` helper (`mobile/src/hooks/useRetainedState.ts`, whose header says scroll position should survive navigation).
+
+### E2E-094 — After leaving the feed and coming back, the availability switch shows "Not available" while the provider is actually available
+- **Found:** 2026-10-11, slice 4.2, case 4.2-45   **Role:** provider
+- **Category:** app-bug   **Severity:** S3   **Status:** Open
+- **Steps:** 1. Feed: turn the availability switch On ("Available for jobs"; `GET /auth/me` → `provider_profile.is_available: true`). 2. Tap My Work, then Feed.
+- **Expected:** the switch is On, matching the server.   **Actual:** the switch is Off with "Not available — You won't be invited to new jobs" while the server still says available (so the provider can be invited while being told they won't be). Tapping the switch from that state turns it On with no server change (true → true), so a second tap is needed to really go unavailable.
+- **Evidence:** `evidence/E2E-094-availability-stale.png` (after the return; GET /auth/me at that moment: is_available true, in `~/.taskbuddy-e2e/logs/4.2/4.2-45.log`).
+- **Suspected cause:** the switch state is seeded from AuthContext's `providerProfile.is_available` (`mobile/app/(provider)/screens/SPHomeScreen.tsx:126, 129-131`), but `toggleAvailability` (`:133-145`) only calls `api.setAvailability` and never updates AuthContext, and Home refreshes the profile on mount only for unverified providers (`:103-105`). On remount the stale cached `false` comes back. Fix: update the cached provider profile after a successful toggle (or `refreshProfile()` after it), with an RNTL test that remounts Home after a toggle.
+
+### E2E-095 — Feed accessibility: urgency chips are 40 dp tall and the search field has no label
+- **Found:** 2026-10-11, slice 4.2, case 4.2-33   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** uiautomator dump of the provider feed (top).
+- **Expected:** tap targets ≥ 48 dp; inputs labelled.   **Actual:** the four urgency chips are 105 px = 40 dp tall (they do expose role button and the selected state correctly); the "Search open jobs" field has no content-desc, only its placeholder; the bell and avatar buttons are 44 dp. Job cards are fine (button with title, price, address, urgency, category). The Job Details header back arrow is unlabelled (38 dp), already logged as E2E-033.
+- **Evidence:** `~/.taskbuddy-e2e/scratch/4.2/u33-home.xml`, `u33-detail.xml`.
+- **Suspected cause:** chip `minHeight: 40` (`mobile/app/(provider)/screens/SPHomeScreen.tsx:491`); the `TextInput` at `:314-321` has no `accessibilityLabel`; icon buttons are 44×44 (`:425`, `:437`). Same family as E2E-083.
+
+### E2E-096 — A provider with no saved address is told "within 15 km of your location" but sees jobs from anywhere, with no distances
+- **Found:** 2026-10-11, slice 4.2, case 4.2-20   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Log in as `maestro.provider2@` (verified, Plumbing, no address/coordinates, service radius 15). 2. Read the availability card and the feed.
+- **Expected:** either a prompt to set a service address ("Add your address to see jobs near you"), or a hint that does not claim a radius.   **Actual:** the hint reads "You won't be invited to new jobs · within 15 km of your location" while the feed lists every open Plumbing job on the platform with no distance labels, including "E2E 4.2 G Makati far" about 65 km from the Lipa jobs (8 cards).
+- **Evidence:** `evidence/E2E-096-radius-hint-no-location.png`.
+- **Suspected cause:** the app sends no `latitude`/`longitude` when the profile has none (`mobile/app/(provider)/screens/SPHomeScreen.tsx:117-118`), so `browse` skips the radius filter (`backend/src/jobs/jobs.service.ts:180, 196-200`), but the hint always prints `within {radiusKm} km of {city || 'your location'}` (`SPHomeScreen.tsx:157, 220`). Ties in with 8.4 (account-state matrix: provider with no address).
+
+### E2E-097 — Offline, opening a feed job says "This job isn't available — it may have been filled by another provider"
+- **Found:** 2026-10-11, slice 4.2, case 4.2-X02   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Provider feed loaded. 2. Turn Wi-Fi and data off. 3. Tap an open job (A).
+- **Expected:** an offline message with a retry; the job is not claimed to be gone.   **Actual:** the "unavailable job" card: lock icon, "This job isn't available", "Cannot reach the server. Check your connection and try again.", "It may have been filled by another provider or closed by the client.", and only "Go back". After reconnecting, Go back and re-opening works. (The feed itself, remounted offline, silently shows its cached list with no offline notice.)
+- **Evidence:** `evidence/E2E-097-offline-job-unavailable.png`.
+- **Suspected cause:** `SPJobDetailScreen.tsx:215-225` renders the same error card for any `useAsyncData` error, so a network failure (`ApiError` status 0) gets the "filled/closed" title and hint. Fix: branch on network errors (title like "You're offline", a Retry that calls `reload`).
 
 ## Found & solved
 

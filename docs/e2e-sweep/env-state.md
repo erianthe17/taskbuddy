@@ -178,3 +178,13 @@ Balance / available / pending, recorded at slice start and end.
 - Server facts: urgency deadlines are exact (+5 / +10 / +15 min from `created_at`); `scheduled_at` is stored UTC (16:12 Manila -> 08:12Z); `photo_urls` are full Supabase public URLs; the typed address text is stored as typed; a job with no budget or schedule is accepted (201) and renders cleanly. A client access token lasted under about 1.5 h (401 mid-session), so helpers re-login.
 - Maestro MCP driver died again (`UNAVAILABLE`); everything ran through `maestro test` and `maestro hierarchy` via `~/.taskbuddy-e2e/hier.sh` and `mt.sh`.
 - Crash sweep: crash buffer empty, `ReactNativeJS:E AndroidRuntime:E` output 0 lines (`~/.taskbuddy-e2e/logs/3.1-logcat.txt`).
+
+## Slice 4.2 notes
+
+- Installed build unchanged: `fbe63d63…` (APK sha256 `75b611c2…` matched at session start). No rebuild. Backend health db up / ml down (429, E2E-001) all slice, so the scheduler flipped every fixture to `recommending` without notifying anyone.
+- **Emulator changes:** mid-slice the timezone drifted back to GMT and DNS died (the emulator had been started without `-dns-server`). Fixed by `adb shell settings put global auto_time_zone 0` + `service call alarm 3 s16 Asia/Manila`, then a cold boot with `emulator -avd Medium_Phone -dns-server 8.8.8.8,1.1.1.1` (detached). **`auto_time_zone` is now 0** (baseline was 1; restore in 9.1). `devstate.sh` now also checks `dns` (ping of the API host).
+- Ledger: `maestro.client@` balance 50,000 / available 50,000 / in escrow 0. The 500 that was frozen since the 2.x job came back as `refund` "Refund — cancellation response expired" (job 5f13ac3f, 2026-10-10 09:50 UTC, once) — server automation, not a sweep action. Other wallets 0. No money moved in 4.2.
+- Fixtures (all `maestro.client@`, all **cancelled** at slice end): A 48ee2726, B eca53b28, C 7f217cc2, D 8a748110, E 01b92adc, F 9809e3af, G 2ae45d2e, H 36bbf08f (Cleaning), I-photo b5e51d6c, L-long 762991ba, plus 6 jobs from two runs of the new flow (cancelled by the flow). `GET /jobs/mine`: 59 jobs, all cancelled.
+- `maestro.provider@` left `is_available: false` (toggled during 4.2-29/30/45 and restored). Location permissions granted (revoked and restored in 4.2-18).
+- Shared backend: another client's real job "Plumbing: Check valve" (b89c310a, ₱50, Lipa, 4.5 km from p1) is in p1's and p2's feeds. Never touched.
+- Crash sweep: crash buffer 0 lines, `ReactNativeJS:E AndroidRuntime:E` 0 lines (buffer from 00:46 on 10-11); Maestro's per-run device logs for both flow runs had no FATAL/ANR/JS errors (`~/.taskbuddy-e2e/logs/4.2-logcat.txt`).

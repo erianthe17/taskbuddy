@@ -97,6 +97,10 @@ report it; the orchestrator handles waits.
 - Never put `'; DROP TABLE jobs; --` in a request body. An edge filter returns 403 (E2E-066).
 - `inputText` is unreliable for non-ASCII (₱, ñ, emoji). Use ASCII unless the packet says otherwise.
 - Avoid a phone-shaped string followed immediately by a tap (Gboard suggestion chip). Use `pressKey: Enter` first.
+- **Single-line fields (e.g. the feed's "Search open jobs")**: the keyevent-20 clearing recipe above moves focus OFF the field. Use `adb shell "input keyevent KEYCODE_MOVE_END; for i in \$(seq 1 N); do input keyevent 67; done"` right after tapping the field instead.
+- `tapOn: "<text>"` matches case-insensitively and hits ANY element with that text (e.g. "plumbing" hit a card's Plumbing pill and opened the job). Tap fields by id or by their exact placeholder.
+- The status-bar clock is 12-hour ("10:15" = 22:15 Manila); it is not a timezone fault. `devstate.sh` checks the timezone and DNS.
+- The shared backend has other users: a job not created by the sweep can appear in a feed. Record it under Odd things seen and judge the row on the fixtures; never tap it.
 - More traps: `mobile/maestro/README.md` sections "Known selector traps" and "Slice 3.2 notes".
 
 ## 5. Per-row protocol

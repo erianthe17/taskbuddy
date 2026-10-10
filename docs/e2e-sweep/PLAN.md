@@ -476,7 +476,7 @@ verified.
 urgency filter (HANDOFF says server-side may be drift), and location radius (set the location with
 `adb emu geo fix 121.0437 14.6760`, then a far location → empty state). Summary counts against
 `GET /jobs` `summary`. Pull-to-refresh. Job detail layout. Skill gating: a job outside the provider's
-categories is hidden or un-appliable (drift-dependent). Location permission denied.
+categories is hidden or un-appliable (drift-dependent). Location permission denied. *(Learned in 4.2: the feed filters by the provider's **profile** coordinates and `service_radius_km`, never device GPS, so `geo fix` and location denial do not affect it; the radius is tested by fixture placement. The feed has no category filter UI, only urgency chips and a local search; the category filter is API-only.)*
 
 **4.3 Apply / withdraw / decline.** Apply (proposal fields per DTO + §4a), duplicate apply, withdraw a
 pending application, re-apply after withdraw, apply to a job the client just cancelled (stale screen),
