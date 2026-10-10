@@ -8,8 +8,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
-| S3 | 11 | 1 | 0 | 0 | 0 |
-| S4 | 63 | 4 | 1 | 0 | 0 |
+| S3 | 12 | 1 | 0 | 0 | 0 |
+| S4 | 64 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -786,7 +786,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Steps:** 1. Get Verified with a valid ID and selfie. 2. Tap Start Verification once.
 - **Expected:** Stripe's hosted Identity page opens (the step 3 copy says it "opens in a secure browser window").   **Actual:** no browser; the app shows "Pending verification ... A TaskBuddy admin is reviewing your documents."; the row is `method: manual`, `stripe_session_id: null`.
 - **Evidence:** `~/.taskbuddy-e2e/logs/4.1/4.1-26.png` (not committed; the pending card)
-- **Suspected cause:** `POST /verifications/identity-session` fails (Stripe Identity not activated, see HANDOFF.md "Identity activation") and the app silently falls back to the manual flow (`SPVerificationScreen.tsx` ~:210-218). Behaviour is acceptable; the step 3 copy promising a browser window is not.
+- **Suspected cause:** `POST /verifications/identity-session` fails (Stripe Identity not activated, see HANDOFF.md "Identity activation") and the app silently falls back to the manual flow (`SPVerificationScreen.tsx` ~:210-218). Behaviour is acceptable; the step 3 copy promising a browser window is not. The copy also disagrees across screens (4.1-49/50): step 3 promises an automated Stripe check, while the Help FAQ ("An admin reviews it, usually within a few days.") and the pending card describe admin review; the Home banner says "Your documents were not accepted." where the wizard says "Your documents were rejected."
 
 ### E2E-082 — Offline, a provider with a pending verification is shown "Verification required ... Verify now", and it stays after reconnecting
 - **Found:** 2026-10-10, slice 4.1, case 4.1-30   **Role:** provider
@@ -795,6 +795,22 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** keep the last known state (pending) or a neutral "checking" state.   **Actual:** the banner switches to "Verification required to apply ... Verify now" and keeps it after the network is back (until a remount).
 - **Evidence:** `evidence/E2E-082-pending-shown-unverified-offline.png`
 - **Suspected cause:** a failed `GET /verifications/me` is treated as "no verification" in the Home banner logic (`SPHomeScreen.tsx` verification banner); no refetch on reconnect/focus (same root as E2E-075).
+
+### E2E-083 — Get Verified tap targets are under 48 dp (ID-type chips 36 dp, "Choose from gallery" 45 dp)
+- **Found:** 2026-10-10, slice 4.1, case 4.1-47   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Get Verified, step 1: `uiautomator dump`, read an ID-type chip. 2. Step 2: read "Choose from gallery".
+- **Expected:** at least 48 dp (PLAN §4a).   **Actual:** chip `verify-doc-philsys` 422x94 px = 35.8 dp tall; "Choose from gallery" 880x118 px = 45 dp tall (density 420).
+- **Evidence:** `evidence/E2E-083-verify-chips-small.png`; dumps `~/.taskbuddy-e2e/scratch/4.1/u-4.1-47-s1-v9b.xml`, `-s2-v9b.xml` (not committed)
+- **Suspected cause:** chip and secondary-button padding in `mobile/app/(provider)/screens/SPVerificationScreen.tsx` styles; add `minHeight: 48` / `hitSlop`. The header back arrow is E2E-033.
+
+### E2E-084 — Verification accepts a plain-text file declared as image/jpeg (server checks only the declared mimetype)
+- **Found:** 2026-10-10, slice 4.1, case 4.1-25   **Role:** provider
+- **Category:** backend-bug   **Severity:** S3   **Status:** Open (backend, not self-serve)
+- **Steps:** (burner provider, test account) 1. `POST /uploads/signed-url {"bucket":"verification-docs","content_type":"image/jpeg"}` twice. 2. PUT a 52-byte plain-text body to each signed URL with `Content-Type: image/jpeg` (200). 3. `POST /verifications` with both paths.
+- **Expected:** 400, the uploads are not images.   **Actual:** HTTP 201, a `pending` manual verification (`bbf34f04`) lands in the admin review queue with two text files as the ID and selfie. Rejected afterwards by the orchestrator.
+- **Evidence:** API transcript in `~/.taskbuddy-e2e/logs/4.1/` notes (no tokens); repro is the three calls above.
+- **Suspected cause:** `UploadsService.assertValidImage` (`backend/src/uploads/uploads.service.ts:98-124`) trusts the Storage object's recorded mimetype, which is whatever the uploader declared; magic bytes are only checked for generic types (application/octet-stream). The comment says it is a usability guard, not a decode. Fix: always check the image signature (it already exists as `hasImageSignature`), at least for verification-docs. The private bucket and image/jpeg serving limit the blast radius, but admins are shown arbitrary uploaded content.
 
 ## Found & solved
 
