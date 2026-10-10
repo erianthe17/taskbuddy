@@ -8,7 +8,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
-| S3 | 10 | 1 | 0 | 0 | 0 |
+| S3 | 11 | 1 | 0 | 0 | 0 |
 | S4 | 59 | 4 | 1 | 0 | 0 |
 
 <details>
@@ -755,6 +755,14 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** content within about 3 s (PLAN §4a).   **Actual:** 5.1 s and 9.8 s in two valid trials (the account has 42 jobs); the Job Details screen loads in about 2.2 s.
 - **Evidence:** `evidence/E2E-077-myjobs-skeleton.png`; timings in `~/.taskbuddy-e2e/logs/3.3/3.3-58.log` (not committed)
 - **Suspected cause:** not isolated. The list request pages by 100 (`mobile/src/lib/api.ts:1192-1209`) and the screen may refetch per tab/chip key (`HOMyJobs.tsx:57-60`); the gap between the 1 s API time and 5-10 s render suggests client-side work or serial requests. Worth a profiling pass.
+
+### E2E-078 — Unverified providers are told "You can browse jobs now" but their feed is always empty
+- **Found:** 2026-10-10, slice 4.1, cases 4.1-05, 4.1-06   **Role:** provider
+- **Category:** ux   **Severity:** S3   **Status:** Open (needs product decision: copy or behaviour)
+- **Steps:** 1. Log in as an unverified provider (`maestro.provider2@`). 2. Read the Home banner and the feed while an open Plumbing job exists (verified `maestro.provider@` sees it in `GET /jobs`).
+- **Expected:** what the banner promises ("You can browse jobs now, but you must verify your identity before you can send proposals or be hired.").   **Actual:** "0 jobs available around your service area" and "No matching jobs"; `GET /jobs` as the unverified provider returns 0 jobs. The user is told they can browse and is shown an empty market with no hint that verification is why.
+- **Evidence:** `evidence/E2E-078-unverified-empty-feed.png`
+- **Suspected cause:** `JobsService.browse` returns an empty list when `provider_approved_categories` is empty (`backend/src/jobs/jobs.service.ts:153-166`), and approved categories require `is_verified` (migration 0037, skill gating). The banner copy (`mobile/app/(provider)/screens/SPHomeScreen.tsx`, verification banner) predates the gate. Either change the copy/empty state to "Verify to see jobs" or let unverified providers browse read-only.
 
 ## Found & solved
 

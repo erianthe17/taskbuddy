@@ -17,7 +17,7 @@ fixes, commits. **Your job is to run exactly what you're told and report exactly
   source or backend code, unless the packet is a fix packet that names the exact file.
 - Never call `/admin/*` routes. Never read `~/.taskbuddy-e2e/secrets.env` or anything under
   `~/.taskbuddy-e2e/opus/`.
-- Never print, log or write an access token (no JWT strings in any file or in your reply).
+- Never print, log or write an access token (no JWT strings in any log, test-case file, candidate note or reply). The token files that `api.sh login` keeps under `scratch/<slice>/` are expected; never open or copy them.
 - Drive the device with the **Maestro CLI** and `adb` only. Don't use the Maestro MCP tools.
 - At most **2 attempts per row**. After the second failed attempt, record what you saw and move on.
 - Don't re-run a row that already has a Result unless the packet says so.
@@ -62,7 +62,8 @@ over a few seconds is blocked. If a row needs a real-time wait of minutes, STOP 
 report it; the orchestrator handles waits.
 
 ## 4. Traps (all learned the hard way; obey them)
-- **Never** `tapOn: "Back"`. The wizard footer Back is `point: "27%,91%"`; the header arrow is `point: "9%,6%"`.
+- **Never** `tapOn: "Back"` (several elements match). In the **Post a Job** wizard the footer Back is `point: "27%,91%"`; in other wizards (e.g. Get Verified) the footer moves per step, so take its bounds from `hier.sh`. The header arrow is `point: "9%,6%"` on most screens.
+- Provider bottom tabs: `nav-tab-Dashboard` (feed), `nav-tab-My Jobs`, `nav-tab-Calendar`, `nav-tab-Wallet`; the profile is opened with `btn-home-avatar`.
 - `hideKeyboard` with no keyboard up presses **system Back** and drops the wizard draft. After a custom
   task's Enter, do NOT call it.
 - `pressKey: back` on the app's Home screen sends the app to the background. Relaunch with
