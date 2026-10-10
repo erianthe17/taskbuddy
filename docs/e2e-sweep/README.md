@@ -42,7 +42,7 @@ Handoff is the `docs/handoff/` number, filled in when the slice completes.
 | 3.3 | My Jobs & job detail | Complete | 013 |
 | 4.1 | Verification | Complete | 014 |
 | 4.2 | Feed & job detail | Complete | 015 |
-| 4.3 | Apply / withdraw / decline | Not started | — |
+| 4.3 | Apply / withdraw / decline | Complete | 016 |
 | 5.1 | Hire → escrow held | Not started | — |
 | 5.2 | Decline & cancel refunds | Not started | — |
 | 5.3 | Start → tasks → complete → release | Not started | — |

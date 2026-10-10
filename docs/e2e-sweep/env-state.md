@@ -188,3 +188,11 @@ Balance / available / pending, recorded at slice start and end.
 - `maestro.provider@` left `is_available: false` (toggled during 4.2-29/30/45 and restored). Location permissions granted (revoked and restored in 4.2-18).
 - Shared backend: another client's real job "Plumbing: Check valve" (b89c310a, ₱50, Lipa, 4.5 km from p1) is in p1's and p2's feeds. Never touched.
 - Crash sweep: crash buffer 0 lines, `ReactNativeJS:E AndroidRuntime:E` 0 lines (buffer from 00:46 on 10-11); Maestro's per-run device logs for both flow runs had no FATAL/ANR/JS errors (`~/.taskbuddy-e2e/logs/4.2-logcat.txt`).
+
+## Slice 4.3 notes
+
+- Installed build unchanged: `fbe63d63…` (APK sha256 `75b611c2…` matched). No rebuild, no emulator setting changed (still `auto_time_zone` 0 from 4.2). Backend health db up / ml down (E2E-001) all slice.
+- Ledger unchanged: client 50,000 / 50,000, others 0. No money moved (applying never touches the wallet).
+- Fixtures (`maestro.client@`): J1 1e4de8e9 **kept open (recommending) for 5.1** with two pending applications (p1 55f4f645 with a Taglish message, p2 97dfbb5c with none). J2 a2f2bae1, J3 6749c043, J4 c1ebdf62, JC 133b247d (Cleaning) cancelled; three "Maestro apply …" jobs from the new flow cancelled with their applications withdrawn. `GET /jobs/mine`: 66 cancelled + J1.
+- Applications left on the providers: p1 J1 pending, J2 pending (job cancelled, E2E-101), J4 withdrawn, plus older baseline rows; p2 J1 pending, J2 pending (job cancelled), J4 pending (job cancelled; cover "" — E2E-100). Both providers `is_available: false`.
+- Crash sweep: crash buffer 0 lines, `ReactNativeJS:E AndroidRuntime:E` 0 lines (`~/.taskbuddy-e2e/logs/4.3-logcat.txt`).

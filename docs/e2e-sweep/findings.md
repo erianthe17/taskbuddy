@@ -8,8 +8,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
-| S3 | 13 | 1 | 0 | 0 | 0 |
-| S4 | 76 | 4 | 1 | 0 | 0 |
+| S3 | 14 | 1 | 0 | 0 | 0 |
+| S4 | 79 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -818,6 +818,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Steps:** (test accounts) 1. `maestro.client@` posts a Cleaning job (category 2), H `36bbf08f`. 2. As `maestro.provider@` (approved for Plumbing only) `GET /jobs/36bbf08f-…`.
 - **Expected:** 403/404, the same gate the feed applies (H is correctly absent from `GET /jobs`).   **Actual:** HTTP 200 with the full job record (title, description, address, coordinates, budget, status `open`, `category_id` 2).
 - **Evidence:** `~/.taskbuddy-e2e/logs/4.2/API.log` (no tokens); repro is the call above.
+- **Update 2026-10-11 (slice 4.3):** applying is gated: `POST /jobs/<Cleaning job>/applications` as `maestro.provider@` returns 400 "This job requires an approved skill on your verified provider profile" (migration 0037 trigger) and creates no row. So the exposure is read-only; severity stays S4.
 - **Suspected cause:** `JobsService.getById` (`backend/src/jobs/jobs.service.ts:273-283`) lets any provider read any `open`/`recommending` job (`isBrowsable` checks role and status only); `browse` filters by `provider_approved_categories` (`:154-171`) but getById does not. Whether a provider can also **apply** outside their categories is checked in slice 4.3 (no category check found in `backend/src/applications`). Suggested fix: reuse the approved-categories check in getById for non-owner, non-assigned providers.
 
 ### E2E-086 — Feed paging accepts zero and negative `limit`/`offset`
@@ -916,6 +917,38 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** an offline message with a retry; the job is not claimed to be gone.   **Actual:** the "unavailable job" card: lock icon, "This job isn't available", "Cannot reach the server. Check your connection and try again.", "It may have been filled by another provider or closed by the client.", and only "Go back". After reconnecting, Go back and re-opening works. (The feed itself, remounted offline, silently shows its cached list with no offline notice.)
 - **Evidence:** `evidence/E2E-097-offline-job-unavailable.png`.
 - **Suspected cause:** `SPJobDetailScreen.tsx:215-225` renders the same error card for any `useAsyncData` error, so a network failure (`ApiError` status 0) gets the "filled/closed" title and hint. Fix: branch on network errors (title like "You're offline", a Retry that calls `reload`).
+
+### E2E-098 — A provider cannot withdraw a pending proposal anywhere in the app
+- **Found:** 2026-10-11, slice 4.3, case 4.3-08   **Role:** provider
+- **Category:** app-bug   **Severity:** S3   **Status:** Open
+- **Steps:** 1. As `maestro.provider@`, send a proposal on J4. 2. Look for a way to take it back: the job's detail (top to bottom), the My Work card (tap and long-press).
+- **Expected:** a "Withdraw proposal" action while the proposal is pending (the backend supports it).   **Actual:** the detail shows only "Your proposal · Waiting for the client to choose a provider." and a locked "Proposal Pending"; the My Work card opens the same detail; long-press does the same. The only way to withdraw is the raw API (`POST /applications/:id/withdraw`, 201 → `withdrawn`, which the app then shows as "You withdrew this proposal.").
+- **Evidence:** `evidence/E2E-098-no-withdraw.png`.
+- **Suspected cause:** `api.withdrawApplication` exists (`mobile/src/lib/api.ts:1283-1284`) but nothing calls it; `SPJobDetailScreen.tsx:395-401` renders a locked label for every application status, and `SPMyJobsScreen.tsx` cards only navigate. Not listed in `mobile/README.md` "What's Not Wired Yet". A provider who changes their mind stays committed until the client acts.
+
+### E2E-099 — After withdrawing, a provider can never apply to that job again, and the app doesn't say so
+- **Found:** 2026-10-11, slice 4.3, case 4.3-11   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open (needs product sign-off)
+- **Steps:** 1. p1 applies to J4, then withdraws (API, see E2E-098). 2. Re-open J4. 3. `POST /jobs/J4/applications` again.
+- **Expected:** either re-applying is allowed (the withdrawn row is reactivated), or the app explains that a withdrawn proposal is final.   **Actual:** the detail shows "You withdrew this proposal." and a locked "Proposal withdrawn" with no explanation; the API answers 400 "You already applied to this job".
+- **Evidence:** `evidence/E2E-099-withdrawn-dead-end.png`.
+- **Suspected cause:** `job_applications` has `unique (job_id, provider_id)` (`backend/supabase/migrations/0001_enums_and_tables.sql:133`), and `apply` maps the violation to "You already applied" (`backend/src/applications/applications.service.ts:78-79`); nothing moves a withdrawn row back to pending. Product call: allow re-apply (upsert a withdrawn row to pending) or make the finality explicit in the copy.
+
+### E2E-100 — An empty-string cover message shows as a blank box on the client's Proposals screen
+- **Found:** 2026-10-11, slice 4.3, case 4.3-23   **Role:** client
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open (backend, not self-serve)
+- **Steps:** 1. As `maestro.provider2@`, `POST /jobs/<J4>/applications {"cover_message":""}` (201). 2. As `maestro.client@`, open J4 → View Offers.
+- **Expected:** "No cover message." (as for a null message) or a 400.   **Actual:** p2's card shows an empty grey box; the withdrawn p1 card on the same screen (null message) shows "No cover message.".
+- **Evidence:** `evidence/E2E-100-blank-cover.png`.
+- **Suspected cause:** `apply` stores `dto.cover_message ?? null`, so `""` is kept (`backend/src/applications/applications.service.ts:72`); the client card uses `??` too (`mobile/app/(homeowner)/screens/HOJobApplicationsScreen.tsx:311`). The app itself never sends `""` (it trims and omits, `SPJobDetailScreen.tsx:144`), so only API clients hit this. Fix: normalise blank to null on the server (or `||` in the card).
+
+### E2E-101 — When the client cancels a job, providers who applied still see "Proposal sent" and get no notification
+- **Found:** 2026-10-11, slice 4.3, case 4.3-25 (+ 4.3-X01)   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. p1 has a pending proposal on J2. 2. The client cancels J2 (`POST /jobs/J2/cancel`, 201). 3. p1 opens My Work.
+- **Expected:** the card shows the job was cancelled (e.g. "Job cancelled"), and p1 is notified.   **Actual:** the J2 card still has the "Proposal sent" pill; tapping it gives "This job isn't available — It may have been filled by another provider or closed by the client." No notification reached p1 (`GET /notifications`: newest entries are from 10-08/10-10, nothing for J2 or J3).
+- **Evidence:** `evidence/E2E-101-cancelled-job-proposal-sent.png`; `~/.taskbuddy-e2e/logs/4.3/4.3-X01.log`.
+- **Suspected cause:** My Work pills come from the application status only (`mobile/app/(provider)/screens/SPMyJobsScreen.tsx:90, 135, 186`), and `JobsService.cancel` updates only the job (`backend/src/jobs/jobs.service.ts:286-310`): pending applications stay `pending` and no applicant is notified. Fix: on cancel, mark pending applications (e.g. rejected/closed) and notify applicants; show the job status on the card.
 
 ## Found & solved
 

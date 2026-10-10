@@ -1,0 +1,59 @@
+appId: com.taskbuddy.app
+name: p4 provider sends one proposal and the job shows it as pending
+tags:
+  - provider
+  - apply
+onFlowComplete:
+  - runScript: _helpers/apply_fixture_cleanup.js
+---
+# Slice 4.3 (rows 4.3-01, 04, 05, 06): maestro.client@ posts a fresh Plumbing job near
+# maestro.provider@'s profile point; the provider opens it from the feed, the proposal sheet starts
+# at "0/300", Cancel sends nothing, a Send shows "Proposal Pending" with no second Submit Proposal,
+# and the server holds exactly one pending application. onFlowComplete withdraws the application
+# and cancels the job (cleanup finds the application itself; a withdrawn provider can never re-apply to that job, E2E-099, so every run
+# posts its own job). Needs maestro.provider@ verified, Plumbing-only, profile point in Lipa.
+- evalScript: ${output.RUN = Date.now()}
+- runScript:
+    file: _helpers/apply_fixture_post.js
+    env:
+      RUN: ${output.RUN}
+- runFlow: _helpers/login_provider.yaml
+- tapOn:
+    text: "Allow"
+    optional: true
+- tapOn: "Search open jobs"
+- inputText: "Maestro apply"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "Maestro apply ${output.RUN}"
+    timeout: 30000
+- tapOn: "Maestro apply ${output.RUN}"
+- extendedWaitUntil:
+    visible:
+      id: "btn-submit-proposal"
+    timeout: 20000
+# Cancel sends nothing.
+- tapOn:
+    id: "btn-submit-proposal"
+- extendedWaitUntil:
+    visible: "Send a proposal"
+    timeout: 10000
+- assertVisible: "0/300"
+- tapOn: "Cancel"
+- assertVisible:
+    id: "btn-submit-proposal"
+# One send.
+- tapOn:
+    id: "btn-submit-proposal"
+- extendedWaitUntil:
+    visible: "Send a proposal"
+    timeout: 10000
+- tapOn:
+    id: "proposal-send"
+- extendedWaitUntil:
+    visible: "Proposal Pending"
+    timeout: 20000
+- assertVisible: ".*Waiting for the client to choose a provider.*"
+- assertNotVisible:
+    id: "btn-submit-proposal"
+- runScript: _helpers/apply_check_one.js

@@ -101,6 +101,9 @@ report it; the orchestrator handles waits.
 - `tapOn: "<text>"` matches case-insensitively and hits ANY element with that text (e.g. "plumbing" hit a card's Plumbing pill and opened the job). Tap fields by id or by their exact placeholder.
 - The status-bar clock is 12-hour ("10:15" = 22:15 Manila); it is not a timezone fault. `devstate.sh` checks the timezone and DNS.
 - The shared backend has other users: a job not created by the sweep can appear in a feed. Record it under Odd things seen and judge the row on the fixtures; never tap it.
+- Gboard autocorrects real words typed by `inputText` (e.g. "gamit" became "Gambit"). For exact Taglish text, type with `adb shell input text` (spaces as `%s`) and read the field back before sending.
+- Maestro `takeScreenshot` refuses paths outside its own output folder; take evidence with `adb exec-out screencap -p > ...` instead.
+- `api.sh call ... '<json>'` on Windows turns non-ASCII (emoji, ₱, ñ) in the body into `?` (curl argv code page). Never send unicode through `call`; the orchestrator posts unicode fixtures with Python urllib.
 - More traps: `mobile/maestro/README.md` sections "Known selector traps" and "Slice 3.2 notes".
 
 ## 5. Per-row protocol
