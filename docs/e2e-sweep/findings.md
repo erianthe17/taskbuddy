@@ -9,7 +9,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
 | S3 | 11 | 1 | 0 | 0 | 0 |
-| S4 | 61 | 4 | 1 | 0 | 0 |
+| S4 | 63 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -772,13 +772,29 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Evidence:** `evidence/E2E-079-selfie-retake-camera-only.png`
 - **Suspected cause:** `mobile/app/(provider)/screens/SPVerificationScreen.tsx` step 1 calls only `pick('id')` (~:403, :419); step 2's button is `selfieAsset ? takeSelfie() : pick('selfie')` (~:453). Product call whether the selfie should be camera-only (a liveness intent) — if so, the first "Choose from gallery" option contradicts it.
 
-### E2E-080 — A GIF is accepted as the verification ID and uploaded labelled image/jpeg
+### E2E-080 — Verification ID formats disagree: a GIF is accepted and sent as image/jpeg, the hint says "JPG, PNG", the server allows JPG/PNG/WebP
 - **Found:** 2026-10-10, slice 4.1, case 4.1-19   **Role:** provider
 - **Category:** app-bug   **Severity:** S4   **Status:** Open
 - **Steps:** 1. Get Verified, step 1, tap the ID dropzone. 2. Pick a GIF (`p2d_GIF.gif`).
 - **Expected:** refused with the accepted formats (the server allows only image/jpeg, image/png, image/webp, `backend/src/uploads/uploads.constants.ts`).   **Actual:** accepted with a preview and "Choose a different photo"; on submit it would upload as image/jpeg.
 - **Evidence:** `evidence/E2E-080-gif-accepted-as-id.png`
-- **Suspected cause:** the picker allows any image and `contentTypeFor` in `mobile/src/lib/api.ts` (~:668-679) maps every extension other than png/webp to image/jpeg, so the server's content-type allow-list never sees the real type. Same mapping as the job-photo GIF in 3.2-78. Row 4.1-25 probes the server side of this.
+- **Suspected cause:** the picker allows any image and `contentTypeFor` in `mobile/src/lib/api.ts` (~:668-679) maps every extension other than png/webp to image/jpeg, so the server's content-type allow-list never sees the real type. Same mapping as the job-photo GIF in 3.2-78. Row 4.1-25 probes the server side of this. Also (4.1-51): the hint under the ID dropzone says "Max 5 MB · JPG, PNG", although the server also accepts WebP and the picker lets a GIF through — the three disagree.
+
+### E2E-081 — Stripe Identity is not active on the deployed backend: every verification falls back to the manual queue
+- **Found:** 2026-10-10, slice 4.1, cases 4.1-26..28   **Role:** provider
+- **Category:** env   **Severity:** S4   **Status:** Open (deploy/config)
+- **Steps:** 1. Get Verified with a valid ID and selfie. 2. Tap Start Verification once.
+- **Expected:** Stripe's hosted Identity page opens (the step 3 copy says it "opens in a secure browser window").   **Actual:** no browser; the app shows "Pending verification ... A TaskBuddy admin is reviewing your documents."; the row is `method: manual`, `stripe_session_id: null`.
+- **Evidence:** `~/.taskbuddy-e2e/logs/4.1/4.1-26.png` (not committed; the pending card)
+- **Suspected cause:** `POST /verifications/identity-session` fails (Stripe Identity not activated, see HANDOFF.md "Identity activation") and the app silently falls back to the manual flow (`SPVerificationScreen.tsx` ~:210-218). Behaviour is acceptable; the step 3 copy promising a browser window is not.
+
+### E2E-082 — Offline, a provider with a pending verification is shown "Verification required ... Verify now", and it stays after reconnecting
+- **Found:** 2026-10-10, slice 4.1, case 4.1-30   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Provider with a pending verification on Home ("Verification under review"). 2. `svc wifi/data disable`, return to Home. 3. Re-enable the network, re-open the Feed tab.
+- **Expected:** keep the last known state (pending) or a neutral "checking" state.   **Actual:** the banner switches to "Verification required to apply ... Verify now" and keeps it after the network is back (until a remount).
+- **Evidence:** `evidence/E2E-082-pending-shown-unverified-offline.png`
+- **Suspected cause:** a failed `GET /verifications/me` is treated as "no verification" in the Home banner logic (`SPHomeScreen.tsx` verification banner); no refetch on reconnect/focus (same root as E2E-075).
 
 ## Found & solved
 
