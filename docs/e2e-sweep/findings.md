@@ -9,7 +9,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
 | S3 | 11 | 1 | 0 | 0 | 0 |
-| S4 | 59 | 4 | 1 | 0 | 0 |
+| S4 | 61 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -763,6 +763,22 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** what the banner promises ("You can browse jobs now, but you must verify your identity before you can send proposals or be hired.").   **Actual:** "0 jobs available around your service area" and "No matching jobs"; `GET /jobs` as the unverified provider returns 0 jobs. The user is told they can browse and is shown an empty market with no hint that verification is why.
 - **Evidence:** `evidence/E2E-078-unverified-empty-feed.png`
 - **Suspected cause:** `JobsService.browse` returns an empty list when `provider_approved_categories` is empty (`backend/src/jobs/jobs.service.ts:153-166`), and approved categories require `is_verified` (migration 0037, skill gating). The banner copy (`mobile/app/(provider)/screens/SPHomeScreen.tsx`, verification banner) predates the gate. Either change the copy/empty state to "Verify to see jobs" or let unverified providers browse read-only.
+
+### E2E-079 — Verification photo sources are inconsistent: ID is gallery-only, the selfie loses its gallery option after the first pick
+- **Found:** 2026-10-10, slice 4.1, cases 4.1-13, 4.1-16   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Get Verified, step 1: look for a camera option for the ID. 2. Step 2: "Choose from gallery", pick a selfie. 3. Look for a way to pick a different gallery image.
+- **Expected:** the ID can be photographed (PLAN 4.1 asks for gallery and camera), and a picked selfie can be replaced from either source.   **Actual:** step 1 offers only the gallery dropzone; on step 2, once any selfie is set the only button is "Retake", which always opens the camera. A provider who picked the wrong gallery image can't pick another without starting over.
+- **Evidence:** `evidence/E2E-079-selfie-retake-camera-only.png`
+- **Suspected cause:** `mobile/app/(provider)/screens/SPVerificationScreen.tsx` step 1 calls only `pick('id')` (~:403, :419); step 2's button is `selfieAsset ? takeSelfie() : pick('selfie')` (~:453). Product call whether the selfie should be camera-only (a liveness intent) — if so, the first "Choose from gallery" option contradicts it.
+
+### E2E-080 — A GIF is accepted as the verification ID and uploaded labelled image/jpeg
+- **Found:** 2026-10-10, slice 4.1, case 4.1-19   **Role:** provider
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Get Verified, step 1, tap the ID dropzone. 2. Pick a GIF (`p2d_GIF.gif`).
+- **Expected:** refused with the accepted formats (the server allows only image/jpeg, image/png, image/webp, `backend/src/uploads/uploads.constants.ts`).   **Actual:** accepted with a preview and "Choose a different photo"; on submit it would upload as image/jpeg.
+- **Evidence:** `evidence/E2E-080-gif-accepted-as-id.png`
+- **Suspected cause:** the picker allows any image and `contentTypeFor` in `mobile/src/lib/api.ts` (~:668-679) maps every extension other than png/webp to image/jpeg, so the server's content-type allow-list never sees the real type. Same mapping as the job-photo GIF in 3.2-78. Row 4.1-25 probes the server side of this.
 
 ## Found & solved
 

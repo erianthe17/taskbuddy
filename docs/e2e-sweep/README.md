@@ -40,7 +40,7 @@ Handoff is the `docs/handoff/` number, filled in when the slice completes.
 | 3.1 | Create job: happy paths | Complete | 011 |
 | 3.2 | Create job: validation & edge | Complete | 012 |
 | 3.3 | My Jobs & job detail | Complete | 013 |
-| 4.1 | Verification | In progress — last case 4.1-12 (V1, V2 gated) | — |
+| 4.1 | Verification | In progress — last case 4.1-22 (V1-V4 gated) | — |
 | 4.2 | Feed & job detail | Not started | — |
 | 4.3 | Apply / withdraw / decline | Not started | — |
 | 5.1 | Hire → escrow held | Not started | — |
