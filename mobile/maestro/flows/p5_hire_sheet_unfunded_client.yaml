@@ -1,0 +1,53 @@
+appId: com.taskbuddy.app
+name: p5 unfunded client sees the wallet option disabled on the hire sheet
+tags:
+  - client
+  - hire
+onFlowComplete:
+  - runScript: _helpers/unfunded_fixture_cancel.js
+---
+# Slice 5.1 (row 5.1-07): maestro.client2@ (wallet 0) posts a ₱350 job and maestro.provider2@
+# applies (both through the API). In the app, client2 opens the job's proposals, taps Accept and
+# Continue: "Pay from wallet" is disabled at "₱0.00 available" with "Not enough in your wallet",
+# and "Pay by card" is offered. Nothing is tapped on the sheet (no hire, no Stripe page; its Cancel
+# sits under the nav bar, E2E-106), so no money moves. onFlowComplete cancels the open job.
+- evalScript: ${output.RUN = Date.now()}
+- runScript:
+    file: _helpers/unfunded_fixture_post.js
+    env:
+      RUN: ${output.RUN}
+- runFlow:
+    file: _helpers/login_as.yaml
+    env:
+      LOGIN_EMAIL: maestro.client2@taskbuddy.test
+      LOGIN_PASSWORD: TestPass123!
+- tapOn:
+    text: "Allow"
+    optional: true
+- tapOn:
+    id: "nav-tab-My Jobs"
+- scrollUntilVisible:
+    element: "Maestro unfunded ${output.RUN}"
+    timeout: 30000
+- tapOn: "Maestro unfunded ${output.RUN}"
+- scrollUntilVisible:
+    element:
+      id: "job-detail-view-offers"
+    timeout: 20000
+- tapOn:
+    id: "job-detail-view-offers"
+- extendedWaitUntil:
+    visible: "Maestro Provider Two"
+    timeout: 20000
+- tapOn: "Accept"
+- tapOn: "Continue"
+- extendedWaitUntil:
+    visible:
+      id: "hire-pay-wallet"
+    timeout: 20000
+- assertVisible:
+    id: "hire-pay-wallet"
+    enabled: false
+- assertVisible: ".*Not enough in your wallet.*"
+- assertVisible: "Pay by card"
+- pressKey: back

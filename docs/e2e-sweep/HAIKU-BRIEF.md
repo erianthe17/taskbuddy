@@ -121,6 +121,7 @@ For each row in your packet, in order:
    - `Edit` only the Result cell of that line (and the Finding/Flow cell if the packet says).
    - Format: `Pass: <what you saw>`, `Fail: <what you saw> (expected <x>)`, `Blocked: <reason>`, or
      `N-A: <reason>`. Never a bare "Pass". Quote on-screen copy exactly.
+   - **"Code predicts" rule:** the Expected cell states the sensible result; a "Code predicts: …" note is only a forecast. If what you saw matches the code prediction and NOT the sensible Expected, write `Fail:` (and say it matched the code prediction). `Pass` means the sensible Expected happened.
    - **One line, no `|` characters, no newlines, no tokens.** If the row's cell already holds an
      earlier result and the packet says to append, keep it and add `; in-app: …`.
 5. **Fail or Blocked:** append a block to `~/.taskbuddy-e2e/scratch/<slice>/candidates.md`:

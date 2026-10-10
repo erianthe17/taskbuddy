@@ -8,8 +8,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
-| S3 | 14 | 1 | 0 | 0 | 0 |
-| S4 | 79 | 4 | 1 | 0 | 0 |
+| S3 | 15 | 1 | 0 | 0 | 0 |
+| S4 | 85 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -949,6 +949,62 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** the card shows the job was cancelled (e.g. "Job cancelled"), and p1 is notified.   **Actual:** the J2 card still has the "Proposal sent" pill; tapping it gives "This job isn't available — It may have been filled by another provider or closed by the client." No notification reached p1 (`GET /notifications`: newest entries are from 10-08/10-10, nothing for J2 or J3).
 - **Evidence:** `evidence/E2E-101-cancelled-job-proposal-sent.png`; `~/.taskbuddy-e2e/logs/4.3/4.3-X01.log`.
 - **Suspected cause:** My Work pills come from the application status only (`mobile/app/(provider)/screens/SPMyJobsScreen.tsx:90, 135, 186`), and `JobsService.cancel` updates only the job (`backend/src/jobs/jobs.service.ts:286-310`): pending applications stay `pending` and no applicant is notified. Fix: on cancel, mark pending applications (e.g. rejected/closed) and notify applicants; show the job status on the card.
+
+### E2E-102 — The client's Calendar never shows a hired booking without a scheduled date
+- **Found:** 2026-10-11, slice 5.1, case 5.1-14   **Role:** client
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Client hires a provider on J1 (flexible, no date). 2. Open the client's Calendar.
+- **Expected:** the booking appears, as on the provider's calendar (PLAN 5.1: "a booking/calendar entry exists on both sides").   **Actual:** "No jobs on this day — Jobs with a scheduled date will show up here.", no day marker anywhere; yet `GET /calendar/bookings` for the client returns the J1 booking (status scheduled, `2026-10-10T19:09Z`).
+- **Evidence:** `evidence/E2E-102-client-calendar-empty.png`.
+- **Suspected cause:** the client calendar builds its days from the client's jobs' `scheduled_at` (`mobile/app/(homeowner)/screens/HOCalendarScreen.tsx:43, 49, 150`) instead of `GET /calendar/bookings`, which the provider calendar uses (`SPCalendarScreen.tsx:58-61`).
+
+### E2E-103 — A flexible booking appears on the provider's calendar at the hire time ("3:09 AM · Scheduled")
+- **Found:** 2026-10-11, slice 5.1, case 5.1-04   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Client hires p1 on J1 (no scheduled date) at 03:09 Manila. 2. p1 opens Calendar.
+- **Expected:** a flexible booking reads as unscheduled (e.g. "Flexible — agree a time with the client"), as Home and My Work say.   **Actual:** Calendar lists J1 on Oct 11 at "3:09 AM" with a "Scheduled" pill, while Home and My Work say "Flexible schedule". A provider could turn up at 3 AM.
+- **Evidence:** `evidence/E2E-103-hire-time-as-schedule.png`.
+- **Suspected cause:** the hire trigger creates the booking with `coalesce(scheduled_at, assigned_at)` (`backend/supabase/migrations/0039_confirm_jobs_on_hire.sql:26-29`), so the hire timestamp becomes the appointment.
+
+### E2E-104 — The provider who was not selected gets no notification and sees "This job isn't available — may have been filled by another provider"
+- **Found:** 2026-10-11, slice 5.1, case 5.1-05   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. p1 and p2 apply to J1. 2. Client hires p1 (p2's application is auto-rejected). 3. p2 checks notifications and opens J1 from My Work ("Not selected" pill).
+- **Expected:** a "not selected" notification (a manual Reject sends "Your application to … was not selected."), and the detail's own copy "The client selected another provider." / locked "Not Selected".   **Actual:** no notification at all; the detail is the generic error card "This job isn't available — You do not have access to this job — It may have been filled by another provider or closed by the client."
+- **Evidence:** `evidence/E2E-104-not-selected-error-card.png`.
+- **Suspected cause:** the hire trigger rejects the other applications in SQL without notifying (`backend/supabase/migrations/0039_confirm_jobs_on_hire.sql:22-24`), unlike `ApplicationsService.reject`. `JobsService.getById` 403s a non-assigned provider once the job is no longer open (`backend/src/jobs/jobs.service.ts:277-281`), so `SPJobDetailScreen.tsx:340-350, 395-401` (written for this case) never renders.
+
+### E2E-105 — When the hire sheet's reads fail, it says a ₱350 job "has no budget, so nothing is held" and offers an enabled Hire
+- **Found:** 2026-10-11, slice 5.1, case 5.1-15   **Role:** client
+- **Category:** app-bug   **Severity:** S3   **Status:** Open
+- **Steps:** 1. `maestro.client2@` opens K2 (budget ₱350) → View Offers → Accept. 2. Turn Wi-Fi and data off. 3. Tap Continue.
+- **Expected:** an error state ("Couldn't load the payment options — try again") with no Hire button.   **Actual:** the sheet "Hire Maestro Provider Two — This job has no budget, so nothing is held — Maestro Provider Two is hired straight away." with a Hire button, plus "Cannot reach the server…". If the reads fail while the hire call could still succeed (a flaky connection), the client is told nothing will be held and the server then holds the budget (or, for an unfunded client, refuses with insufficient funds).
+- **Evidence:** `evidence/E2E-105-no-budget-copy-offline.png`. Hire was not tapped.
+- **Suspected cause:** `HirePaymentModal` treats a missing budget as "no budget" (`mobile/src/components/HirePaymentModal.tsx:65-66, 77-79`) and the screen passes nothing when `api.getJob`/`api.wallet` fail (`HOJobApplicationsScreen.tsx:123-125`). Fix: distinguish "not loaded" from "budget null" and show a retry instead of the hire options. Money-adjacent UI: fix spec needs a user OK (PLAN §6 escalation list).
+
+### E2E-106 — The hire sheet's Cancel sits under the system navigation bar
+- **Found:** 2026-10-11, slice 5.1, case 5.1-15   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Open the "Hire <provider>" payment sheet on a phone with 3-button navigation (emulator `Medium_Phone`).
+- **Expected:** Cancel fully above the navigation bar.   **Actual:** the Cancel label is drawn behind the back/home/recents bar (bounds about y 2244-2370 of 2400); a tap there pressed Home and backgrounded the app.
+- **Evidence:** `evidence/E2E-105-no-budget-copy-offline.png` (bottom edge: "Cancel" behind the nav bar).
+- **Suspected cause:** the bottom sheet in `mobile/src/components/HirePaymentModal.tsx` does not add the bottom safe-area inset to its padding.
+
+### E2E-107 — The floating "Post a job" button covers transaction amounts on the client Wallet
+- **Found:** 2026-10-11, slice 5.1, case 5.1-12   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Client Wallet with three or more transactions, default scroll.
+- **Expected:** every amount readable (list padded past the floating button, or no button on Wallet).   **Actual:** the "+ Post a job" button sits over the third row's amount ("Escrow hold — E2E 4.3 J1 two applicants", −₱500.00 hidden) and part of its "Escrow funded" line. Money figures on the money screen are the ones a client most needs to read.
+- **Evidence:** `evidence/E2E-107-fab-covers-amount.png`.
+- **Suspected cause:** the client-wide floating "Post a job" button is drawn over every tab, and the Wallet list's bottom padding does not leave room for it. Fix: hide it on Wallet, or add bottom content padding equal to its height.
+
+### E2E-108 — Help & Support tells clients to "tap Hire … from the job's Applications screen"; the app says View Offers → Proposals → Accept
+- **Found:** 2026-10-11, slice 5.1, case 5.1-X01   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Client → Help & Support → "How do I hire a provider?"; compare with the real path.
+- **Expected:** the FAQ uses the app's words.   **Actual:** FAQ: "Post a job, review proposals from providers, and tap Hire on the one you choose from the job's Applications screen." The job detail button is "View Offers", the screen is titled "Proposals", the button is "Accept", and the sheet then offers "Pay from wallet" / "Pay by card".
+- **Evidence:** `mobile/src/components/HelpSupportScreen.tsx:34`; `evidence/E2E-107-fab-covers-amount.png` and the 5.1 screenshots for the real labels.
+- **Suspected cause:** FAQ copy predates the hire-sheet redesign.
 
 ## Found & solved
 

@@ -196,3 +196,11 @@ Balance / available / pending, recorded at slice start and end.
 - Fixtures (`maestro.client@`): J1 1e4de8e9 **kept open (recommending) for 5.1** with two pending applications (p1 55f4f645 with a Taglish message, p2 97dfbb5c with none). J2 a2f2bae1, J3 6749c043, J4 c1ebdf62, JC 133b247d (Cleaning) cancelled; three "Maestro apply …" jobs from the new flow cancelled with their applications withdrawn. `GET /jobs/mine`: 66 cancelled + J1.
 - Applications left on the providers: p1 J1 pending, J2 pending (job cancelled, E2E-101), J4 withdrawn, plus older baseline rows; p2 J1 pending, J2 pending (job cancelled), J4 pending (job cancelled; cover "" — E2E-100). Both providers `is_available: false`.
 - Crash sweep: crash buffer 0 lines, `ReactNativeJS:E AndroidRuntime:E` 0 lines (`~/.taskbuddy-e2e/logs/4.3-logcat.txt`).
+
+## Slice 5.1 notes
+
+- Installed build unchanged: `fbe63d63…` (APK sha256 `75b611c2…`). No emulator change. Backend health db up / ml down (E2E-001).
+- **Ledger (balance / available / in_escrow), verified against `GET /wallet` and `GET /admin/transactions` after every packet:** start c1 50,000 / 50,000 / 0; after J1 hire 49,500 / 49,500 / 500; after K3 (double tap) 49,100 / 49,100 / 900; after K4 (offline then online) 48,800 / 48,800 / 1,200. p1 0 / 0 / 800 (J1 500 + K4 300), p2 0 / 0 / 400 (K3), c2 0 / 0 / 0. Admin escrow rows: J1 500 held, K3 400 held, K4 300 held — one each. A wallet hold lowers the client's `balance` as well as `available`; the provider sees the incoming amount as `in_escrow`.
+- Jobs: J1 1e4de8e9 confirmed → p1 (kept for 5.3), K3 055c68e5 confirmed → p2 (kept for 5.2 decline), K4 e5551922 confirmed → p1 (kept for 5.2 client cancel), K2 79259875 (c2) cancelled; two "Maestro unfunded …" flow jobs (c2) cancelled by the flow. Hired jobs go to status `confirmed` (migration 0039), not `assigned`.
+- A Stripe Checkout session was opened once from c2's "Pay by card" (5.1-07) and abandoned on the hosted page; nothing paid.
+- Crash sweep: 0 lines in both parts (`~/.taskbuddy-e2e/logs/5.1-logcat.txt`).
