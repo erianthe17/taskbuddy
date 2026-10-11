@@ -104,6 +104,11 @@ report it; the orchestrator handles waits.
 - Gboard autocorrects real words typed by `inputText` (e.g. "gamit" became "Gambit"). For exact Taglish text, type with `adb shell input text` (spaces as `%s`) and read the field back before sending.
 - Maestro `takeScreenshot` refuses paths outside its own output folder; take evidence with `adb exec-out screencap -p > ...` instead.
 - `api.sh call ... '<json>'` on Windows turns non-ASCII (emoji, ₱, ñ) in the body into `?` (curl argv code page). Never send unicode through `call`; the orchestrator posts unicode fixtures with Python urllib.
+- A long `adb shell input text` can stop early with no error (5.2: 200 characters stopped at 44). Type long strings in chunks of 40 or fewer, then confirm the field length with `cnt.sh` before submitting.
+- `inputText` occasionally doubles the first character of an email ("mmaestro.provider2@…", seen twice in 5.2), so login fails with "Invalid login credentials". If a login step fails, read the email field with `hier.sh` before anything else; retrying once is allowed. `p5_decline_refund_provider.yaml` has an inline erase-and-retype guard for it.
+- `mt.sh` can exit 0 while the flow log says FAILED. Always grep the log for FAILED.
+- The provider app has no `nav-tab-Home` (its feed is `nav-tab-Dashboard`), and no tab bar exists on Job Details: use the header back arrow (`point: "9%,6%"`) first.
+- Provider My Work tabs are Applications / Active / Completed / Cancelled; card pills also say "Cancelled", so tap the Cancelled tab by its bounds.
 - More traps: `mobile/maestro/README.md` sections "Known selector traps" and "Slice 3.2 notes".
 
 ## 5. Per-row protocol

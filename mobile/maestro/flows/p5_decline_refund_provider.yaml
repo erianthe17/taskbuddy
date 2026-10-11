@@ -1,0 +1,83 @@
+appId: com.taskbuddy.app
+name: p5 provider declines a hired booking and the client is refunded once
+tags:
+  - provider
+  - decline
+  - money
+onFlowComplete:
+  - runScript: _helpers/decline_fixture_cleanup.js
+---
+# Slice 5.2 (rows 5.2-01..06, in-app decline path): maestro.client@ (c1) posts a ₱300 Plumbing job;
+# maestro.provider2@ (p2) applies and c1 accepts, which holds ₱300 from c1's wallet (all through the
+# API, in decline_fixture_post.js). In the app, p2 opens the booking under My Work > Active and taps
+# Decline Booking: the sheet reads 0/200, the reason "Schedule clash" makes it 14/200, and Decline sends
+# it. The booking reloads as "Booking Cancelled". decline_fixture_check.js then confirms the job is
+# cancelled, c1 has exactly one "Refund — provider declined" credit of ₱300 on this job, and c1's
+# available balance is back at its pre-hold figure. The flow nets to zero: hold 300, refund 300.
+# Only 5.2-01 (modal opens, counter 0/200) and 5.2-05 (decline, refund) are covered here; 5.2-02, 03,
+# 04 and 06 are not. onFlowComplete cancels an unhired job or declines a hired one if the flow stopped early.
+- evalScript: ${output.RUN = Date.now()}
+- runScript:
+    file: _helpers/decline_fixture_post.js
+    env:
+      RUN: ${output.RUN}
+# Login is inlined from _helpers/login_as_provider.yaml (same steps, plus the guard below). Seen once on
+# this emulator: the email field held "mmaestro.provider2@..." after typing (first letter doubled), so
+# sign-in failed with "Invalid login credentials". Cause unconfirmed. The guard erases the field and
+# types the address again when the exact address is not on screen. It was not exercised on the run
+# that passed. To revert to the shared helper, replace the block from runFlow launch_fresh through
+# btn-sign-in and the Jobs Near You wait with runFlow: _helpers/login_as_provider.yaml.
+- runFlow: _helpers/launch_fresh.yaml
+- tapOn:
+    id: "input-email"
+- inputText: "maestro.provider2@taskbuddy.test"
+- runFlow:
+    when:
+      notVisible: "maestro.provider2@taskbuddy.test"
+    commands:
+      - eraseText: 60
+      - inputText: "maestro.provider2@taskbuddy.test"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- tapOn:
+    id: "btn-sign-in"
+- extendedWaitUntil:
+    visible: ".*(Skip|Jobs Near You).*"
+    timeout: 60000
+- tapOn:
+    text: "Skip"
+    optional: true
+- extendedWaitUntil:
+    visible: "Jobs Near You"
+    timeout: 60000
+- tapOn:
+    text: "Allow"
+    optional: true
+- tapOn:
+    id: "nav-tab-My Jobs"
+- tapOn:
+    text: "Active"
+- scrollUntilVisible:
+    element: "Maestro decline ${output.RUN}"
+    timeout: 30000
+- tapOn: "Maestro decline ${output.RUN}"
+- extendedWaitUntil:
+    visible: "CONFIRMED BOOKING"
+    timeout: 20000
+- scrollUntilVisible:
+    element: "Decline Booking"
+    timeout: 30000
+- tapOn: "Decline Booking"
+- extendedWaitUntil:
+    visible: "0/200"
+    timeout: 20000
+- tapOn: "Reason for declining"
+- inputText: "Schedule clash"
+- assertVisible: "14/200"
+- tapOn: "^Decline$"
+- extendedWaitUntil:
+    visible: "Booking Cancelled"
+    timeout: 30000
+- runScript: _helpers/decline_fixture_check.js

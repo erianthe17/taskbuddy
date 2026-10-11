@@ -9,7 +9,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
 | S3 | 15 | 1 | 0 | 0 | 0 |
-| S4 | 85 | 4 | 1 | 0 | 0 |
+| S4 | 91 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -1005,6 +1005,54 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** the FAQ uses the app's words.   **Actual:** FAQ: "Post a job, review proposals from providers, and tap Hire on the one you choose from the job's Applications screen." The job detail button is "View Offers", the screen is titled "Proposals", the button is "Accept", and the sheet then offers "Pay from wallet" / "Pay by card".
 - **Evidence:** `mobile/src/components/HelpSupportScreen.tsx:34`; `evidence/E2E-107-fab-covers-amount.png` and the 5.1 screenshots for the real labels.
 - **Suspected cause:** FAQ copy predates the hire-sheet redesign.
+
+### E2E-109 — "File a Complaint" is offered on a booking the provider declined and that was already refunded in full
+- **Found:** 2026-10-11, slice 5.2, cases 5.2-05 / 5.2-06   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open (needs product sign-off)
+- **Steps:** 1. Hire a provider (escrow held). 2. Provider taps Decline Booking with a reason. 3. Open the job on either role.
+- **Expected:** after a pre-start provider decline that refunded the client automatically, either no complaint entry point, or copy that says what a complaint is for at that point.   **Actual:** both job details show "File a Complaint" (the provider's sits above "Booking Cancelled"). Filing it would open a case whose payment is already settled, so an admin can only record "reviewed".
+- **Evidence:** `evidence/E2E-109-provider-declined-complaint.png`
+- **Suspected cause:** by design in the backend: `raise_job_dispute` accepts `cancelled` jobs with an assigned provider (`backend/supabase/migrations/0041_complaints_and_cancellation_review.sql:53`), and both screens mirror it (`mobile/app/(homeowner)/screens/HOJobDetailScreen.tsx:161-164`, `mobile/app/(provider)/screens/SPJobDetailScreen.tsx:375-380`). Product call: keep it (e.g. a complaint about a late decline), or hide it when the escrow is already `cancelled`/`refunded`.
+
+### E2E-110 — The client who cancelled gets the provider's instructions: "Provider: agree or contest within 48 hours…"
+- **Found:** 2026-10-11, slice 5.2, case 5.2-08   **Role:** client
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Client cancels a confirmed booking (escrow held). 2. Open the client's notifications.
+- **Expected:** the client's notice says what happens to the client ("Your ₱300 stays held while the provider has 48 hours to respond; no response refunds you").   **Actual:** both roles get the same row, "Cancellation response requested" / "Provider: agree or contest within 48 hours. No response refunds the client. An open complaint blocks automatic refund." The client reads instructions written for someone else.
+- **Evidence:** `evidence/E2E-110-client-gets-provider-notice.png`
+- **Suspected cause:** `review_work_cancellation` inserts one title/body for both recipients (`backend/supabase/migrations/0041_complaints_and_cancellation_review.sql:110-114`). Fix: a new migration that branches title/body on `id = old.client_id`. Backend, so log only.
+
+### E2E-111 — "Contest cancellation" looks enabled while the note is empty (it is disabled)
+- **Found:** 2026-10-11, slice 5.2, case 5.2-09   **Role:** provider
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Client cancels a confirmed booking. 2. Provider opens the job → View Complaint Status. 3. Leave the note empty.
+- **Expected:** both response buttons look disabled until a note is typed.   **Actual:** "Agree to cancellation and refund" is greyed; "Contest cancellation" is a normal white outline button that does nothing when tapped, so it looks broken.
+- **Evidence:** `evidence/E2E-111-contest-looks-enabled.png`
+- **Suspected cause:** `mobile/app/(homeowner)/screens/HODisputeStatusScreen.tsx:126` sets `disabled` but no disabled style (`:125` applies `styles.buttonDisabled`). Fix: apply a disabled outline style (and dim the label) when `busy || !body.trim()`.
+
+### E2E-112 — Complaint Status shows raw database values: "Decision recorded: refunded_to_client", "Maestro Provider · cancellation_response"
+- **Found:** 2026-10-11, slice 5.2, case 5.2-10   **Role:** both
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Client cancels a confirmed booking. 2. Provider agrees on Complaint Status. 3. Read the decision card and the activity list (either role).
+- **Expected:** plain words ("Refunded to the client"; "Agreed to the cancellation" / "Response").   **Actual:** the card reads "Decision recorded: refunded_to_client" and the activity entry label is "Maestro Provider · cancellation_response".
+- **Evidence:** `evidence/E2E-112-raw-enum-decision.png`
+- **Suspected cause:** `mobile/app/(homeowner)/screens/HODisputeStatusScreen.tsx:52` interpolates `dispute.resolution` directly, and the entry label prints `entry.kind`. Fix: a label map for `resolution` (released_to_provider / refunded_to_client / reviewed) and for entry kinds. The admin resolve notification body has the same raw value (`backend/supabase/migrations/0041_complaints_and_cancellation_review.sql:248`); that half is backend.
+
+### E2E-113 — The API accepts a whitespace-only decline reason, so the client is told "… declined "<job>":    "
+- **Found:** 2026-10-11, slice 5.2, case 5.2-20   **Role:** provider (API) → client
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Hire a provider. 2. As the provider, `POST /jobs/<id>/decline` with `{"reason":"   "}`.
+- **Expected:** 400, the same rule the app applies (it trims and disables Decline, `mobile/src/components/DeclineBookingModal.tsx:67-68`).   **Actual:** 201; the job is cancelled and the client's "Booking declined" notification ends with three spaces where the reason should be.
+- **Evidence:** `~/.taskbuddy-e2e/logs/5.2/5.2-20.log` (API-only, no screenshot committed)
+- **Suspected cause:** `DeclineJobDto.reason` is `@IsString() @Length(1, 200)` with no trim (`backend/src/jobs/dto/jobs.dto.ts:210-214`). Fix: `@Transform(({ value }) => typeof value === 'string' ? value.trim() : value)` before `@Length`, or `@Matches(/\S/)`. The disputes RPC already does this (`btrim`, `0041_complaints_and_cancellation_review.sql:56`). Not reachable from the app; reachable by any provider calling the API.
+
+### E2E-114 — The client Home "Wallet balance" stays stale after a refund lands; pulling down does not refresh it
+- **Found:** 2026-10-11, slice 5.2, case 5.2-X01   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Client sits on Home (card ₱49,180.00). 2. A refund is credited server-side (admin resolves a cancellation dispute, +₱320). 3. Pull down on Home. 4. Tap My Jobs, then Home.
+- **Expected:** the balance updates on pull-to-refresh (or on focus).   **Actual:** after the credit and a pull-down the card still read ₱49,180.00 while `GET /wallet` said 49,500; it showed ₱49,500.00 only after the My Jobs → Home round trip remounted the screen.
+- **Evidence:** `evidence/E2E-114-home-balance-stale.png` (card after the pull, GET /wallet 49,500 in `~/.taskbuddy-e2e/logs/5.2/wallets-post16.log`)
+- **Suspected cause:** `mobile/app/(homeowner)/screens/HOHomeScreen.tsx:85` loads the wallet once per mount (`useAsyncData`), with no RefreshControl or focus refetch. Same family as E2E-075 / E2E-091 (no refresh on My Jobs, Job Details, provider feed). A refund arrives without any client action (provider agreement, deadline expiry, admin decision), so this screen is where it's most likely to be missed.
 
 ## Found & solved
 

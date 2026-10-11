@@ -204,3 +204,11 @@ Balance / available / pending, recorded at slice start and end.
 - Jobs: J1 1e4de8e9 confirmed → p1 (kept for 5.3), K3 055c68e5 confirmed → p2 (kept for 5.2 decline), K4 e5551922 confirmed → p1 (kept for 5.2 client cancel), K2 79259875 (c2) cancelled; two "Maestro unfunded …" flow jobs (c2) cancelled by the flow. Hired jobs go to status `confirmed` (migration 0039), not `assigned`.
 - A Stripe Checkout session was opened once from c2's "Pay by card" (5.1-07) and abandoned on the hosted page; nothing paid.
 - Crash sweep: 0 lines in both parts (`~/.taskbuddy-e2e/logs/5.1-logcat.txt`).
+
+## Slice 5.2 notes
+
+- Installed build unchanged: `fbe63d63…` (APK sha256 `75b611c2…`). No emulator setting changed (still `auto_time_zone` 0 since 4.2). Backend health db up / ml down (E2E-001).
+- **Ledger (balance / available / in_escrow), checked against `GET /wallet` and `GET /admin/transactions` before and after every money packet (`~/.taskbuddy-e2e/logs/5.2/wallets-*.log`):** start c1 48,800 / 48,800 / 1,200, p1 0/0/800, p2 0/0/400. K3 provider decline +400 → c1 49,200 / 800. K4 client cancel → pending 48 h dispute, escrow `disputed`, no money; p1 agreed → +300 → 49,500 / 500. ORCH hired K5 350, K6 320, K7 300, K8 (no budget) → 48,530 / 1,470. K7 race (decline won, cancel 409) +300 → 48,830. K5 contested → admin refund +350 → 49,180. K6 cancelled in progress → contested, frozen → admin refund +320 → 49,500 / 500. Three flow runs (hold 300 / refund 300 each) net zero. **End: c1 49,500 / 49,500 / 500 (J1 only), c2 0/0/0, p1 0/0/500, p2 0/0/0.**
+- Admin mutating calls (all test accounts, all allowed by PLAN §6): dispute resolve K4 `reviewed` (closing the 5.2-21 appeal probe; no money), K5 `refunded_to_client`, K6 `refunded_to_client`. No recovery credit.
+- Jobs: K3, K4, K5, K6, K7, K8 cancelled; three "Maestro decline …" flow jobs cancelled. Only J1 1e4de8e9 stays confirmed → p1 (for 5.3). All disputes on test jobs are resolved.
+- Crash sweep: 0 lines in both parts (`~/.taskbuddy-e2e/logs/5.2-logcat.txt`, re-checked after the flow runs).
