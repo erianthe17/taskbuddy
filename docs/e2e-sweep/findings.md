@@ -8,8 +8,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
-| S3 | 15 | 1 | 0 | 0 | 0 |
-| S4 | 91 | 4 | 1 | 0 | 0 |
+| S3 | 17 | 1 | 0 | 0 | 0 |
+| S4 | 95 | 4 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -1053,6 +1053,54 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** the balance updates on pull-to-refresh (or on focus).   **Actual:** after the credit and a pull-down the card still read ₱49,180.00 while `GET /wallet` said 49,500; it showed ₱49,500.00 only after the My Jobs → Home round trip remounted the screen.
 - **Evidence:** `evidence/E2E-114-home-balance-stale.png` (card after the pull, GET /wallet 49,500 in `~/.taskbuddy-e2e/logs/5.2/wallets-post16.log`)
 - **Suspected cause:** `mobile/app/(homeowner)/screens/HOHomeScreen.tsx:85` loads the wallet once per mount (`useAsyncData`), with no RefreshControl or focus refetch. Same family as E2E-075 / E2E-091 (no refresh on My Jobs, Job Details, provider feed). A refund arrives without any client action (provider agreement, deadline expiry, admin decision), so this screen is where it's most likely to be missed.
+
+### E2E-115 — Before Start Job, the provider is told "Tick tasks off as you finish them" but the checklist is inert
+- **Found:** 2026-10-11, slice 5.3, case 5.3-02   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Client hires the provider (booking confirmed). 2. Provider opens the job before tapping Start Job.
+- **Expected:** the progress hint says work starts with Start Job (e.g. "Tap Start Job when you arrive, then tick tasks off as you finish them"), or the hint is hidden until Start.   **Actual:** "Progress 0/2 — Tick tasks off as you finish them. The client sees this update." sits above checkboxes that look normal but do nothing (`disabled` while not editable); the API refuses with "Cannot update the checklist of a job in status 'confirmed'" (5.3-01).
+- **Evidence:** `evidence/E2E-115-prestart-tick-hint.png`
+- **Suspected cause:** `mobile/app/(provider)/screens/SPJobDetailScreen.tsx:272-275` picks the hint only from `doneCount`, not from `tasksEditable`; the rows set `disabled={!tasksEditable …}` (`:295`) with no disabled styling. Fix: branch the hint on `tasksEditable` and dim the boxes while it is false.
+
+### E2E-116 — Unticking and re-ticking the last task sends the client a second "Work ready for review"
+- **Found:** 2026-10-11, slice 5.3, case 5.3-07   **Role:** client
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Provider ticks every task (client gets "Work ready for review"). 2. Provider unticks one and ticks it again.
+- **Expected:** one "work ready" notice per completion of the checklist, or the earlier one replaced.   **Actual:** a second identical "Work ready for review" / "All tasks are marked done. Review the work before confirming completion." arrives (bell 38 → 39); a provider toggling a box repeatedly spams the client.
+- **Evidence:** `evidence/E2E-116-duplicate-work-ready.png`
+- **Suspected cause:** the `notify_work_ready` trigger fires whenever the last undone task flips to done, with no check for an existing unread notice (`backend/supabase/migrations/0037_fulltest_remediation.sql:82-91`). Fix: skip the insert when an unread `Work ready for review` for the same job already exists. Backend, so log only.
+
+### E2E-117 — Complaint notification grammar: "A participant added a appeal."
+- **Found:** 2026-10-11, slice 5.3 (seen on p1's list after the 5.2-21 appeal)   **Role:** both
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. A participant posts an appeal on a complaint. 2. The other participant opens Notifications.
+- **Expected:** "A participant added an appeal." (or "a statement").   **Actual:** "A participant added a appeal. Open the case to read it."
+- **Evidence:** text only (p1 notification list, `~/.taskbuddy-e2e/logs/5.3/` P4 run)
+- **Suspected cause:** `backend/supabase/migrations/0041_complaints_and_cancellation_review.sql:154` builds the body as `'A participant added a ' || p_kind`. Fix: a CASE per kind (new migration). Backend copy, log only.
+
+### E2E-118 — An admin-released payout hides the platform fee: "Payout — <job>" for ₱660.45 on a ₱777 job
+- **Found:** 2026-10-11, slice 5.3, case 5.3-13   **Role:** provider
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Complete a ₱777 job (commission 0.15). 2. Client files a complaint inside the warranty. 3. Admin resolves `released_to_provider`. 4. Provider reads the ledger.
+- **Expected:** the same title the automatic release writes, "Payout — <job> (less 116.55 platform fee)", so the provider can see why 777 became 660.45.   **Actual:** the credit is right (660.45, commission 116.55 frozen on the escrow row) but titled "Payout — E2E 5.3 M1 odd budget", with no fee mentioned.
+- **Evidence:** `~/.taskbuddy-e2e/logs/5.3/5.3-13.log` (API), `evidence/E2E-118-payout-no-fee.png`
+- **Suspected cause:** `resolve_job_dispute` passes `'Payout — ' || job.title` (`backend/supabase/migrations/0041_complaints_and_cancellation_review.sql:235`), while `EscrowService.payOut` appends the fee (`backend/src/escrow/escrow.service.ts:226-228`). Fix: build the same suffix in the SQL when `commission > 0` (new migration).
+
+### E2E-119 — The provider Wallet never shows money held for them: ₱500 in escrow for a completed job is invisible
+- **Found:** 2026-10-11, slice 5.3, case 5.3-11 (first seen 5.2-19)   **Role:** provider
+- **Category:** ux   **Severity:** S3   **Status:** Open
+- **Steps:** 1. Client hires the provider and the job completes (₱500 held for the three-day warranty). 2. Provider opens Wallet.
+- **Expected:** a held / "releases on <date>" figure (GET /wallet already returns `in_escrow` 500 for the provider).   **Actual:** Available to withdraw ₱0.00, Pending ₱0.00, Total Earned ₱0.00, "No transactions yet". Nothing tells the provider ₱500 is on its way or when it unlocks; only the generic trust note mentions the warranty.
+- **Evidence:** `evidence/E2E-119-provider-wallet-no-held.png`
+- **Suspected cause:** `mobile/app/(provider)/screens/SPWalletScreen.tsx` renders `available`, `pending` and ledger rows but never `in_escrow` (`backend/src/wallet/wallet.service.ts:101` returns it). The client screen does show an IN ESCROW card (`HOWalletScreen.tsx:323-329`). S3 because the provider's main question after finishing a job ("did I get paid?") gets a misleading ₱0.00. Money-screen UI: a fix needs the user's OK (PLAN §6).
+
+### E2E-120 — Provider Wallet: once there is money to withdraw, the Withdraw button is a blank white pill (no label, no icon)
+- **Found:** 2026-10-11, slice 5.3, case 5.3-X01 (first seen in 5.3-14)   **Role:** provider
+- **Category:** app-bug   **Severity:** S3   **Status:** Open
+- **Steps:** 1. Provider has available > 0 (here ₱660.45 after a payout). 2. Open Wallet.
+- **Expected:** a white pill with the dark "Withdraw" label and banknote icon.   **Actual:** the pill renders empty white in every screenshot (also 4 s later), although the view hierarchy contains the "Withdraw" text; at ₱0.00 the disabled variant renders its label correctly (5.2-19, 5.3-11). The only payout action on the screen is unlabeled.
+- **Evidence:** `evidence/E2E-120-withdraw-blank.png`
+- **Suspected cause:** not isolated. `mobile/app/(provider)/screens/SPWalletScreen.tsx:80-94` switches `withdrawBtn`/`withdrawBtnText` (`#13283c` on `#ffffff`, `:240-251`) on `canWithdraw`; the dark text and icon on the white fill are not drawn. Worth checking whether `Tap` (`mobile/src/components/ui/Tap.tsx`) or an animated opacity hides children when the style flips at runtime. Money-screen UI: a fix needs the user's OK (PLAN §6).
 
 ## Found & solved
 

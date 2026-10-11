@@ -515,6 +515,8 @@ it, **never PATCH it**). Use an odd budget (₱777) and check centavo rounding: 
 match the ledger exactly → the client's Cancel Job is hidden. Double-tap Complete → one payout. Check
 the status labels and progress UI on both roles at every step.
 
+*(Learned in 5.3, 2026-10-11: completion does NOT release escrow. `JobsService.complete` only sets `completed`; the payments sweep releases after the 72-hour warranty (migration 0040), and a complaint inside the window blocks it. So 5.3 checks everything up to completion plus the held/warranty state, tests payout and commission rounding through an admin `released_to_provider` resolve on a complaint filed inside the window (allowed admin action), and records each completed job's warranty expiry so a later session checks the automatic release once it has passed.)*
+
 **5.4 Recommendation engine path.** Client posts an **urgent** job (5 min deadline) and nobody
 applies. Wait in real time (poll `GET /jobs/:id` every 60s for up to 8 min). The status should flip
 to `recommending`, and the provider should get an invite notification. ML down → expect it to stay

@@ -212,3 +212,13 @@ Balance / available / pending, recorded at slice start and end.
 - Admin mutating calls (all test accounts, all allowed by PLAN §6): dispute resolve K4 `reviewed` (closing the 5.2-21 appeal probe; no money), K5 `refunded_to_client`, K6 `refunded_to_client`. No recovery credit.
 - Jobs: K3, K4, K5, K6, K7, K8 cancelled; three "Maestro decline …" flow jobs cancelled. Only J1 1e4de8e9 stays confirmed → p1 (for 5.3). All disputes on test jobs are resolved.
 - Crash sweep: 0 lines in both parts (`~/.taskbuddy-e2e/logs/5.2-logcat.txt`, re-checked after the flow runs).
+
+## Slice 5.3 notes
+
+- Installed build unchanged: `fbe63d63…` (APK sha256 `75b611c2…`). No emulator change. Backend health db up / ml down (E2E-001). `GET /admin/commission` → `commission_rate` 0.15 (read only).
+- **Completion does not release escrow:** the payments sweep releases 72 h after `completed_at` (migration 0040). PLAN.md 5.3 now says so.
+- **Ledger:** start c1 49,500 / 49,500 / 500, p1 0/0/500, p2 0/0/0. J1 started, both tasks ticked, completed 2026-10-11T12:03:57Z → no money moved (still held 500). ORCH fixture M1 a8864a42 (₱777, p2): hire −777 → c1 48,723 / 1,277; started, 3 tasks, completed 12:22:35Z; c1 complaint a7c19c91 → escrow `disputed`; admin resolve `released_to_provider` → p2 +660.45 (commission 116.55 frozen on the row), c1 in_escrow −777. **End: c1 48,723 / 48,723 / 500 (J1 held), c2 0/0/0, p1 0/0/500, p2 660.45 / 660.45 / 0.**
+- Admin mutating calls: dispute resolve M1 `released_to_provider` (test accounts, allowed by PLAN §6).
+- **Deferred check:** J1 warranty ends 2026-10-14T12:03:57Z (8:03 PM Manila). After it, the sweep should release ₱500 → p1 +425.00, commission 75.00.
+- Jobs: J1 completed (held for warranty), M1 completed (released). No open or confirmed test job remains.
+- Crash sweep: 0 lines in both parts (`~/.taskbuddy-e2e/logs/5.3-logcat.txt`).
