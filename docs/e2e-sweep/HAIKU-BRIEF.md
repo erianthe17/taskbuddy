@@ -120,6 +120,8 @@ report it; the orchestrator handles waits.
 - Maestro `inputText` can stall under load (gRPC DEADLINE_EXCEEDED): a log ending on "Input text …" with neither COMPLETED nor FAILED is a failed attempt. A YAML parse error ("Parsing Failed") also leaves `mt.sh` at exit 0.
 - Always `export SLICE=<slice>` BEFORE sourcing `api.sh` (or `SLICE=<slice> source …`); sourcing first writes tokens to `scratch/3.2/`.
 - `adb shell` reads stdin: inside a `while read … done < file` (or a pipe) it swallows the rest of the input, so only the first chunk is typed. Add `</dev/null` to every `adb shell` in such loops.
+- `hier.sh` leaves out icon-only controls (header back arrows, the chat paperclip and Send, the notifications bell). Take their bounds from a raw dump: `adb shell uiautomator dump /sdcard/u.xml >/dev/null && adb shell cat /sdcard/u.xml`. Bounds move when the keyboard is up, so re-dump.
+- Right after `svc wifi enable; svc data enable`, `devstate.sh` can report `net_ping=down` / `dns=fail` for about 10 s. Retry once before calling it a failure.
 - More traps: `mobile/maestro/README.md` sections "Known selector traps" and "Slice 3.2 notes".
 
 ## 5. Per-row protocol

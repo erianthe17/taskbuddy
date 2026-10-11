@@ -1,0 +1,75 @@
+appId: com.taskbuddy.app
+name: p7 client chat on completed job J1 is readable and the composer is empty
+tags:
+  - client
+  - chat
+---
+# Slice 7.1 rows 7.1-01, 7.1-19 (history readable on a completed job) and 7.1-05 (empty field), client
+# maestro.client@. Read-only: the flow never sends a message. Send, the paperclip, "View Job", any review entry
+# and "File a Complaint" are never tapped, and the flow creates nothing.
+# It relies on the persistent completed job "E2E 4.3 J1 two applicants" (1e4de8e9…) of maestro.client@ with
+# provider Maestro Provider, whose chat holds the message "E2E 7.1 after completion".
+# Login is inlined from p6_addmoney_sheet_client.yaml (launch_fresh helper, email-doubling guard, Skip handling).
+# The filter chip is tapped with text "Completed" and index 0: on My Jobs the filter chip is the first "Completed"
+# in the tree (y about 12% of the screen); the card pills come later.
+# The composer placeholder is asserted by its exact text "Message…" (one U+2026 ellipsis character).
+- runFlow: _helpers/launch_fresh.yaml
+- tapOn:
+    id: "input-email"
+- inputText: "maestro.client@taskbuddy.test"
+- runFlow:
+    when:
+      notVisible: "maestro.client@taskbuddy.test"
+    commands:
+      - eraseText: 60
+      - inputText: "maestro.client@taskbuddy.test"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- tapOn:
+    id: "btn-sign-in"
+- extendedWaitUntil:
+    visible: ".*(Skip|Find a service).*"
+    timeout: 60000
+- tapOn:
+    text: "Skip"
+    optional: true
+- extendedWaitUntil:
+    visible: "Find a service"
+    timeout: 60000
+- tapOn:
+    text: "Allow"
+    optional: true
+# Row 7.1-01 and 7.1-19 setup: My Jobs, then the Completed filter chip (not a card pill).
+- tapOn:
+    id: "nav-tab-My Jobs"
+- tapOn:
+    text: "Completed"
+    index: 0
+- extendedWaitUntil:
+    visible: "E2E 4.3 J1 two applicants"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "E2E 4.3 J1 two applicants"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: "E2E 4.3 J1 two applicants"
+# Job Details: the Message button sits in the Service Provider card, below the fold.
+- scrollUntilVisible:
+    element:
+      text: "^Message$"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: "^Message$"
+# Chat on the completed job: header name and status, the seeded history line, and the empty composer.
+- extendedWaitUntil:
+    visible: "E2E 7.1 after completion"
+    timeout: 15000
+- assertVisible: "Maestro Provider"
+- assertVisible: "Completed"
+- assertVisible: "E2E 7.1 after completion"
+- assertVisible: "Message…"

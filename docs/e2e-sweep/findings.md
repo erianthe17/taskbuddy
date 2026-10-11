@@ -1,6 +1,94 @@
 # E2E findings
 
-Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## Open` to `## Found & solved` and keep their id.
+Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## Open` to `### E2E-132 — Chat: text typed while a message is sending is wiped when the reply lands
+- **Found:** 2026-10-12, slice 7.1, case 7.1-26   **Role:** both (same code in HOChat and SPChat)
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Open a job chat, type "E2E 7.1 inflight A". 2. Tap Send and straight away type " B".
+- **Expected:** only the sent text clears; " B" stays in the field.   **Actual:** the field read "E2E 7.1 inflight A B" while the send was in flight, then emptied when the reply landed; " B" is lost (stored body "E2E 7.1 inflight A"). Send also shows no in-flight state (still solid blue).
+- **Evidence:** `evidence/E2E-132-typed-during-send.png`, `evidence/E2E-132-after-reply.png`
+- **Suspected cause:** `setText('')` runs after `await api.sendMessage` with no check that the text is unchanged (`mobile/app/(homeowner)/screens/HOChatScreen.tsx:113-115`, SPChatScreen +3). Fix idea: clear only if the field still equals the sent text, or clear before awaiting and restore on error.
+
+### E2E-133 — Chat: an unsent draft is lost when leaving the chat screen
+- **Found:** 2026-10-12, slice 7.1, case 7.1-28   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open (needs product sign-off: keep drafts per conversation?)
+- **Steps:** 1. Open a job chat, type "E2E 7.1 draft check", don't send. 2. Header back to Job Details. 3. Tap Message again.
+- **Expected:** the draft is still in the field.   **Actual:** the field is empty ("Message…"); nothing was sent.
+- **Evidence:** `evidence/E2E-133-draft-gone.png`
+- **Suspected cause:** the draft is component state (`HOChatScreen.tsx:68`) and `App.tsx:589-600` unmounts the chat when the route changes. Same class as E2E-051 (wizard draft).
+
+### E2E-134 — Chat: back arrow, attach and Send buttons have no accessibility label
+- **Found:** 2026-10-12, slice 7.1, case 7.1-29   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Open a job chat; uiautomator dump.
+- **Expected:** each icon-only control has a label ("Back", "Attach photo", "Send").   **Actual:** all three are clickable nodes with empty text, content-desc and resource-id (back [53,111][152,211], paperclip [37,2098][142,2203], Send [933,2096][1043,2206]).
+- **Evidence:** `evidence/E2E-134-chat-icons.png`; dump in `~/.taskbuddy-e2e/logs/7.1/7.1-29-dump.xml` (not committed)
+- **Suspected cause:** the three `Tap`s carry no `accessibilityLabel`/testID (`HOChatScreen.tsx:166, 208-213, 229-236`). Same class as E2E-033.
+
+### E2E-135 — Chat API: a non-participant's empty post gets 400 instead of 403
+- **Found:** 2026-10-12, slice 7.1, case 7.1-22   **Role:** both (API)
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open
+- **Steps:** As maestro.provider2 (not on the job) `POST /conversations/<C1b conv>/messages {"body":""}`; as maestro.client2 the same with `{}`.
+- **Expected:** 403 "You are not a participant of this chat".   **Actual:** 400 "Message must have text or an attachment." for both. Nothing is created and nothing leaks (non-empty bodies get 403, 7.1-21), so this is a check-order note only.
+- **Evidence:** `~/.taskbuddy-e2e/logs/7.1/7.1-22.log`
+- **Suspected cause:** `backend/src/chat/chat.service.ts:199-202` validates the body before `assertParticipant` at :203. Suggested fix: call `assertParticipant` first.
+
+### E2E-136 — Reading a chat leaves its "New message" notifications unread
+- **Found:** 2026-10-12, slice 7.1, case 7.1-20   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. The client sends several messages on a job. 2. The provider taps one "New message" notice (or opens the chat from the job) and reads the whole chat. 3. Back to Notifications / Home.
+- **Expected:** notices for messages already read in the chat stop counting as unread.   **Actual:** only the tapped notice is marked read; the other 7 stay unread with their dots and the bell went 24 → 23 (API: 8 of 9 "New message" unread). Each message makes its own notice, so a busy chat inflates the badge until the user taps every one or uses Mark all read.
+- **Evidence:** `evidence/E2E-136-chat-notices-still-unread.png`
+- **Suspected cause:** opening a chat only sets `messages.read_at` (`backend/src/chat/chat.service.ts:273-282`, called from `HOChatScreen.tsx:95`); notices are marked read only from the list (`HONotificationsScreen.tsx:125-128`). Fix idea: mark the conversation's message notices read in `markRead`, or collapse per-conversation notices.
+
+### E2E-137 — Chat: the "Cannot reach the server" line stays after a later photo send succeeds
+- **Found:** 2026-10-12, slice 7.1, case 7.1-14   **Role:** both
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. In a job chat go offline, attach a photo → "Cannot reach the server. Check your connection and try again." shows above the list. 2. Go online, attach the photo again.
+- **Expected:** the error line clears once the send succeeds.   **Actual:** the photo bubble appears (stored once) but the error line stays above the list until the chat is reopened.
+- **Evidence:** `evidence/E2E-137-error-stays-after-photo.png`
+- **Suspected cause:** `setError` is cleared only when the chat loads (`HOChatScreen.tsx:79`); the attach success path (:130-140) never resets it. Fix: `setError(null)` at the start of each send/attach.
+
+### E2E-138 — Chat: a text message that fails to send (offline) shows no error at all
+- **Found:** 2026-10-12, slice 7.1, case 7.1-15   **Role:** both
+- **Category:** app-bug   **Severity:** S3   **Status:** Open
+- **Steps:** 1. In a job chat type "E2E 7.1 offline text". 2. Go offline, tap Send.
+- **Expected:** a visible line such as "Cannot reach the server. Check your connection and try again.", text kept for retry.   **Actual:** the text stays in the field and nothing else happens — no error, no failed-state bubble — so the sender cannot tell the message did not go (they may leave thinking it was sent). After reconnecting, one Send stored it once.
+- **Evidence:** `evidence/E2E-138-offline-send-silent.png`
+- **Suspected cause:** the send `catch` only keeps the text and shows nothing (`HOChatScreen.tsx:117-118`, SPChatScreen +3). Fix: `setError(getErrorMessage(e))` in that catch (the attach path already does this at :139).
+
+### E2E-139 — Chat composer silently stops at 500 characters; the API accepts 1000
+- **Found:** 2026-10-12, slice 7.1, case 7.1-07   **Role:** both
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** In a job chat type 600 characters.
+- **Expected:** the field takes up to the backend limit (1000, `backend/src/chat/dto/chat.dto.ts:26`, DB check in migration 0031:10), or shows a counter/limit.   **Actual:** the field stops at exactly 500; characters 501–600 are dropped with no message or counter. `POST …/messages` with 1000 characters is accepted (7.1-08), so the two limits disagree.
+- **Evidence:** `evidence/E2E-139-composer-stops-500.png`
+- **Suspected cause:** `maxLength={500}` at `mobile/app/(homeowner)/screens/HOChatScreen.tsx:227` and `SPChatScreen.tsx:230`. Fix: use 1000 (CLAUDE.md "limits are defined once on the backend and mirrored").
+
+### E2E-140 — Chat header shows every job status in success green, including "Cancelled"
+- **Found:** 2026-10-12, slice 7.1, cases 7.1-01, 7.1-18, 7.1-19   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Open the chat of a cancelled job (K4).
+- **Expected:** the status label uses the status's own colour (as on job cards).   **Actual:** "Cancelled", "Completed" and "Confirmed" are all drawn in the same green (rgb 21,128,61), so a cancelled job reads as a positive state.
+- **Evidence:** `evidence/E2E-140-141-cancelled-chat.png`
+- **Suspected cause:** `headerStatus` hard-codes `V6Colors.successText` (`HOChatScreen.tsx:269`, SPChatScreen +3) instead of the status tone from `src/lib/format.ts`.
+
+### E2E-141 — Chat stays fully writable on cancelled and completed jobs (product decision)
+- **Found:** 2026-10-12, slice 7.1, cases 7.1-18, 7.1-19   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open (needs product sign-off)
+- **Steps:** Open the chat of a job cancelled before start (K4) or completed (J1); send a message.
+- **Expected:** a defined rule. Keeping chat open on a completed job inside the 7-day warranty is sensible (complaint evidence, migration 0041:172). On a job cancelled before work began, and after the warranty ends, the conversation could become read-only or show a "This job is cancelled" note.   **Actual:** the composer looks normal and both sends were accepted (K4 and J1 each now hold one message); the API has no status check (`backend/src/chat/chat.service.ts:193-225`), and the app shows no note.
+- **Evidence:** `evidence/E2E-140-141-cancelled-chat.png`
+- **Suspected cause:** by design today. Decision for the product owner: lock chat on cancelled jobs and after warranty expiry, or keep it open with a status note.
+
+### E2E-142 — Chat: photos can't be opened full size and message text can't be copied
+- **Found:** 2026-10-12, slice 7.1, cases 7.1-X01, 7.1-X02 (exploratory)   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. In a job chat tap a photo bubble. 2. Long-press a text bubble.
+- **Expected:** the photo opens full size; long-press offers Copy (people send addresses and numbers in chat; photos are complaint evidence).   **Actual:** tapping the photo does nothing; long-press shows no menu or selection.
+- **Evidence:** `evidence/E2E-142-no-photo-viewer-no-copy.png`
+- **Suspected cause:** the bubble renders a plain `Image` (200 × 150 dp) with no press handler and a `Text` without `selectable` (`HOChatScreen.tsx:150-155`, SPChatScreen +3).
+
+## Found & solved` and keep their id.
 
 ## Summary
 
@@ -8,8 +96,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
-| S3 | 18 | 1 | 0 | 0 | 0 |
-| S4 | 104 | 5 | 1 | 0 | 0 |
+| S3 | 19 | 1 | 0 | 0 | 0 |
+| S4 | 114 | 5 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>

@@ -254,3 +254,12 @@ Balance / available / pending, recorded at slice start and end.
 - **Ledger:** c2 0 → 150 (₱50 sandbox top-up + ₱100 admin recovery credit "E2E 6.3 recovery voucher", allowed action). c1 48,723 / 48,723 / 500; p1 0 / 0 / 500; p2 560.45 / 560.45 / 0. No pending withdrawals. Five ₱50 rate-limit probes were refused (no Stripe sessions).
 - Admin mutating calls: recovery credit ₱100 to c2 (test account, ≤ ₱50,000).
 
+
+## Slice 7.1 notes
+
+- Installed build unchanged (`fbe63d63…`, sha256 `75b611c2…426c4`). Backend health db up / ml down (E2E-001). Emulator up ~7 h at start (no reboot needed), devstate OK throughout.
+- Old fixture C1 `b6c5e0fd…` (released at the pause) was replaced by **C1b `67a3666e-0b16-4898-bd3d-d3fd6724f8b7`** "E2E 7.1 C1b chat job": c1 posted, p1 applied, c1 accepted (hire → `confirmed`), ₱300 held. **C1b is left confirmed on purpose** for 7.3 (to be started and completed as a review fixture).
+- **Ledger:** start c1 48,723 / 48,723 / 500; after the C1b hire **c1 48,423 / 48,423 / 800**; p1 0 / 0 / 800 (J1 500 + C1b 300); c2 150 / 150 / 0; p2 560.45 / 560.45 / 0. Chat moves no money; unchanged at slice end.
+- Chat data added (permanent, no delete route): C1b conversation `f25793af…` 14 messages (incl. 2 photos), K4 conversation 1 message, J1 conversation 1 message; p1 "New message" notices grew from 1 to 13, c1 from 1 to 2 (affects 7.2 baselines).
+- Device file added: `/sdcard/Pictures/e2e71_chatA.jpg` (labelled fixture "CHAT A").
+- No admin mutating calls.
