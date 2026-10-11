@@ -49,7 +49,7 @@ same session.** Stop (print the continuation prompt, then end the turn) only for
 - HANDOFF.md (2026-10-02) lists the known deployed-state problems: the ML service returned 429, the
   Stripe webhook never succeeds (top-ups don't credit), and `main` has undeployed backend fixes
   (migration 0038, skill gating, task gating, cancellation evidence). **Expect these to show up as
-  findings.** Tag them `deploy-drift` or `env`. They are not new app bugs.
+  findings.** *(Corrected in 6.3, 2026-10-12: the Stripe webhook DOES credit on the deployed backend; a sandbox ₱50 top-up with test card 4242 was credited exactly once in ~17 s. Stripe Connect is not enabled on the sandbox account, E2E-131.)* Tag them `deploy-drift` or `env`. They are not new app bugs.
 - Existing harness to reuse: `mobile/maestro/flows/_helpers/{launch_fresh,login_client,login_provider}.yaml`,
   13 existing flows, and the selector traps in `mobile/maestro/README.md` "Known selector traps". Read
   that section before writing any flow.

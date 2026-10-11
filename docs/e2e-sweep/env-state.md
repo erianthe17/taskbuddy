@@ -245,3 +245,12 @@ Balance / available / pending, recorded at slice start and end.
 - Admin mutating calls (test accounts, PLAN §6): withdrawal reject W3 (50), settle W2 (100); the second settle and a reject-after-settle were refused.
 - Migration 0045 is deployed: concurrent debits are serialized (4 × ₱200 against ₱560.45 → exactly 2 accepted, 2 refused by the TB402 trigger).
 - Crash sweep: 0 lines in both parts (`~/.taskbuddy-e2e/logs/6.2-logcat.txt`, after the flow runs).
+
+## Slice 6.3 notes
+
+- Installed build unchanged (`fbe63d63…`). Backend health db up / ml down (E2E-001).
+- **UAT decision (user, 2026-10-12):** the sweep prepares the app for UAT with test accounts only, so Stripe **sandbox** actions are allowed (Checkout payments with test cards, Connect onboarding up to the hosted page).
+- **Stripe:** Checkout runs in test mode (`cs_test_` sessions, "TaskBuddy sandbox" / Sandbox badge). A ₱50 top-up paid with 4242 4242 4242 4242 credited c2 exactly once in ~17 s (kind `topup`, payment intent recorded). Stripe's Back link returns with "Payment was cancelled." Connect is **not enabled** on the sandbox account (E2E-131).
+- **Ledger:** c2 0 → 150 (₱50 sandbox top-up + ₱100 admin recovery credit "E2E 6.3 recovery voucher", allowed action). c1 48,723 / 48,723 / 500; p1 0 / 0 / 500; p2 560.45 / 560.45 / 0. No pending withdrawals. Five ₱50 rate-limit probes were refused (no Stripe sessions).
+- Admin mutating calls: recovery credit ₱100 to c2 (test account, ≤ ₱50,000).
+

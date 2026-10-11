@@ -8,8 +8,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
-| S3 | 17 | 1 | 0 | 0 | 0 |
-| S4 | 103 | 5 | 1 | 0 | 0 |
+| S3 | 18 | 1 | 0 | 0 | 0 |
+| S4 | 104 | 5 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -1172,6 +1172,22 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** the headline labelled "Available Balance" shows ₱48,423.00 (what can actually be spent), or the label says "Balance".   **Actual:** "Available Balance ₱48,723.00" with a small sub-line "₱48,423.00 available to withdraw". The headline overstates spendable money by the pending amount (and by any escrow hold the client pays from).
 - **Evidence:** `~/.taskbuddy-e2e/scratch/6.2/6.2-15-presubmit.png` and `logs/6.2/6.2-15.log`
 - **Suspected cause:** `mobile/app/(homeowner)/screens/HOWalletScreen.tsx:291-294` renders `balance` under the "Available Balance" label (noted as latent in 6.1). Fix: show `available` there, or rename the label. Money-screen UI: fix needs the user's OK.
+
+### E2E-130 — Add Money: 3-decimal and over-₱100,000 amounts reach the API and show raw validator text, which then sticks
+- **Found:** 2026-10-12, slice 6.3, cases 6.3-08, 6.3-09, 6.3-10 (stale line seen in 6.3-11/12)   **Role:** client
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** Client Wallet → Add Money → type `50.555` (or `100001`, `99999999`) → Continue.
+- **Expected:** the sheet refuses it inline ("Use at most 2 decimal places", "The most you can add at once is ₱100,000") with Continue disabled.   **Actual:** Continue is enabled; the API answers 400 and the sheet shows "amount must be a number conforming to the specified constraints" / "amount must not be greater than 100000". The red line stays after the amount is corrected (under a valid 100000, under "abc") until the sheet closes. No checkout session, no money.
+- **Evidence:** `evidence/E2E-130-addmoney-raw-validator.png`
+- **Suspected cause:** `mobile/app/(homeowner)/screens/HOWalletScreen.tsx:92-94` checks only the ₱50 floor (`MIN_TOPUP_PHP`); the DTO also has 2 decimals and `@Max(100000)` (`backend/src/payments` checkout DTO :20-27). Mirror both on the client (CLAUDE.md "validation limits") and clear the error on change. Same family as E2E-123 (withdraw) and E2E-009 (raw validator text). Money-screen UI: fix needs the user's OK.
+
+### E2E-131 — Provider "Set up payouts" fails: the Stripe sandbox account has not enabled Connect
+- **Found:** 2026-10-12, slice 6.3, cases 6.3-25, 6.3-27   **Role:** provider
+- **Category:** env   **Severity:** S3   **Status:** Open (needs a Stripe dashboard step by the user)
+- **Steps:** Provider → Profile → Payouts → "Set up payouts".
+- **Expected:** Stripe's hosted Connect onboarding opens (sandbox) so the provider can link a bank.   **Actual:** no Stripe page; red line "Card payout setup is unavailable for this platform. Contact TaskBuddy support."; `GET /payments/connect` stays `not_started`.
+- **Evidence:** `evidence/E2E-131-payouts-connect-unavailable.png`
+- **Suspected cause:** Stripe rejects the Express account create with "You can only create new accounts if you've signed up for Connect" — the app maps exactly that message to this copy (`mobile/app/(provider)/screens/SPPayoutsScreen.tsx:130-135`). The platform's Stripe **sandbox** account needs Connect enabled (Stripe Dashboard → Connect → Get started), no code change. Impact for UAT: card-funded job payouts cannot be transferred to provider banks (they still land in the provider's TaskBuddy wallet, and the manual wallet withdrawal works, 6.2). Wallet top-ups via Stripe Checkout work (6.3-16).
 
 ## Found & solved
 
