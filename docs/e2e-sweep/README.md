@@ -46,7 +46,7 @@ Handoff is the `docs/handoff/` number, filled in when the slice completes.
 | 5.1 | Hire → escrow held | Complete | 017 |
 | 5.2 | Decline & cancel refunds | Complete | 018 |
 | 5.3 | Start → tasks → complete → release | Complete | 019 |
-| 5.4 | Recommendation engine path | Not started | — |
+| 5.4 | Recommendation engine path | Complete | 020 |
 | 6.1 | Overview reconciliation | Not started | — |
 | 6.2 | Withdrawals | Not started | — |
 | 6.3 | Top-up, payouts, transfer, vouchers | Not started | — |

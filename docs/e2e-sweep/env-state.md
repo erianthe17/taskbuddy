@@ -222,3 +222,10 @@ Balance / available / pending, recorded at slice start and end.
 - **Deferred check:** J1 warranty ends 2026-10-14T12:03:57Z (8:03 PM Manila). After it, the sweep should release ₱500 → p1 +425.00, commission 75.00.
 - Jobs: J1 completed (held for warranty), M1 completed (released). No open or confirmed test job remains.
 - Crash sweep: 0 lines in both parts (`~/.taskbuddy-e2e/logs/5.3-logcat.txt`).
+
+## Slice 5.4 notes
+
+- Installed build unchanged: `fbe63d63…` (APK sha256 `75b611c2…`). No emulator change. Backend health db up / ml down (429, E2E-001).
+- Fixture R1 c98d5700 (c1, urgent, ₱300, never hired): created 13:14:32Z, deadline +5 min, flipped to `recommending` by the scheduler at 13:20:00Z, re-claimed by the retry sweep at 13:37:00Z, one manual Find Providers at 13:39:12Z → generic 500 copy, no run and no invites. Cancelled by ORCH at ~13:45Z. No money moved: c1 48,723 / 48,723 / 500, p1 0/0/500, p2 660.45 / 660.45 / 0.
+- Emulator health: up 27 h, load average ~10. Maestro starts take ~100 s, `hier.sh` hung twice, and the login email-doubling glitch now hits most logins. Three `maestro … mcp` java processes from 2026-10-10 are still running (other sessions' MCP servers; left alone). A cold reboot of the emulator before Phase 6 is advised.
+- Crash sweep: 0 lines in both parts (`~/.taskbuddy-e2e/logs/5.4-logcat.txt`).
