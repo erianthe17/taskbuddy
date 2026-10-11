@@ -1,0 +1,109 @@
+appId: com.taskbuddy.app
+name: p6 provider requests a withdrawal and cancels it; the wallet returns exactly
+tags:
+  - provider
+  - wallet
+  - money
+onFlowComplete:
+  - runScript: _helpers/withdraw_fixture_cleanup.js
+---
+# Slice 6.2 (rows 6.2-07 and 6.2-08, provider p2 withdrawal request then holder cancel): maestro.provider2@
+# (p2) files a ₱10.00 withdrawal from the Wallet tab, then cancels it from the Withdrawal Requests card. The
+# request is a pending debit that holds the amount back from available (WalletSvc:75-78). The cancel marks
+# the row failed with the review note "Cancelled by the account holder" (WalletSvc:203-205), so available
+# returns to where it started. The flow nets to zero: request 10, cancel 10, no admin action.
+# withdraw_fixture_pre.js reads p2's available balance and withdrawal row count first, and fails unless
+# available is at least 10.00 and nothing is pending. withdraw_fixture_check.js confirms the end state: one
+# new withdrawal row, newest, amount 10, status failed, with that review note; available back to the
+# pre-run figure; pending_withdrawals 0. withdraw_fixture_cleanup.js (onFlowComplete) cancels a
+# still-pending row this flow added if the flow stopped before the in-app cancel.
+# The Withdraw pill renders blank when available is above 0 (E2E-120), so it is tapped by its text, which is
+# still in the hierarchy. The sheet's own Withdraw button has the same text, so it is picked by the
+# "below" hint line ("₱560.45 available"). Payout History still shows "Failed" with the amount after the
+# cancel (E2E-124); this flow does not assert that row.
+- runScript: _helpers/withdraw_fixture_pre.js
+# Login is inlined from _helpers/login_as_provider.yaml (same steps, plus the email-doubling guard from
+# p5_decline_refund_provider.yaml). The guard erases the field and types the address again when the exact
+# address is not on screen.
+- runFlow: _helpers/launch_fresh.yaml
+- tapOn:
+    id: "input-email"
+- inputText: "maestro.provider2@taskbuddy.test"
+- runFlow:
+    when:
+      notVisible: "maestro.provider2@taskbuddy.test"
+    commands:
+      - eraseText: 60
+      - inputText: "maestro.provider2@taskbuddy.test"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- tapOn:
+    id: "btn-sign-in"
+- extendedWaitUntil:
+    visible: ".*(Skip|Jobs Near You).*"
+    timeout: 60000
+- tapOn:
+    text: "Skip"
+    optional: true
+- extendedWaitUntil:
+    visible: "Jobs Near You"
+    timeout: 60000
+- tapOn:
+    text: "Allow"
+    optional: true
+- tapOn:
+    id: "nav-tab-Wallet"
+# The pill only opens the sheet once the wallet has loaded (SPWalletScreen shows a toast while data is null),
+# so wait for the hero figure that the pre helper read from the API.
+- extendedWaitUntil:
+    visible: "${output.WD_AVAIL_RE}"
+    timeout: 30000
+# Row 6.2-07: open the request sheet from the Withdraw pill (first "Withdraw" text, E2E-120).
+- tapOn:
+    text: "^Withdraw$"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "withdraw-dialog"
+    timeout: 20000
+# The amount field's placeholder is "0.00". Tapping it focuses the field and raises the decimal keyboard.
+- tapOn:
+    text: '0\.00'
+- inputText: "10"
+# The destination placeholder is "GCash 09XX XXX XXXX, or bank name + account number". The regex "GCash.*"
+# avoids the "+" that would break a literal match.
+- tapOn:
+    text: "GCash.*"
+- inputText: "e2e flow account"
+# Read the fields back before submitting, so a mistyped amount or destination fails here and files nothing.
+- assertVisible:
+    text: "10"
+- assertVisible:
+    text: "e2e flow account"
+# Submit. The sheet's Withdraw is the one under the hint line "₱560.45 available"; the header pill sits above
+# it and is not a candidate.
+- tapOn:
+    text: "^Withdraw$"
+    below: "${output.WD_AVAIL_RE} available"
+- extendedWaitUntil:
+    visible: "Withdrawal Requests"
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: "Withdraw Funds"
+    timeout: 15000
+- assertVisible:
+    text: "₱10.00"
+- assertVisible:
+    text: "Requested.*Pending"
+# Row 6.2-08: cancel the pending 10.00 from the Withdrawal Requests card (no confirm step).
+- tapOn:
+    text: "^Cancel$"
+- extendedWaitUntil:
+    notVisible: "Withdrawal Requests"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "${output.WD_AVAIL_RE}"
+    timeout: 30000
+- runScript: _helpers/withdraw_fixture_check.js

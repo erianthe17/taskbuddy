@@ -48,7 +48,7 @@ Handoff is the `docs/handoff/` number, filled in when the slice completes.
 | 5.3 | Start → tasks → complete → release | Complete | 019 |
 | 5.4 | Recommendation engine path | Complete | 020 |
 | 6.1 | Overview reconciliation | Complete | 021 |
-| 6.2 | Withdrawals | Not started | — |
+| 6.2 | Withdrawals | Complete | 022 |
 | 6.3 | Top-up, payouts, transfer, vouchers | Not started | — |
 | 7.1 | Chat | Not started | — |
 | 7.2 | Notifications | Not started | — |

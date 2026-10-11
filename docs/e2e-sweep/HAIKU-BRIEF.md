@@ -39,10 +39,11 @@ with it) in every call that uses `adb` or `maestro`.
 ## 3. Tools (in `~/.taskbuddy-e2e/`)
 | Tool | Usage |
 |---|---|
-| `mt.sh <flow.yaml>` | Runs `maestro test` quietly, printing the last 25 lines (`TAILN=n` for more). Save its output: `./mt.sh f.yaml > logs/<slice>/<TC>.log 2>&1; tail -5 logs/<slice>/<TC>.log` |
-| `hier.sh` | Prints the current screen's elements as `resource-id \| text \| bounds`. Use it before you target elements and after each step to see where you are. **Always run it as `PYTHONIOENCODING=utf-8:replace ~/.taskbuddy-e2e/hier.sh`**: the ₱ sign crashes the default encoding (₱ then shows as `?`; check screenshots for the real glyph). |
+| `mt.sh <flow.yaml>` | Runs `maestro test` quietly, printing the last 25 lines (`TAILN=n` for more). **Exits 1 and prints `mt.sh: FAIL …`** when a step FAILED, the YAML did not parse, the driver timed out, or the run stopped mid-step (a stalled `inputText`); otherwise prints `mt.sh: OK`. Save its output: `./mt.sh f.yaml >> logs/<slice>/<TC>.log 2>&1; tail -3 logs/<slice>/<TC>.log` |
+| `hier.sh` | Prints the current screen's app elements as `resource-id \| text \| bounds` in about 3 s (adb uiautomator; falls back to `maestro hierarchy`). testIDs show as resource-id; ₱ prints correctly. It hides system dialogs (`com.android`/`com.google` ids): if a step seems stuck, take a screenshot. |
 | `cnt.sh "<regex>"` | Prints text length and bounds of on-screen text matching a regex (uses uiautomator) |
-| `api.sh` | `source ~/.taskbuddy-e2e/api.sh`, then `login client maestro.client@taskbuddy.test` and `call client GET /jobs/mine`, or `call client POST /jobs/<id>/cancel '{}'`. Tokens are stored in files, never printed. On HTTP 401, run `login` again. |
+| `login.sh <email>` | **Use this for every login that is setup** (not the Maestro login helpers): clears app data, types through adb, verifies the field, signs in, taps Skip; exits 0 on the home tab bar in about 40 s, exit 1 with the reason. **Never** use it when the row's subject is login, onboarding, session persistence, relaunch, or suspended/deleted-account copy: drive those through the UI exactly as the row says. |
+| `api.sh` | `export SLICE=<slice>; source ~/.taskbuddy-e2e/api.sh`, then `login client maestro.client@taskbuddy.test` and `call client GET /jobs/mine`, or `call client POST /jobs/<id>/cancel '{}'`. Tokens are stored in files, never printed. `call` re-logs in once by itself on HTTP 401. |
 | `devstate.sh` | Device baseline check: wifi/data on, font scale 1.0, photo permission granted, auto time on, night mode off. Exits non-zero if off. |
 | Slice 3.2 only: `goto3.yaml`, `nx.yaml`, `ad1.yaml` in `scratch/3.2/` | Wizard fragments: Plumbing → saved address → step 3; `hideKeyboard` + Next; tap the address field |
 | Wizard fragments (`scratch/3.2/`, usable by any slice via `runFlow` with an absolute path) | `w_step2.yaml` (fresh login → step 2), `w_step3.yaml` (→ step 3, one task, "Add photos" visible), `w_step4.yaml` (→ step 4, empty budget), `w_3to5.yaml` (step 3 → review with budget 300), `budget.yaml` (`mt.sh -e B=<v> budget.yaml`) |
@@ -60,6 +61,14 @@ Long-running commands: give the Bash call `timeout: 590000` for a long `inputTex
 takes about 2 minutes). **Never background a maestro run with `&`**: it dies. Foreground `sleep`
 over a few seconds is blocked. If a row needs a real-time wait of minutes, STOP at that point and
 report it; the orchestrator handles waits.
+
+## 4a. Navigation map (verified 2026-10-11; confirm with `hier.sh` before tapping, never tap blind)
+- Login: `input-email`, `input-password`, `btn-sign-in`, `login-error`. Onboarding: text "Skip" top right.
+- Client tabs: `nav-tab-Home`, `nav-tab-My Jobs`, `nav-tab-Calendar`, `nav-tab-Wallet`. Provider tabs: `nav-tab-Dashboard` (Feed), `nav-tab-My Jobs` (label "My Work"), `nav-tab-Calendar`, `nav-tab-Wallet`; profile `btn-home-avatar`.
+- No tab bar on Job Details: header back arrow `point: "9%,6%"`.
+- Client My Jobs filters (All / Ongoing / Completed / Cancelled) and provider My Work tabs (Applications / Active / Completed / Cancelled) sit at about `y≈12%`; they have no testIDs and card pills repeat the same words, so tap them by their `hier.sh` bounds.
+- Wallet: `wallet-scroll`; client sheets `add-money-dialog`, `withdraw-hw-dialog`; hire sheet `hire-pay-wallet`.
+- Provider Withdraw pill is blank when available > 0 (E2E-120); its text is still in `hier.sh`, tap it by bounds.
 
 ## 4. Traps (all learned the hard way; obey them)
 - **Never** `tapOn: "Back"` (several elements match). In the **Post a Job** wizard the footer Back is `point: "27%,91%"`; in other wizards (e.g. Get Verified) the footer moves per step, so take its bounds from `hier.sh`. The header arrow is `point: "9%,6%"` on most screens.
@@ -105,16 +114,17 @@ report it; the orchestrator handles waits.
 - Maestro `takeScreenshot` refuses paths outside its own output folder; take evidence with `adb exec-out screencap -p > ...` instead.
 - `api.sh call ... '<json>'` on Windows turns non-ASCII (emoji, ₱, ñ) in the body into `?` (curl argv code page). Never send unicode through `call`; the orchestrator posts unicode fixtures with Python urllib.
 - A long `adb shell input text` can stop early with no error (5.2: 200 characters stopped at 44). Type long strings in chunks of 40 or fewer, then confirm the field length with `cnt.sh` before submitting.
-- `inputText` occasionally doubles the first character of an email ("mmaestro.provider2@…", seen twice in 5.2), so login fails with "Invalid login credentials". If a login step fails, read the email field with `hier.sh` before anything else; retrying once is allowed. `p5_decline_refund_provider.yaml` has an inline erase-and-retype guard for it.
-- `mt.sh` can exit 0 while the flow log says FAILED. Always grep the log for FAILED.
+- Maestro `inputText` intermittently doubles the first letter of an email at app start (E2E-121, harness); `login.sh` avoids it. If you must type an email with Maestro, read the field back before submitting.
 - The provider app has no `nav-tab-Home` (its feed is `nav-tab-Dashboard`), and no tab bar exists on Job Details: use the header back arrow (`point: "9%,6%"`) first.
 - Provider My Work tabs are Applications / Active / Completed / Cancelled; card pills also say "Cancelled", so tap the Cancelled tab by its bounds.
 - Maestro `inputText` can stall under load (gRPC DEADLINE_EXCEEDED): a log ending on "Input text …" with neither COMPLETED nor FAILED is a failed attempt. A YAML parse error ("Parsing Failed") also leaves `mt.sh` at exit 0.
-- When clearing the login email after the doubling glitch, use keyevents (tap field, `KEYCODE_MOVE_END`, then deletes), not `eraseText` (it leaves residue).
 - Always `export SLICE=<slice>` BEFORE sourcing `api.sh` (or `SLICE=<slice> source …`); sourcing first writes tokens to `scratch/3.2/`.
+- `adb shell` reads stdin: inside a `while read … done < file` (or a pipe) it swallows the rest of the input, so only the first chunk is typed. Add `</dev/null` to every `adb shell` in such loops.
 - More traps: `mobile/maestro/README.md` sections "Known selector traps" and "Slice 3.2 notes".
 
 ## 5. Per-row protocol
+Keep Maestro starts few (each costs up to ~100 s): put a row's navigation and reads in **one** inline flow, and do single taps and scrolls with `adb shell input tap/swipe` at `hier.sh` bounds instead of one-step flows. Evidence rules below are unchanged.
+
 For each row in your packet, in order:
 1. **Run it.** One coherent inline flow per step, plus `adb`/`curl` as the packet says. Save all
    maestro output for the row to `~/.taskbuddy-e2e/logs/<slice>/<TC>.log` (append with `>>` across

@@ -9,7 +9,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
 | S3 | 17 | 1 | 0 | 0 | 0 |
-| S4 | 95 | 4 | 1 | 0 | 0 |
+| S4 | 103 | 5 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -1101,6 +1101,77 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** a white pill with the dark "Withdraw" label and banknote icon.   **Actual:** the pill renders empty white in every screenshot (also 4 s later), although the view hierarchy contains the "Withdraw" text; at ₱0.00 the disabled variant renders its label correctly (5.2-19, 5.3-11). The only payout action on the screen is unlabeled.
 - **Evidence:** `evidence/E2E-120-withdraw-blank.png`
 - **Suspected cause:** not isolated. `mobile/app/(provider)/screens/SPWalletScreen.tsx:80-94` switches `withdrawBtn`/`withdrawBtnText` (`#13283c` on `#ffffff`, `:240-251`) on `canWithdraw`; the dark text and icon on the white fill are not drawn. Worth checking whether `Tap` (`mobile/src/components/ui/Tap.tsx`) or an animated opacity hides children when the style flips at runtime. Money-screen UI: a fix needs the user's OK (PLAN §6).
+
+### E2E-121 — Maestro `inputText` intermittently doubles or scrambles the first letters of the login email ("mmaestro…")
+- **Found:** 2026-10-11, slices 5.2–6.1 (most logins)   **Role:** both
+- **Category:** harness   **Severity:** S4   **Status:** Workaround (`~/.taskbuddy-e2e/login.sh` types through adb and reads the field back; HAIKU-BRIEF §3)
+- **Steps:** `_helpers/login_*.yaml` → `launch_fresh` → `tapOn input-email` → `inputText "maestro.client@taskbuddy.test"`.
+- **Expected:** the field holds the address.   **Actual:** seen as "mmaestro.provider2@…", "mmaestro.clie" (stalled), "mamaeestro..client@…", so sign-in fails with "Invalid login credentials" / "email must be an email". It survived an emulator cold reboot.
+- **Evidence:** `~/.taskbuddy-e2e/logs/dbl/` (bounded check 2026-10-12: 0/4 doublings typing the same text into Android Settings search and 0/4 into TaskBuddy's own email field with the same flow steps, so it is intermittent and not reproducible on demand).
+- **Suspected cause:** not isolated (one bounded pass). The garbled forms (doubled and interleaved letters, a truncated stall) fit keystrokes landing while the screen re-renders just after a fresh launch. That is a Maestro-timing interaction; a person typing at human speed after the screen settles is not expected to hit it, and every Phase 1 login row passed. If a user report ever describes letters doubling in the login field, revisit `LoginScreen`'s controlled `TextInput` during the auth bootstrap.
+
+### E2E-122 — Withdraw sheet: the amount field is auto-focused but the keyboard does not open
+- **Found:** 2026-10-12, slice 6.2, case 6.2-01   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Provider with available > 0 opens Wallet → Withdraw.
+- **Expected:** the amount field is focused and the number keyboard opens, ready to type.   **Actual:** a caret shows in the amount field but no keyboard (IME `mInputShown=false` 2 s after opening); the user has to tap the field.
+- **Evidence:** `evidence/E2E-122-withdraw-no-keyboard.png`
+- **Suspected cause:** `mobile/src/components/WithdrawModal.tsx:112` relies on `autoFocus` inside a modal sheet; on Android the focus lands before the sheet's open animation finishes, so the IME is not shown. Usual fix: focus via a ref after the sheet's `onShow` (or a short `InteractionManager.runAfterInteractions`). The decimal-pad keyboard also shows a minus key (Gboard), but a negative amount is refused inline and by the API (6.2-03), so no separate finding.
+
+### E2E-123 — Withdraw sheet: an amount with 3 decimals (100.555) reaches the API and shows raw validator text
+- **Found:** 2026-10-12, slice 6.2, case 6.2-04   **Role:** provider (the client sheet shares the gap)
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Wallet → Withdraw. 2. Amount `100.555`, any destination. 3. Tap Withdraw.
+- **Expected:** the sheet refuses it inline ("Use at most 2 decimal places") with no request.   **Actual:** the request is sent and the sheet shows "amount must be a number conforming to the specified constraints"; no withdrawal is created (API 400), and the red line stays after the amount is corrected until the next submit.
+- **Evidence:** `evidence/E2E-123-withdraw-raw-validator.png`
+- **Suspected cause:** neither `mobile/src/components/WithdrawModal.tsx:64-66` nor the client sheet (`HOWalletScreen.tsx:114-120`) checks decimal places, while `RequestWithdrawalDto.amount` is `@IsNumber({ maxDecimalPlaces: 2 })` (`backend/src/wallet/dto/wallet.dto.ts:26`). Same family as E2E-009/015/025/038 (raw class-validator text reaching the UI). Fix: a 2-decimal rule in `walletRules.ts`, mirrored per CLAUDE.md "validation limits", and clear the API error on change.
+
+### E2E-124 — A withdrawal the user cancelled is shown as "Failed" in Payout History
+- **Found:** 2026-10-12, slice 6.2, case 6.2-08   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Request a withdrawal. 2. Tap Cancel on its card. 3. Read Payout History.
+- **Expected:** "Cancelled" (the user did it on purpose).   **Actual:** "Oct 12, 2026 · Failed" with "Review note: Cancelled by the account holder"; the word "Failed" suggests something went wrong with the money.
+- **Evidence:** `evidence/E2E-124-cancelled-shows-failed.png`
+- **Suspected cause:** the backend stores a user cancel as `status = 'failed'` with that review note (`backend/src/wallet/wallet.service.ts:193-210`), and `mobile/app/(provider)/screens/SPWalletScreen.tsx:172-174` capitalises the raw status. Fix in the app: show "Cancelled" when `status === 'failed'` and the note says the holder cancelled (or add a distinct status in a migration).
+
+### E2E-125 — Provider Wallet keeps showing a settled/rejected withdrawal as pending, with a live Cancel button, until a tab switch
+- **Found:** 2026-10-12, slice 6.2, case 6.2-10/11   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Provider has two pending withdrawals on screen. 2. Admin rejects one and settles the other. 3. Provider returns to the Wallet tab.
+- **Expected:** the screen reloads on focus (or offers pull-to-refresh) and shows the new states.   **Actual:** it still showed "Withdrawal Requests" ₱50.00 and ₱100.00, each with Cancel, "₱150.00 awaiting withdrawal", and the rejected row as Pending; only switching to Feed and back loaded the real state. Tapping Cancel there would hit an already-settled request (the API refuses it with "This withdrawal is already 'completed'", 6.2-11), so the user sees an error for something that already happened.
+- **Evidence:** `~/.taskbuddy-e2e/logs/6.2/6.2-10-hier-reload.txt` (before/after reload)
+- **Suspected cause:** `SPWalletScreen` loads once per mount; same family as E2E-075, E2E-091 and E2E-114 (no focus refetch / pull-to-refresh). Money is never wrong server-side.
+
+### E2E-126 — Withdrawal notifications show raw amounts: "Your withdrawal of 50 was not processed…", "Your withdrawal of 100 has been sent"
+- **Found:** 2026-10-12, slice 6.2, case 6.2-10/11   **Role:** provider (any user who withdraws)
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open
+- **Expected:** "₱50.00" / "₱100.00", like every other money figure in the app.   **Actual:** "Withdrawal declined" — "Your withdrawal of 50 was not processed: <reason>. The amount is back in your available balance."; "Withdrawal sent" — "Your withdrawal of 100 has been sent. Reference: <ref>".
+- **Evidence:** `~/.taskbuddy-e2e/logs/6.2/6.2-10-notif.png`, `6.2-11.log`
+- **Suspected cause:** `backend/src/wallet/wallet.service.ts:253` and `:280` interpolate the numeric amount directly. Fix: format as `₱${amount.toFixed(2)}` with thousands separators (backend copy; log only).
+
+### E2E-127 — The API accepts a withdrawal whose destination is only spaces
+- **Found:** 2026-10-12, slice 6.2, case 6.2-19   **Role:** any user (API)
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open
+- **Steps:** `POST /wallet/withdrawals` `{"amount":1,"destination":"   "}`.
+- **Expected:** 400 (an admin settles by reading the destination, so a blank one is unpayable).   **Actual:** 201, a pending request with `withdrawal_destination` = three spaces. The app blocks it (Withdraw stays disabled for a whitespace destination, 6.2-06), so only API callers reach it.
+- **Evidence:** `~/.taskbuddy-e2e/logs/6.2/6.2-19.log`
+- **Suspected cause:** `RequestWithdrawalDto.destination` is `@IsString() @Length(1, 200)` with no trim or non-space rule (`backend/src/wallet/dto/wallet.dto.ts:36-37`), unlike the settle reference which has one (`:145-146`); `wallet.service.ts:139` stores it as sent. Same family as E2E-113 (decline reason). Fix: `@Matches(/\S/)` or a trim transform.
+
+### E2E-128 — Client Withdraw sheet lacks the provider sheet's checks: no over-available message, no 200-character destination cap (raw API text), raw lowercase status
+- **Found:** 2026-10-12, slice 6.2, cases 6.2-15, 6.2-06 (HO half)   **Role:** client
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** Client Wallet → Withdraw. (a) Amount 48723.01 (₱0.01 over available). (b) A 201-character destination, tap Withdraw. (c) Read the RECENT WITHDRAWALS card.
+- **Expected:** the same behaviour as the provider sheet (WithdrawModal): "That's more than your ₱48,723.00 available.", the destination capped at 200, title-case statuses.   **Actual:** (a) Withdraw just greys out with no message; (b) the field takes 201 characters and the API's raw "destination must be shorter than or equal to 200 characters" appears (no request created); (c) statuses read "pending" / "failed" in lowercase.
+- **Evidence:** `evidence/E2E-128-client-withdraw-raw.png`
+- **Suspected cause:** the client sheet is a separate implementation in `mobile/app/(homeowner)/screens/HOWalletScreen.tsx:536-590` (no `maxLength`, no over-available message; status printed raw at `:344`), while the provider uses `mobile/src/components/WithdrawModal.tsx`. Fix: reuse `WithdrawModal` (or `walletRules.ts`) on the client side. Money-screen UI: fix needs the user's OK (PLAN §6).
+
+### E2E-129 — Client Wallet's big "Available Balance" figure shows the balance, not what's available, while a withdrawal is pending
+- **Found:** 2026-10-12, slice 6.2, case 6.2-15   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Client requests a ₱300 withdrawal (pending).
+- **Expected:** the headline labelled "Available Balance" shows ₱48,423.00 (what can actually be spent), or the label says "Balance".   **Actual:** "Available Balance ₱48,723.00" with a small sub-line "₱48,423.00 available to withdraw". The headline overstates spendable money by the pending amount (and by any escrow hold the client pays from).
+- **Evidence:** `~/.taskbuddy-e2e/scratch/6.2/6.2-15-presubmit.png` and `logs/6.2/6.2-15.log`
+- **Suspected cause:** `mobile/app/(homeowner)/screens/HOWalletScreen.tsx:291-294` renders `balance` under the "Available Balance" label (noted as latent in 6.1). Fix: show `available` there, or rename the label. Money-screen UI: fix needs the user's OK.
 
 ## Found & solved
 

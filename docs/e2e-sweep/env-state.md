@@ -236,3 +236,12 @@ Balance / available / pending, recorded at slice start and end.
 - Read-only slice: no money moved. Ledger (= `~/.taskbuddy-e2e/logs/6.1/ledger-api.txt`): c1 48,723 / 48,723 / 500, total_credited 53,070, total_debited 4,347, 21 rows (11 escrow_hold, 9 refund, 1 topup "Maestro test seed" +50,000 from 2026-09-15); c2 all 0; p1 0 / 0 / 500, no rows; p2 660.45 / 660.45 / 0, one payout.
 - Font scale was set to 1.3 for rows 6.1-13/14 and restored to 1.0 (devstate confirms).
 - Crash sweep: 0 lines in both parts (`~/.taskbuddy-e2e/logs/6.1-logcat.txt`).
+
+## Slice 6.2 notes
+
+- Installed build unchanged (`fbe63d63…`, sha `75b611c2…`). Backend health db up / ml down (E2E-001).
+- **Process change (user-approved 2026-10-12):** `login.sh` (adb login, 12/12 in the trial, median 35 s vs 2-3 min), `hier.sh` on `uiautomator dump` (~3 s vs ~21 s; Maestro fallback), `mt.sh` exits 1 on failure, `api.sh`/`opus-api.sh` re-login on 401, `opus/gate.sh` for the mechanical gate, packet size by risk (read-only up to 6 rows), pipelined matrix drafts. PLAN.md §3/§4 and HAIKU-BRIEF updated.
+- **Ledger:** start c1 48,723 / 48,723 / 500, p2 660.45 / 660.45 / 0. p2 withdrawal W2 ₱100 settled by admin (reference E2E-6.2-11-REF-001) → **p2 560.45 / 560.45 / 0** (total_debited 100). Every other request (0.50, 100, 50 rejected, 560.45, 10, 5, 1, the race probes, c1's 300, the flow runs' 10s) ended `failed` (cancelled or rejected). **End: c1 48,723 / 48,723 / 500 / 0; c2 0; p1 0 / 0 / 500; p2 560.45 / 560.45 / 0 / 0.**
+- Admin mutating calls (test accounts, PLAN §6): withdrawal reject W3 (50), settle W2 (100); the second settle and a reject-after-settle were refused.
+- Migration 0045 is deployed: concurrent debits are serialized (4 × ₱200 against ₱560.45 → exactly 2 accepted, 2 refused by the TB402 trigger).
+- Crash sweep: 0 lines in both parts (`~/.taskbuddy-e2e/logs/6.2-logcat.txt`, after the flow runs).

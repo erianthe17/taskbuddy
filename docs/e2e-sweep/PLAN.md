@@ -137,8 +137,14 @@ helper and token live only in `~/.taskbuddy-e2e/opus/`. No `tok.admin` may exist
 
 **Packet sizing.**
 - At most **6 rows**, from one screen or wizard step, or one coherent group.
-- At most **3 rows** in slices 4.1, Phase 5, Phase 6 and 7.4. Opus snapshots both wallets before and
-  after each packet.
+- At most **3 rows** in a **money packet** (any row that can move a wallet or escrow), in any slice. Opus
+  snapshots both wallets before and after each money packet. *(Changed 2026-10-12, user-approved speed-up:
+  the limit used to apply to whole phases.)* A **read-only packet** (no POST/PATCH beyond login, every wallet
+  expected unchanged) may hold up to 6 rows, even in Phase 5/6/7.4; its STOP-on-any-wallet-change rule stays.
+- **API-only rows that mutate nothing a device row depends on** (403/404/400 probes, read-only GETs) go in one
+  non-device packet that may run in the background beside device packets. It targets only fixtures the
+  running device packet doesn't touch, uses its own token dir (`SLICE=<slice>api`), logs in once per account,
+  and never runs beside a money packet.
 - **Split a packet at any real-time wait** (deadlines, the 5.4 ML poll). Opus waits with a `Monitor`
   until-loop, then dispatches the verify packet.
 - For 8.5, Opus writes the exact curl list, Haiku runs it and records the raw codes and bodies, and
@@ -198,9 +204,14 @@ Owners: **[O]** = Opus (orchestrator), **[H]** = Haiku packet (§3a), gated by �
      SHA-256 (`adb shell "sha256sum $(pm path com.taskbuddy.app | sed 's/package://')"`) against the
      values recorded in `env-state.md` for the current build.
    - Clear the logs for this session: `adb logcat -c`.
+   - Emulator health: if `adb shell uptime` shows more than ~12 h up or a load average above 6, cold-reboot it
+     (`adb emu kill`, then PowerShell `Start-Process … emulator.exe -ArgumentList '-avd','Medium_Phone','-no-snapshot-load' -PassThru`),
+     then restore the timezone with `adb shell service call alarm 3 s16 Asia/Manila` and re-run devstate.
+   - Before every packet dispatch: `curl -s -m 90 …/health` (Render sleeps after ~15 min idle).
    - Warm the backend: `curl -s -m 90 https://taskbuddy-kpek.onrender.com/health` returns JSON (repeat once if it times out; a 30–60s cold start is expected).
    - Maestro MCP: `list_devices` returns the emulator id.
-3. **[H→O] Design cases:** a Haiku packet drafts `docs/e2e-sweep/test-cases/<slice>.md` from the
+3. **[H→O] Design cases** (pipelined: dispatch slice N+1's matrix packet in the background when slice N's
+   first short device packet starts; Opus still reviews it at N+1's start against what N learned): a Haiku packet drafts `docs/e2e-sweep/test-cases/<slice>.md` from the
    slice's screen files, the DTOs and the case list in §5, applying the **checklist in §4a**. Every
    expected value cites `file:line`. **Opus reviews it**: verifies the DTO limits by grep, adds
    missing cases, fixes wrong expectations, then groups the rows into device packets. Every row starts
