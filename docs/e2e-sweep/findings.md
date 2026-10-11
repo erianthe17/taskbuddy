@@ -88,6 +88,94 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Evidence:** `evidence/E2E-142-no-photo-viewer-no-copy.png`
 - **Suspected cause:** the bubble renders a plain `Image` (200 × 150 dp) with no press handler and a `Text` without `selectable` (`HOChatScreen.tsx:150-155`, SPChatScreen +3).
 
+### E2E-143 — Notifications API answers success for another user's notification id
+- **Found:** 2026-10-12, slice 7.2, case 7.2-30   **Role:** both (API)
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open
+- **Steps:** As maestro.provider `POST /notifications/<a maestro.provider2 notice id>/read` and `DELETE /notifications/<same id>`.
+- **Expected:** 404 (not found for this user).   **Actual:** 201 `{"success":true}` and 204. p2's notice is unchanged (still listed, `read_at` null), so nothing leaks or changes. Only the response is wrong, which hides client bugs and lets a caller probe ids without feedback.
+- **Evidence:** `~/.taskbuddy-e2e/logs/7.2/7.2-30.log`
+- **Suspected cause:** both queries filter by recipient and return success whether or not a row matched (`backend/src/notifications/notifications.controller.ts:86-93`, `:109-122`). Suggested fix: check the affected row count and throw `NotFoundException` when it is 0.
+
+### E2E-144 — Notification bodies show raw decision words and an unformatted credit amount
+- **Found:** 2026-10-12, slice 7.2, case 7.2-25   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Open Notifications on c1, p2 and c2 after complaint resolutions and a recovery credit.
+- **Expected:** sentence copy and ₱ amounts.   **Actual:** "Complaint resolved" — "An admin recorded a decision: released_to_provider." / "refunded_to_client" / "reviewed" (raw enum words); "Trust credit issued" — "You received a credit of 100: E2E 6.3 recovery voucher" (no ₱, no decimals). The Complaint Status screen's raw values are E2E-112 and the withdrawal amounts are E2E-126; this entry covers the two other writers.
+- **Evidence:** `evidence/E2E-144-trust-credit-raw-amount.png`
+- **Suspected cause:** the complaint trigger concatenates the enum (`backend/supabase/migrations/0041_complaints_and_cancellation_review.sql:248-249`); the recovery-credit notice formats the amount with plain string interpolation (`backend/src/wallet/wallet.service.ts:345-346`). Fix in a new migration or service: map decisions to phrases ("released to the provider") and format amounts as ₱x.xx.
+
+### E2E-145 — Home "Recent activity" rows do nothing when tapped, and the Post a job button covers the first row
+- **Found:** 2026-10-12, slice 7.2, case 7.2-35   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Client Home → Recent activity → tap the "New message / E2E 7.2 seed notice 51" row.
+- **Expected:** the row opens the same target as in the Notifications list (here the chat).   **Actual:** nothing happens and the badge stays 51; only "View all" works. The floating "Post a job" button also sits over the right half of the first row.
+- **Evidence:** `evidence/E2E-145-recent-activity-inert.png`
+- **Suspected cause:** the rows are plain Views with no press handler (`mobile/app/(homeowner)/screens/HOHomeScreen.tsx:262-278`). Fix: wrap them in the same `resolveNotificationTarget` routing the list uses (`src/lib/notificationRouting.ts`), and add bottom padding under the FAB.
+
+### E2E-146 — Provider bell is announced as "Notifications" with no unread count
+- **Found:** 2026-10-12, slice 7.2, case 7.2-02   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Provider Dashboard with unread notices; uiautomator dump.
+- **Expected:** the bell is announced as "Notifications, 19 unread", as the client bell is ("Notifications, 51 unread", 7.2-01).   **Actual:** bell content-desc "Notifications"; the count sits only on the badge child ("19 unread notifications"), so TalkBack reads two separate nodes.
+- **Evidence:** `~/.taskbuddy-e2e/logs/7.2/7.2-02.log`
+- **Suspected cause:** `mobile/app/(provider)/screens/SPHomeScreen.tsx:188` uses a fixed label; mirror `HOHomeScreen.tsx:128`.
+
+### E2E-147 — Notification icons: a "not selected" rejection gets a blue check, service-request notices get the briefcase fallback
+- **Found:** 2026-10-12, slice 7.2, cases 7.2-23, 7.2-24   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Provider Notifications with an "Application update" (not selected) notice and skill-request notices.
+- **Expected:** a rejection shows the red shield like other rejections; service-request notices use their own decision/check icon.   **Actual:** 'Your application to "Cleaning: Bathroom cleaning" was not selected.' shows a blue check-in-circle, which reads as success; "Service request submitted" shows the generic briefcase.
+- **Evidence:** `evidence/E2E-147-not-selected-blue-check.png`, `evidence/E2E-147-service-request-briefcase.png`
+- **Suspected cause:** the red pattern tests only the title (`SPNotificationsScreen.tsx:58`, HONotifications :63), and "Application update" doesn't match; `skill_request_update` is missing from the icon map (`SPNotificationsScreen.tsx:60-69`). Fix: match on the body or a data flag for rejections; add the type to the map.
+
+### E2E-148 — Notifications list: trash and header controls are under 48 dp
+- **Found:** 2026-10-12, slice 7.2, case 7.2-33   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Client Notifications; uiautomator dump at 420 dpi.
+- **Expected:** at least 48 × 48 dp touch targets.   **Actual:** trash 24 × 24 dp visible node (an 8 dp hitSlop in code makes it about 40 dp); "Mark all read" 89 × 21 dp; header back arrow 38 × 38 dp (same class as E2E-033). Trash buttons sit next to the tappable row, so a near miss opens the notice instead.
+- **Evidence:** `evidence/E2E-148-notification-tap-targets.png`
+- **Suspected cause:** `HONotificationsScreen.tsx:238` (hitSlop 8), `:242`/`:304` (16 dp icon, 4 dp padding); header text buttons have no padding. Not investigated further.
+
+### E2E-149 — Notifications list stops at 50, while the badge counts every unread notice
+- **Found:** 2026-10-12, slice 7.2, case 7.2-27   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** c1 holds 51 unread notices (ORCH seeded the 51st). Open Notifications and scroll to the bottom.
+- **Expected:** every notice reachable (paging / load more), or the badge counts only reachable notices.   **Actual:** the list ends at the 50th notice with no load-more or footer; the badge and API unread-count say 51, so the oldest notice can only be cleared by "Mark all read". Busy accounts (each chat message is a notice, E2E-136) reach 50 quickly.
+- **Evidence:** `evidence/E2E-149-list-stops-at-50.png`
+- **Suspected cause:** the snapshot is capped at 50 (`backend/src/notifications/notifications.controller.ts:34`, migration 0042:62), with no paging parameter; the badge uses the uncapped count (0042:63).
+
+### E2E-150 — Tapping a wallet/payment notification marks it read but goes nowhere
+- **Found:** 2026-10-12, slice 7.2, case 7.2-05 (also 7.2-21 on the provider)   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** c2 → Notifications → tap "Trust credit issued", then "Wallet topped up".
+- **Expected:** a wallet notice opens the Wallet tab.   **Actual:** both rows turn read and the screen stays on the list.
+- **Evidence:** `~/.taskbuddy-e2e/logs/7.2/7.2-05.png`
+- **Suspected cause:** routing reads only data keys (`mobile/src/lib/notificationRouting.ts:7-18`); wallet notices carry `{}` or only amount/payment_intent_id (`backend/src/wallet/wallet.service.ts:507-513`, `payments.service.ts:278`). Fix: route by `type` (`wallet_update`, `payment_update`) to the Wallet tab.
+
+### E2E-151 — Offline tap on a job notification: no message, Job Details sits on its loading skeleton
+- **Found:** 2026-10-12, slice 7.2, case 7.2-37   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** c1 → Notifications → go offline → tap "Work ready for review" (J1).
+- **Expected:** a toast such as "Cannot reach the server. Check your connection and try again.", or an error card with Retry on Job Details.   **Actual:** Job Details opens and shows only skeleton placeholders for the whole observed window (about 3 s), with no toast and no error. The notice correctly stays unread (API `read_at` null). Whether Job Details shows an error card after a longer timeout was not observed.
+- **Evidence:** `evidence/E2E-151-offline-notice-tap-skeleton.png`
+- **Suspected cause:** the mark-read is fire-and-forget and its catch shows nothing visible (`HONotificationsScreen.tsx:118-128`); Job Details has no early offline state. Not investigated further.
+
+### E2E-152 — Notification "x ago" labels freeze while the list stays open
+- **Found:** 2026-10-12, slice 7.2, case 7.2-26   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Open Notifications with a new notice ("just now"); leave the screen untouched for 5 minutes.
+- **Expected:** the label moves on ("5 mins ago").   **Actual:** still "just now" after 5 minutes; it showed "6 mins ago" only after leaving and reopening the list.
+- **Evidence:** `evidence/E2E-152-just-now-after-5-min.png`; `~/.taskbuddy-e2e/logs/7.2/7.2-26.log`
+- **Suspected cause:** `timeAgo` runs at render only (`HONotificationsScreen.tsx:232`, `SPNotificationsScreen.tsx:188`, `src/lib/format.ts:44`), and nothing re-renders the list while it is idle. Fix: a 60 s ticker state on the screen.
+
+### E2E-153 — Notifications: after an offline "Mark all read", Retry only reloads; the banner stays and nothing is marked
+- **Found:** 2026-10-12, slice 7.2, case 7.2-08   **Role:** client (provider shows a toast only)
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** c1 with 3 unread → Notifications → go offline → "Mark all read" → back online → tap Retry on the red banner.
+- **Expected:** Retry repeats Mark all read, the rows turn read and the banner clears.   **Actual:** the banner "Cannot reach the server. Check your connection and try again." stays, all 3 rows stay unread (API count 3). The same text also shows a second time as a grey line over the list while offline. A manual "Mark all read" afterwards works (7.2-06).
+- **Evidence:** `evidence/E2E-153-mark-all-retry-stays.png`
+- **Suspected cause:** the banner's Retry calls `reload` rather than the failed action, and the error state isn't cleared on success (`HONotificationsScreen.tsx:100`, `:188-191`). Fix: remember the failed action and retry it; clear the error on any success.
+
 ## Found & solved` and keep their id.
 
 ## Summary
@@ -97,7 +185,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
 | S3 | 19 | 1 | 0 | 0 | 0 |
-| S4 | 114 | 5 | 1 | 0 | 0 |
+| S4 | 125 | 5 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>

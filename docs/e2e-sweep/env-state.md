@@ -263,3 +263,11 @@ Balance / available / pending, recorded at slice start and end.
 - Chat data added (permanent, no delete route): C1b conversation `f25793af…` 14 messages (incl. 2 photos), K4 conversation 1 message, J1 conversation 1 message; p1 "New message" notices grew from 1 to 13, c1 from 1 to 2 (affects 7.2 baselines).
 - Device file added: `/sdcard/Pictures/e2e71_chatA.jpg` (labelled fixture "CHAT A").
 - No admin mutating calls.
+
+## Slice 7.2 notes
+
+- Installed build unchanged (`fbe63d63…`). Backend health db up / ml down (E2E-001). The backend's `uptime_s` reset twice during the slice (Render restart or redeploy); no route or behaviour change was seen.
+- **Ledger unchanged** (no money moved): c1 48,423 / 48,423 / 800; c2 150 / 150 / 0; p1 0 / 0 / 800; p2 560.45 / 560.45 / 0.
+- Notification state left behind: c1 all read except 1 ("E2E 7.2 live notice X01"), snapshot 50 (holds more than 50); p1 26 unread; p2 0 unread (19 rows); **c2 has 0 notifications** (row 12 Clear all, approved). Extra C1b chat messages from ORCH seeds: "E2E 7.2 seed notice 51", "clock label seed", "mark-all seed 1-3", "live notice X01" (C1b now 21 messages).
+- Admin mutating call: skill-request reject (p2 request 3cd81f35, "E2E 7.2 fixture", allowed action) to create service-request notices.
+- Burner `maestro.burner.72.1@taskbuddy.test` (provider, for the empty state) registered and deleted (`DELETE /profiles/me` 204; login now fails).

@@ -51,7 +51,7 @@ Handoff is the `docs/handoff/` number, filled in when the slice completes.
 | 6.2 | Withdrawals | Complete | 022 |
 | 6.3 | Top-up, payouts, transfer, vouchers | Complete | 023 |
 | 7.1 | Chat | Complete | 025 |
-| 7.2 | Notifications | Not started — matrix drafted (needs review) | — |
+| 7.2 | Notifications | Complete | 026 |
 | 7.3 | Reviews | Not started | — |
 | 7.4 | Disputes / complaints | Not started | — |
 | 8.1 | Double-tap / race sweep | Not started | — |
