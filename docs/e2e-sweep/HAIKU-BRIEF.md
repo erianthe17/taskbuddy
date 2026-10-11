@@ -111,6 +111,7 @@ report it; the orchestrator handles waits.
 - Provider My Work tabs are Applications / Active / Completed / Cancelled; card pills also say "Cancelled", so tap the Cancelled tab by its bounds.
 - Maestro `inputText` can stall under load (gRPC DEADLINE_EXCEEDED): a log ending on "Input text …" with neither COMPLETED nor FAILED is a failed attempt. A YAML parse error ("Parsing Failed") also leaves `mt.sh` at exit 0.
 - When clearing the login email after the doubling glitch, use keyevents (tap field, `KEYCODE_MOVE_END`, then deletes), not `eraseText` (it leaves residue).
+- Always `export SLICE=<slice>` BEFORE sourcing `api.sh` (or `SLICE=<slice> source …`); sourcing first writes tokens to `scratch/3.2/`.
 - More traps: `mobile/maestro/README.md` sections "Known selector traps" and "Slice 3.2 notes".
 
 ## 5. Per-row protocol

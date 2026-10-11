@@ -229,3 +229,10 @@ Balance / available / pending, recorded at slice start and end.
 - Fixture R1 c98d5700 (c1, urgent, ₱300, never hired): created 13:14:32Z, deadline +5 min, flipped to `recommending` by the scheduler at 13:20:00Z, re-claimed by the retry sweep at 13:37:00Z, one manual Find Providers at 13:39:12Z → generic 500 copy, no run and no invites. Cancelled by ORCH at ~13:45Z. No money moved: c1 48,723 / 48,723 / 500, p1 0/0/500, p2 660.45 / 660.45 / 0.
 - Emulator health: up 27 h, load average ~10. Maestro starts take ~100 s, `hier.sh` hung twice, and the login email-doubling glitch now hits most logins. Three `maestro … mcp` java processes from 2026-10-10 are still running (other sessions' MCP servers; left alone). A cold reboot of the emulator before Phase 6 is advised.
 - Crash sweep: 0 lines in both parts (`~/.taskbuddy-e2e/logs/5.4-logcat.txt`).
+
+## Slice 6.1 notes
+
+- **Emulator cold-rebooted at 2026-10-11 ~14:00Z** (`adb emu kill`, then `Start-Process emulator.exe -avd Medium_Phone -no-snapshot-load -PassThru`; a plain `Start-Process` from the tool shell died with the shell). Timezone came back as GMT and was restored with `adb shell service call alarm 3 s16 Asia/Manila`; autofill disabled again; APK hash unchanged; devstate OK. The login email-doubling glitch persisted after the reboot, so it is not load-related.
+- Read-only slice: no money moved. Ledger (= `~/.taskbuddy-e2e/logs/6.1/ledger-api.txt`): c1 48,723 / 48,723 / 500, total_credited 53,070, total_debited 4,347, 21 rows (11 escrow_hold, 9 refund, 1 topup "Maestro test seed" +50,000 from 2026-09-15); c2 all 0; p1 0 / 0 / 500, no rows; p2 660.45 / 660.45 / 0, one payout.
+- Font scale was set to 1.3 for rows 6.1-13/14 and restored to 1.0 (devstate confirms).
+- Crash sweep: 0 lines in both parts (`~/.taskbuddy-e2e/logs/6.1-logcat.txt`).
