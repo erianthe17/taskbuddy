@@ -258,6 +258,14 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Evidence:** `~/.taskbuddy-e2e/logs/7.4/7.4-30.log`
 - **Suspected cause:** `raise_dispute` refuses only when an open complaint exists (`backend/supabase/migrations/0041_complaints_and_cancellation_review.sql:57-61`), not when a decided one does. Suggested: refuse when any complaint for the job is resolved, and direct the user to appeal.
 
+### E2E-164 — Providers cannot withdraw a pending application from the app
+- **Found:** 2026-10-12, slice 8.1, case 8.1-07   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open (needs product sign-off)
+- **Steps:** p1 applies to an open job, then opens My Work → Applications.
+- **Expected:** a Withdraw control on a pending application. The API supports it, and two parallel withdraws resolve to exactly one (8.1-07 API).   **Actual:** no control anywhere in the app; `api.withdrawApplication` (`mobile/src/lib/api.ts:1283`) has no caller, and `mobile/README.md` "What's Not Wired Yet" doesn't list it. A provider who changes their mind can only wait until they're hired and then decline.
+- **Evidence:** grep `withdrawApplication` in `mobile/` (only the definition); `~/.taskbuddy-e2e/logs/8.1/8.1-07-api.log`
+- **Suspected cause:** the UI was never wired. Add a Withdraw action on pending application cards (SPMyJobsScreen Applications tab).
+
 ## Found & solved` and keep their id.
 
 ## Summary
@@ -267,7 +275,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
 | S3 | 20 | 1 | 0 | 0 | 0 |
-| S4 | 134 | 5 | 1 | 0 | 0 |
+| S4 | 135 | 5 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>

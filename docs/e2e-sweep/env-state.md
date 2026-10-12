@@ -289,3 +289,10 @@ Balance / available / pending, recorded at slice start and end.
 - **Ledger:** start c1 47,523 / 47,523 / 1,700, p1 0 / 0 / 1,700 → F1+F2 hires c1 46,923 / 2,300 → F1 refund 47,223 / 2,000 → F2 refund 47,523 / 1,700 → C1b release **p1 255 / 255 / 1,400** (payout 255.00 = 300 − 45.00 commission at 0.15), **c1 47,523 / 47,523 / 1,400**. c2 150 / 150 / 0; p2 560.45 / 560.45 / 0. No pending withdrawals.
 - `GET /admin/commission` read 0.15 with `updated_at` 2026-10-12T02:40:53Z. The sweep never PATCHes it, so some other actor on the shared backend touched it; the value is unchanged.
 - Admin mutating calls (all allowed dispute resolves): F1 refunded_to_client, F2 refunded_to_client, C1b released_to_provider, K3 reviewed, M1 reviewed, M1 re-file reviewed; plus refused probes (reviewed while held, second resolves, released on a refunded escrow).
+
+## Slice 8.1 notes
+
+- Installed build unchanged. **Emulator cold-rebooted a second time** (2026-10-12 ~16:35 Manila): DNS failed again at only about 2 h uptime, and two stray `emulator` processes were found running. All emulator processes were force-stopped before relaunch. Run `Get-Process emulator*` after any kill to make sure only one instance exists.
+- Fixtures (c1, provider p1): no-budget F-S `3e5a01ec…` (in_progress), F-S2 `a2e586c6…` (in_progress), F-T `edce46f3…` (in_progress, 2/2 tasks), F-C `bf36f98d…` (completed), F-C2 `4ad743d7…` (completed), F-W `8b79ee59…` (open → cancelled at slice end; application withdrawn); F-D `fb310b4d…` ₱300 hire → declined by p1 (refund once). The in-progress no-budget jobs were left as they are, since cancelling them would open 48 h cancellation flows with no money.
+- Ledger: start c1 47,523 / 47,523 / 1,400 → F-D hire 47,223 / 1,700 → decline refund 47,523 / 1,400; a ₱10 withdrawal (row 08) filed then cancelled by ORCH → **c1 47,523 / 47,523 / 1,400**, p1 255 / 255 / 1,400, c2 150, p2 560.45. No pending withdrawals.
+- No admin mutating calls.
