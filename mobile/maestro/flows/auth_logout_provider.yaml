@@ -9,10 +9,10 @@ appId: com.taskbuddy.app
 - scrollUntilVisible:
     element: "Log Out"
 - tapOn: "Log Out"
-- assertVisible: "Are you sure you want to log out?"
+- assertVisible: 'Are you sure you want to log out\?'
 - tapOn:
     text: "Log Out"
-    below: "Are you sure you want to log out?"
+    below: 'Are you sure you want to log out\?'
 - extendedWaitUntil:
-    visible: "Welcome!"
+    visible: "Welcome back"
     timeout: 15000
