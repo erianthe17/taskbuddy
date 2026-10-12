@@ -296,3 +296,13 @@ Balance / available / pending, recorded at slice start and end.
 - Fixtures (c1, provider p1): no-budget F-S `3e5a01ec…` (in_progress), F-S2 `a2e586c6…` (in_progress), F-T `edce46f3…` (in_progress, 2/2 tasks), F-C `bf36f98d…` (completed), F-C2 `4ad743d7…` (completed), F-W `8b79ee59…` (open → cancelled at slice end; application withdrawn); F-D `fb310b4d…` ₱300 hire → declined by p1 (refund once). The in-progress no-budget jobs were left as they are, since cancelling them would open 48 h cancellation flows with no money.
 - Ledger: start c1 47,523 / 47,523 / 1,400 → F-D hire 47,223 / 1,700 → decline refund 47,523 / 1,400; a ₱10 withdrawal (row 08) filed then cancelled by ORCH → **c1 47,523 / 47,523 / 1,400**, p1 255 / 255 / 1,400, c2 150, p2 560.45. No pending withdrawals.
 - No admin mutating calls.
+
+## Slice 8.2 notes
+
+- Installed build unchanged. Emulator from the 16:35 Manila reboot; devstate OK at slice end.
+- Fixtures: F-S82a `28eb161c…` and F-S82b `a4fd70e7…` (c1, no budget, p1) both left in_progress. Burners B1/B2/B3 (`maestro.burner.82.{1,2,3}@`) registered, used (B1 suspended then reinstated by admin; B3 globally signed out; B2 submitted one pending manual verification), then deleted with `DELETE /profiles/me`.
+- Admin mutating calls: suspend B1 and reinstate B1 (burner only, allowed).
+- Stripe: one sandbox Checkout session opened and abandoned (row 07, never paid).
+- **Ledger unchanged:** c1 47,523 / 47,523 / 1,400; p1 255 / 255 / 1,400; c2 150; p2 560.45. No pending withdrawals.
+- The backend never slept during the 16-minute idle (uptime 68,275 s), so a cold start couldn't be produced (row 11 N-A).
+- 8.4 burners already registered for the next sessions (N1–N6, `maestro.burner.84.{1..6}@`; ids in the 8.4 matrix header).

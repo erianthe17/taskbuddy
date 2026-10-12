@@ -266,6 +266,38 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Evidence:** grep `withdrawApplication` in `mobile/` (only the definition); `~/.taskbuddy-e2e/logs/8.1/8.1-07-api.log`
 - **Suspected cause:** the UI was never wired. Add a Withdraw action on pending application cards (SPMyJobsScreen Applications tab).
 
+### E2E-165 — Client Home offline replaces the cached figures with "Couldn't load …" widgets and never says the connection is the problem
+- **Found:** 2026-10-12, slice 8.2, case 8.2-03   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** c1 signs in (Home loads), switches to Calendar, goes offline, returns to Home.
+- **Expected:** the last known balance and jobs stay visible with a "Cannot reach the server" line.   **Actual:** "Couldn't load your wallet", "Couldn't load services" and "Couldn't load your jobs", each with Retry; the balance disappears; nothing mentions the connection. Wallet Retry after reconnecting works.
+- **Evidence:** `evidence/E2E-165-home-offline-widgets.png`
+- **Suspected cause:** Home swaps a failed widget for a fixed title and drops the cached value (`mobile/app/(homeowner)/screens/HOHomeScreen.tsx:155-156`, `:214`).
+
+### E2E-166 — Provider feed offline: an urgency chip shows "0 jobs available / No matching jobs" instead of a connection error
+- **Found:** 2026-10-12, slice 8.2, case 8.2-06   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** p1 on the feed (All loaded) → go offline → tap the Flexible chip.
+- **Expected:** a connection error with Retry.   **Actual:** "0 jobs available around your service area" plus a spinner (and "No matching jobs" in the dump); no connection copy, so an offline provider is told there is no work. Re-tapping after reconnecting gives no visible fresh load.
+- **Evidence:** `evidence/E2E-166-feed-offline-zero-jobs.png`
+- **Suspected cause:** the feed hides the fetch error for a chip with no cached data (`mobile/app/(provider)/screens/SPHomeScreen.tsx:112`, `:348`; `src/hooks/useAsyncData.ts:64-68`). Same family as E2E-088 (online flash of the empty state).
+
+### E2E-167 — Start Job whose response is lost: the server started the job but the screen keeps "Cannot reach the server" and CONFIRMED
+- **Found:** 2026-10-12, slice 8.2, case 8.2-10   **Role:** provider
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** p1 on a confirmed job; in one adb call tap Start Job and cut wifi and data; reconnect after 15 s; wait about 60 s.
+- **Expected:** after reconnecting, the screen catches up with the server (WORK IN PROGRESS), or Retry reloads the job.   **Actual:** Job Details keeps "CONFIRMED BOOKING" with the red "Cannot reach the server…" line; the API says `in_progress` and c1 got one "Work started" notice. My Jobs (re-entered) shows In Progress, so only the detail screen is stale. A second Start tap would hit the server's refusal.
+- **Evidence:** `evidence/E2E-167-start-lost-response.png`
+- **Suspected cause:** on a network error the action handler shows the error but doesn't reload the job, and nothing refreshes on reconnect (`mobile/app/(provider)/screens/SPJobDetailScreen.tsx:119`, `:361-365`). Same family as E2E-043 (stuck saving after a lost response).
+
+### E2E-168 — A suspended user sees half-working screens with raw "Account is deactivated", and a relaunch drops to a bare Login
+- **Found:** 2026-10-12, slice 8.2, cases 8.2-15, 8.2-16   **Role:** both (seen on a client burner)
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Burner B1 signed in. 2. Admin suspends B1. 3. Open Wallet. 4. Force-stop and relaunch. 5. Sign in again.
+- **Expected:** one clear message ("Your account is suspended. Contact support.") and a sign-out, on every path.   **Actual:** step 3: Wallet balance and escrow show "—", the history area shows the raw "Account is deactivated", and Add Money / Withdraw stay active. Step 4: a bare Login with no message. Step 5: "Account suspended" (correct). After reinstatement, sign-in works.
+- **Evidence:** `evidence/E2E-168-suspended-half-working.png`
+- **Suspected cause:** the guard's 403 "Account is deactivated" (`backend/src/auth/jwt-auth.guard.ts:70-71`) is shown raw per screen (`HOWalletScreen.tsx:403`), with no global handler that signs out with a message; the relaunch path drops the session silently (`mobile/src/context/AuthContext.tsx:393-394`). Fix: map 403 deactivated to a global sign-out with the suspension copy.
+
 ## Found & solved` and keep their id.
 
 ## Summary
@@ -275,7 +307,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
 | S3 | 20 | 1 | 0 | 0 | 0 |
-| S4 | 135 | 5 | 1 | 0 | 0 |
+| S4 | 139 | 5 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -604,6 +636,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Suspected cause:** not investigated. It looks like the startup profile fetch fails on the network error and the router falls back to the auth stack. `AuthContext` is out of this sweep's fix scope.
 - **Solution (if solved):** n/a
 
+- **Re-checked 2026-10-12 (8.2-02):** still present. Force-stop, network off, relaunch: a bare Login (empty fields, no message) at 8 s and 25 s while c1's session was valid; online relaunch went straight to Home.
 ### E2E-031 — Change Password: the API accepts a new password equal to the current one
 - **Found:** 2026-10-09, slice 2.1, case 2.1-62   **Role:** both
 - **Category:** backend-bug
@@ -628,6 +661,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Suspected cause:** not investigated. The refresh path is in `api.ts` / `AuthContext` (out of fix scope). A backend invalidation of all sessions on password change plus a client that treats the 401 as a plain sign-out would produce this.
 - **Solution (if solved):** n/a
 
+- **Also seen (2026-10-12, 8.2-14):** after a global sign-out (`POST /auth/logout` from another client), the app's next call drops to a bare Login with no message. The same silent end applies to any revoked session.
 ### E2E-033 — Header back arrows on Edit Profile, Settings and Help & Support have no accessibility label and are about 38dp
 - **Found:** 2026-10-09, slice 2.1, case 2.1-75   **Role:** client (the provider screens are checked in 2.2)
 - **Category:** ux
@@ -1412,6 +1446,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Evidence:** `~/.taskbuddy-e2e/logs/6.2/6.2-10-hier-reload.txt` (before/after reload)
 - **Suspected cause:** `SPWalletScreen` loads once per mount; same family as E2E-075, E2E-091 and E2E-114 (no focus refetch / pull-to-refresh). Money is never wrong server-side.
 
+- **Also seen (2026-10-12, 8.2-05):** the provider Wallet has no pull-to-refresh at all. After an offline first open, a swipe down does nothing; only a tab switch reloads it (the client Wallet has pull-to-refresh).
 ### E2E-126 — Withdrawal notifications show raw amounts: "Your withdrawal of 50 was not processed…", "Your withdrawal of 100 has been sent"
 - **Found:** 2026-10-12, slice 6.2, case 6.2-10/11   **Role:** provider (any user who withdraws)
 - **Category:** backend-bug   **Severity:** S4   **Status:** Open
