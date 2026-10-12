@@ -271,3 +271,12 @@ Balance / available / pending, recorded at slice start and end.
 - Notification state left behind: c1 all read except 1 ("E2E 7.2 live notice X01"), snapshot 50 (holds more than 50); p1 26 unread; p2 0 unread (19 rows); **c2 has 0 notifications** (row 12 Clear all, approved). Extra C1b chat messages from ORCH seeds: "E2E 7.2 seed notice 51", "clock label seed", "mark-all seed 1-3", "live notice X01" (C1b now 21 messages).
 - Admin mutating call: skill-request reject (p2 request 3cd81f35, "E2E 7.2 fixture", allowed action) to create service-request notices.
 - Burner `maestro.burner.72.1@taskbuddy.test` (provider, for the empty state) registered and deleted (`DELETE /profiles/me` 204; login now fails).
+
+## Slice 7.3 notes
+
+- Installed build unchanged (`fbe63d63…`). Backend health db up / ml down (E2E-001).
+- **Fixtures (ORCH, money):** C1b taken to completed (start, task, complete; ₱300 stays held until its warranty ends 2026-10-14T23:59Z). New c1 jobs R4 `3ed811c9…`, R5 `4efd0df7…`, R10 `96fb61a7…` (each ₱300, p1, completed; warranties end about 2026-10-15T00:00Z). O2 `9cb0c341…` (open, p1 applied) cancelled at slice end; X1 `4203ee0d…` (₱300 hire) declined by p1 at slice end (refund once).
+- **Ledger:** start c1 48,423 / 48,423 / 800 → after fixtures 47,223 / 47,223 / 2,000 → after the X1 decline **47,523 / 47,523 / 1,700**; p1 0 / 0 / 1,700 (J1 500 + C1b, R4, R5, R10 300 each); c2 150 / 150 / 0; p2 560.45 / 560.45 / 0. Reviews move no money.
+- **Reviews now on record (permanent):** p1 has 5 (J1 4 "E2E 7.3 great work"; R4 4, comment three spaces; R5 5 Taglish; R10 5, 500-code-point comment; C1b 2), API average 4.0 over 5; p2 has 1 (M1 3, no comment), average 3.0.
+- **Escrow auto-release due (payments sweep, no admin action):** J1 at 2026-10-14T12:03:57Z (p1 +425.00); C1b, R4, R5, R10 at about 2026-10-14T23:59Z to 2026-10-15T00:00Z (p1 +255.00 each at a 15 % commission).
+- No admin mutating calls.

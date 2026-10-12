@@ -1,0 +1,70 @@
+appId: com.taskbuddy.app
+name: p7 client reviewed completed job J1 shows Review submitted and no Leave Review
+tags:
+  - client
+  - reviews
+---
+# Slice 7.3 rows 7.3-15 and 7.3-17 (a reviewed completed job shows "Review submitted" and no "Leave Review"),
+# client maestro.client@. Row 7.3-02 is not covered by this flow. Read-only: the flow never taps anything on
+# Job Details (not Review submitted, Message, File a Complaint, View Complaint Status or Leave Review), and it
+# creates nothing.
+# It relies on the persistent completed and reviewed job "E2E 4.3 J1 two applicants" (1e4de8e9-68db-4a2d-9042-cc6a953b2254)
+# of maestro.client@, whose review (rating 4) was submitted in row 7.3-15.
+# Login is inlined from p7_chat_completed_job_client.yaml (launch_fresh helper, email-doubling guard, Skip handling).
+# The filter chip is tapped with text "Completed" and index 0 (the first "Completed" in the tree, y about 12% of
+# the screen; the card pills come later).
+# J1 is card 5 in the Completed list, below the first screen, so the flow waits for card 0 to load and then
+# scrolls to the J1 title before tapping it.
+- runFlow: _helpers/launch_fresh.yaml
+- tapOn:
+    id: "input-email"
+- inputText: "maestro.client@taskbuddy.test"
+- runFlow:
+    when:
+      notVisible: "maestro.client@taskbuddy.test"
+    commands:
+      - eraseText: 60
+      - inputText: "maestro.client@taskbuddy.test"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- tapOn:
+    id: "btn-sign-in"
+- extendedWaitUntil:
+    visible: ".*(Skip|Find a service).*"
+    timeout: 60000
+- tapOn:
+    text: "Skip"
+    optional: true
+- extendedWaitUntil:
+    visible: "Find a service"
+    timeout: 60000
+- tapOn:
+    text: "Allow"
+    optional: true
+# Row 7.3-17 setup: My Jobs, then the Completed filter chip (not a card pill).
+- tapOn:
+    id: "nav-tab-My Jobs"
+- tapOn:
+    text: "Completed"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "my-jobs-card-0"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "E2E 4.3 J1 two applicants"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: "E2E 4.3 J1 two applicants"
+# Job Details: "Review submitted" sits below the fold, above the sticky File a Complaint footer.
+- scrollUntilVisible:
+    element:
+      text: "Review submitted"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "Review submitted"
+- assertNotVisible: "Leave Review"

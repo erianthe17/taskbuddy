@@ -16,6 +16,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Evidence:** `evidence/E2E-133-draft-gone.png`
 - **Suspected cause:** the draft is component state (`HOChatScreen.tsx:68`) and `App.tsx:589-600` unmounts the chat when the route changes. Same class as E2E-051 (wizard draft).
 
+- **Also seen (2026-10-12, 7.3-21):** Leave Review loses its stars and typed comment when you leave with the header back arrow and come back.
 ### E2E-134 — Chat: back arrow, attach and Send buttons have no accessibility label
 - **Found:** 2026-10-12, slice 7.1, case 7.1-29   **Role:** both
 - **Category:** ux   **Severity:** S4   **Status:** Open
@@ -176,6 +177,54 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Evidence:** `evidence/E2E-153-mark-all-retry-stays.png`
 - **Suspected cause:** the banner's Retry calls `reload` rather than the failed action, and the error state isn't cleared on success (`HONotificationsScreen.tsx:100`, `:188-191`). Fix: remember the failed action and retry it; clear the error on any success.
 
+### E2E-154 — API validates the body before checking ownership, so non-owners get 400 instead of 403
+- **Found:** 2026-10-12, slice 7.3, case 7.3-25 (same family as E2E-135 in chat)   **Role:** both (API)
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open
+- **Steps:** As maestro.client2 (not the job owner) `POST /jobs/<J1>/review {"rating":0}`.
+- **Expected:** 403 "Not your job", as for a valid body.   **Actual:** 400 "rating must not be less than 1". Nothing is created and nothing leaks. It only tells a non-owner that the job id exists and what shape the body must take, and makes the error order inconsistent.
+- **Evidence:** `~/.taskbuddy-e2e/logs/7.3/7.3-25.log`
+- **Suspected cause:** the global `ValidationPipe` (`backend/src/main.ts:39-43`) runs before the service-level ownership check (`backend/src/reviews/reviews.service.ts:24`). This is accepted NestJS behaviour; the fix is optional (a guard that checks ownership before the pipe). Recorded for the backend team, low priority.
+
+### E2E-155 — Review comment has no 500-character cap in the app; the server's raw validator text shows and stays
+- **Found:** 2026-10-12, slice 7.3, case 7.3-10   **Role:** client
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** Leave Review → 3 stars → type 501 characters → Submit Review.
+- **Expected:** the field stops at 500 (the DTO limit, `backend/src/reviews/dto/reviews.dto.ts:18`) or shows a counter; any refusal reads as a sentence.   **Actual:** the field takes all 501. Submit shows the raw "comment must be shorter than or equal to 500 characters" in red, and the line stays even after the field is cleared. Nothing is stored.
+- **Evidence:** `evidence/E2E-155-review-501-raw-error.png`
+- **Suspected cause:** the comment `TextInput` has no `maxLength` (`mobile/app/(homeowner)/screens/HOLeaveReviewScreen.tsx:117-126`), and the error is cleared only on the next submit (`:65`, `:132`). Same family as E2E-130, E2E-139. Fix: `maxLength={500}`, and clear the error on edit.
+
+### E2E-156 — After reviewing, the client has no way to see the provider's profile or the review from the completed job
+- **Found:** 2026-10-12, slice 7.3, case 7.3-28   **Role:** client
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Completed job J1 (reviewed) → Job Details → tap the provider name or the rating line on the Service Provider card.
+- **Expected:** a route to the provider's profile (where reviews are listed), or the submitted review shown on the job.   **Actual:** nothing opens; only Message is clickable in the card. The card shows "4.0 · 5 jobs completed", and the job page shows "Review submitted" but not the stars or text that were given. The profile is reachable only from an open job's Proposals list.
+- **Evidence:** `evidence/E2E-156-no-provider-profile-route.png`
+- **Suspected cause:** the Service Provider card is a plain View (`HOJobDetailScreen.tsx:324-348`); `HOProviderProfileScreen` is opened only from `HOJobApplicationsScreen.tsx:274`.
+
+### E2E-157 — A whitespace-only review comment is stored as spaces instead of "no comment"
+- **Found:** 2026-10-12, slice 7.3, case 7.3-09   **Role:** client
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** Leave Review → 4 stars → type three spaces in the comment → Submit Review.
+- **Expected:** treated as no comment (stored null), like an empty field (7.3-08 stores null).   **Actual:** stored comment is `"   "` (length 3); profile review lists will render it as a blank comment block.
+- **Evidence:** `evidence/E2E-157-whitespace-review.png`; API check in `~/.taskbuddy-e2e/logs/7.3/7.3-09.log`
+- **Suspected cause:** the app sends the untrimmed text (`HOLeaveReviewScreen.tsx:62`) and the service stores `comment ?? null` without trimming (`backend/src/reviews/reviews.service.ts:47`). Fix: trim on both sides and store null when empty.
+
+### E2E-158 — A verified provider's own Rating stays stale after a new review (until re-login)
+- **Found:** 2026-10-12, slice 7.3, case 7.3-30   **Role:** provider
+- **Category:** app-bug   **Severity:** S4   **Status:** Open
+- **Steps:** p1 (verified) opens Profile (Rating 4.5). A client reviews another p1 job with 2 stars (API average becomes 4.0, count 5). Wait 30 s; go back to the feed and reopen Profile.
+- **Expected:** Rating 4.0.   **Actual:** still "4.5" on the open screen and after reopening; the client-side profile and the API show 4.0.
+- **Evidence:** `evidence/E2E-158-provider-rating-stale.png`
+- **Suspected cause:** the profile reads the cached AuthContext profile (`SPProfileScreen.tsx:84`), refreshed only for unverified providers (`:95-97`) or by edit/avatar/skill-request flows (`AuthContext.tsx:462-470`). Fix: refresh the profile on focus.
+
+### E2E-159 — Providers can't see the reviews they received (no list, no count)
+- **Found:** 2026-10-12, slice 7.3, case 7.3-31 (and 7.3-29)   **Role:** provider (count also missing on the client view)
+- **Category:** ux   **Severity:** S4   **Status:** Open (needs product sign-off)
+- **Steps:** p1 with 5 reviews → Profile → scroll the whole screen.
+- **Expected:** the rating with its count and a list of received reviews (stars, job, comment), which the client side already renders.   **Actual:** only "Rating 4.5" and "Jobs Done 5"; no count, no list, no comments. The client view (Provider Profile from Proposals) lists the reviews but also shows no count ("4.5★ · 5 completed jobs", where 5 is jobs, not reviews).
+- **Evidence:** `evidence/E2E-159-no-reviews-list.png`
+- **Suspected cause:** `SPProfileScreen.tsx:89-90`, `:155-156` render only the cached average; `cached_ratings_count` is typed but never shown (`api.ts:230`, `:279`; `HOProviderProfileScreen.tsx:110-112`).
+
 ## Found & solved` and keep their id.
 
 ## Summary
@@ -185,7 +234,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
 | S3 | 19 | 1 | 0 | 0 | 0 |
-| S4 | 125 | 5 | 1 | 0 | 0 |
+| S4 | 131 | 5 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -551,6 +600,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Solution (if solved):** n/a
 - **Update 2026-10-09 (slice 2.2, case 2.2-18):** reproduced on the provider side. Edit Profile, Settings and Help & Support back arrows: no label, 38x38dp. Profile "Back to Feed" is labelled but 38dp; My Services "Back" 38dp; My Portfolio "Back" 44dp. Method: `adb shell uiautomator dump`, clickable nodes, px / 2.625.
 
+- **Also seen (2026-10-12):** the same unlabelled ~38 dp header back arrow on Chat (7.1-29, E2E-134), Notifications (7.2-33, E2E-148) and Leave Review (7.3-07). The Leave Review stars are labelled ("1 star" … "5 stars") at about 45 dp.
 ### E2E-034 — Edit Profile: the Bio field capitalises every word ("sa" saves as "Sa")
 - **Found:** 2026-10-09, slice 2.2, case 2.2-31   **Role:** provider
 - **Category:** ux
