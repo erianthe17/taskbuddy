@@ -1,0 +1,86 @@
+appId: com.taskbuddy.app
+name: p7 client sees a decided complaint as Closed with the recorded decision and the appeal composer
+tags:
+  - client
+  - complaints
+---
+# Slice 7.4 rows 7.4-16, 7.4-26 and 7.4-28 (a decided complaint shows Closed with the recorded decision and the
+# appeal composer), client maestro.client@. Read-only: the flow never taps anything on Complaint Status (not
+# Refresh, the appeal text box, "Choose job chat evidence" or "Submit appeal"), and it creates nothing.
+# It relies on the persistent completed job "E2E 7.1 C1b chat job" (67a3666e-0b16-4898-bd3d-d3fd6724f8b7) of
+# maestro.client@, whose complaint a49ea967 was decided released_to_provider in row 7.4-26.
+# "Decision recorded: released_to_provider" is the raw enum text (known finding E2E-112): update that assertion
+# when E2E-112 is fixed.
+# Login is inlined from p7_review_submitted_client.yaml (launch_fresh helper, email-doubling guard, Skip handling).
+# The filter chip is tapped with text "Completed" and index 0 (the first "Completed" in the tree, y about 12% of
+# the screen; the card pills come later).
+# C1b is card 4 in the Completed list, below the first screen, so the flow waits for card 0 to load and then
+# scrolls to the C1b title before tapping it. J1 is never opened.
+- runFlow: _helpers/launch_fresh.yaml
+- tapOn:
+    id: "input-email"
+- inputText: "maestro.client@taskbuddy.test"
+- runFlow:
+    when:
+      notVisible: "maestro.client@taskbuddy.test"
+    commands:
+      - eraseText: 60
+      - inputText: "maestro.client@taskbuddy.test"
+- tapOn:
+    id: "input-password"
+- inputText: "TestPass123!"
+- hideKeyboard
+- tapOn:
+    id: "btn-sign-in"
+- extendedWaitUntil:
+    visible: ".*(Skip|Find a service).*"
+    timeout: 60000
+- tapOn:
+    text: "Skip"
+    optional: true
+- extendedWaitUntil:
+    visible: "Find a service"
+    timeout: 60000
+- tapOn:
+    text: "Allow"
+    optional: true
+# Row 7.4-28 setup: My Jobs, then the Completed filter chip (not a card pill).
+- tapOn:
+    id: "nav-tab-My Jobs"
+- tapOn:
+    text: "Completed"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "my-jobs-card-0"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "E2E 7.1 C1b chat job"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: "E2E 7.1 C1b chat job"
+# Job Details: "View Complaint Status" is in the sticky footer of a job that has a complaint.
+- scrollUntilVisible:
+    element:
+      text: "View Complaint Status"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: "View Complaint Status"
+# Complaint Status fetches from the backend after its title renders, so wait for the decision line first.
+- extendedWaitUntil:
+    visible: "Decision recorded: released_to_provider"
+    timeout: 60000
+- assertVisible: "Complaint Status"
+- assertVisible: "Closed"
+- assertVisible: "Work not completed"
+- assertVisible: "Decision recorded: released_to_provider"
+# The closed composer sits below the fold: scroll only (no tap on this screen), then assert it.
+- scrollUntilVisible:
+    element:
+      text: "Submit appeal"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "Submit appeal"

@@ -122,6 +122,7 @@ report it; the orchestrator handles waits.
 - `adb shell` reads stdin: inside a `while read … done < file` (or a pipe) it swallows the rest of the input, so only the first chunk is typed. Add `</dev/null` to every `adb shell` in such loops.
 - `hier.sh` leaves out icon-only controls (header back arrows, the chat paperclip and Send, the notifications bell). Take their bounds from a raw dump: `adb shell uiautomator dump /sdcard/u.xml >/dev/null && adb shell cat /sdcard/u.xml`. Bounds move when the keyboard is up, so re-dump.
 - Right after `svc wifi enable; svc data enable`, `devstate.sh` can report `net_ping=down` / `dns=fail` for about 10 s. Retry once before calling it a failure.
+- If `devstate.sh` keeps reporting `dns=fail` for more than about 30 s, or an "isn't responding" dialog appears for TaskBuddy or another app, the emulator itself is degraded (seen after ~11 h uptime in 7.4). Do not dismiss the dialog and do not retry: screenshot, save `adb shell cat /proc/loadavg` and the devstate output to the log, then STOP. The orchestrator cold-reboots the emulator.
 - More traps: `mobile/maestro/README.md` sections "Known selector traps" and "Slice 3.2 notes".
 
 ## 5. Per-row protocol

@@ -280,3 +280,12 @@ Balance / available / pending, recorded at slice start and end.
 - **Reviews now on record (permanent):** p1 has 5 (J1 4 "E2E 7.3 great work"; R4 4, comment three spaces; R5 5 Taglish; R10 5, 500-code-point comment; C1b 2), API average 4.0 over 5; p2 has 1 (M1 3, no comment), average 3.0.
 - **Escrow auto-release due (payments sweep, no admin action):** J1 at 2026-10-14T12:03:57Z (p1 +425.00); C1b, R4, R5, R10 at about 2026-10-14T23:59Z to 2026-10-15T00:00Z (p1 +255.00 each at a 15 % commission).
 - No admin mutating calls.
+
+## Slice 7.4 notes
+
+- Installed build unchanged (`fbe63d63…`). Backend health db up / ml down (E2E-001).
+- **Emulator cold-rebooted mid-slice (2026-10-12 ~09:45 Manila):** after ~11.5 h uptime the emulator's DNS failed (it could ping by IP but not resolve the backend), and TaskBuddy plus Google Calendar raised ANRs ("Input dispatching timed out") during a setup login. This is environment, not an app bug. After the reboot devstate was OK, the timezone was restored, the APK sha was unchanged and autofill was off. HAIKU-BRIEF gained a degraded-emulator STOP rule.
+- **Fixtures (ORCH):** F1 `4b1e0cf0…` (₱300 hire, confirmed) → complaint → admin refund; F2 `259ed67b…` (₱300 hire, started, tasks ticked by ORCH, completed by c1 with the complaint open) → admin refund; O1 `2d50d62e…` (open) cancelled at slice end; C1b complaint → admin `released_to_provider` (used in place of J1, so J1 stays untouched for the auto-release check); K3 complaint (API) closed `reviewed`; M1 complaint reopened by appeals and closed `reviewed`; a re-filed M1 complaint (E2E-163) closed `reviewed`.
+- **Ledger:** start c1 47,523 / 47,523 / 1,700, p1 0 / 0 / 1,700 → F1+F2 hires c1 46,923 / 2,300 → F1 refund 47,223 / 2,000 → F2 refund 47,523 / 1,700 → C1b release **p1 255 / 255 / 1,400** (payout 255.00 = 300 − 45.00 commission at 0.15), **c1 47,523 / 47,523 / 1,400**. c2 150 / 150 / 0; p2 560.45 / 560.45 / 0. No pending withdrawals.
+- `GET /admin/commission` read 0.15 with `updated_at` 2026-10-12T02:40:53Z. The sweep never PATCHes it, so some other actor on the shared backend touched it; the value is unchanged.
+- Admin mutating calls (all allowed dispute resolves): F1 refunded_to_client, F2 refunded_to_client, C1b released_to_provider, K3 reviewed, M1 reviewed, M1 re-file reviewed; plus refused probes (reviewed while held, second resolves, released on a refunded escrow).

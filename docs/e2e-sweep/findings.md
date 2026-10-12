@@ -17,6 +17,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Suspected cause:** the draft is component state (`HOChatScreen.tsx:68`) and `App.tsx:589-600` unmounts the chat when the route changes. Same class as E2E-051 (wizard draft).
 
 - **Also seen (2026-10-12, 7.3-21):** Leave Review loses its stars and typed comment when you leave with the header back arrow and come back.
+- **Also seen (2026-10-12, 7.4-20):** the complaint filing screen drops the typed details and the chosen reason ("Other" → back to "Payment or cancellation issue") when you leave and reopen it.
 ### E2E-134 — Chat: back arrow, attach and Send buttons have no accessibility label
 - **Found:** 2026-10-12, slice 7.1, case 7.1-29   **Role:** both
 - **Category:** ux   **Severity:** S4   **Status:** Open
@@ -225,6 +226,38 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Evidence:** `evidence/E2E-159-no-reviews-list.png`
 - **Suspected cause:** `SPProfileScreen.tsx:89-90`, `:155-156` render only the cached average; `cached_ratings_count` is typed but never shown (`api.ts:230`, `:279`; `HOProviderProfileScreen.tsx:110-112`).
 
+### E2E-160 — Complaint status: with "Appeal" selected, the button still says "Submit statement"
+- **Found:** 2026-10-12, slice 7.4, case 7.4-10   **Role:** both
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** Open complaint → View Complaint Status → tap the "Appeal" segment.
+- **Expected:** the button, placeholder and copy switch to the appeal wording ("Submit appeal").   **Actual:** the Appeal segment shows as selected, but the button still reads "Submit statement" and the placeholder stays "Explain what happened…". The entry kind sent is appeal (HOStat:34), so the user is told one thing and sends another.
+- **Evidence:** `evidence/E2E-160-appeal-label.png`
+- **Suspected cause:** the button label is keyed on the complaint status, not the selected kind (`mobile/app/(homeowner)/screens/HODisputeStatusScreen.tsx:127`).
+
+### E2E-161 — Provider's complaint filing screen names the provider themself as the other party
+- **Found:** 2026-10-12, slice 7.4, case 7.4-12   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** p1 → F2 (in progress) → File a Complaint.
+- **Expected:** the subtitle names the job and the client (the other party), or just the job.   **Actual:** "E2E 7.4 F2 in progress complaint · Maestro Provider", the caller's own name (also truncated on screen to "…Maestro Prov…"). The client sees the provider's name, which is correct for them.
+- **Evidence:** `evidence/E2E-161-filing-subtitle-own-name.png`
+- **Suspected cause:** the shared filing screen always uses `assigned_provider` for the subtitle (`mobile/app/(homeowner)/screens/HODisputeFilingScreen.tsx:53-55`); pick the counterpart by role.
+
+### E2E-162 — After an admin refunds a complaint on a confirmed job, the job stays active with nothing held
+- **Found:** 2026-10-12, slice 7.4, case 7.4-24   **Role:** both
+- **Category:** backend-bug   **Severity:** S3   **Status:** Open (needs product decision on the end state)
+- **Steps:** 1. c1 hires p1 (₱300 held), job confirmed. 2. c1 files a complaint. 3. Admin resolves `refunded_to_client` → c1 gets +300.
+- **Expected:** the job ends (cancelled or closed) or is clearly flagged, so no work starts on an unfunded booking.   **Actual:** the job stays `confirmed`. The client still sees Cancel Job, and the provider still has Start Job (7.4-11 showed it offered while the complaint was open). Nothing stops the provider doing the work and completing a job whose payment was already returned. Cancelling now would open a new 48 h cancellation flow on a job with no money.
+- **Evidence:** `evidence/E2E-162-refunded-job-still-active.png`; `~/.taskbuddy-e2e/logs/7.4/7.4-24.log`
+- **Suspected cause:** the resolve function updates only the complaint and escrow (`backend/supabase/migrations/0041_complaints_and_cancellation_review.sql:240-244`). Job start and complete don't check the escrow or dispute state (`backend/src/jobs/jobs.service.ts:347-363`). Suggested: on `refunded_to_client` for a pre-completion job, cancel the job (or block start/complete when the escrow is refunded).
+
+### E2E-163 — The API accepts a new complaint on a job whose complaint was already decided
+- **Found:** 2026-10-12, slice 7.4, case 7.4-30   **Role:** client (API)
+- **Category:** backend-bug   **Severity:** S4   **Status:** Open
+- **Steps:** M1 (completed, escrow released, complaint closed `released_to_provider`, then reopened by appeal and closed `reviewed`). As c1 `POST /jobs/M1/disputes {"reason":"Work quality issue","details":"…"}`.
+- **Expected:** 400, because the decision stands and appeals are the path to reopen (the app hides File a Complaint and offers only View Complaint Status).   **Actual:** 201, a new open complaint on the released escrow (nothing to freeze; no money moved), so an admin gets a second case for the same job.
+- **Evidence:** `~/.taskbuddy-e2e/logs/7.4/7.4-30.log`
+- **Suspected cause:** `raise_dispute` refuses only when an open complaint exists (`backend/supabase/migrations/0041_complaints_and_cancellation_review.sql:57-61`), not when a decided one does. Suggested: refuse when any complaint for the job is resolved, and direct the user to appeal.
+
 ## Found & solved` and keep their id.
 
 ## Summary
@@ -233,8 +266,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 |---|---|---|---|---|---|
 | S1 | 0 | 0 | 0 | 0 | 0 |
 | S2 | 0 | 0 | 0 | 0 | 1 |
-| S3 | 19 | 1 | 0 | 0 | 0 |
-| S4 | 131 | 5 | 1 | 0 | 0 |
+| S3 | 20 | 1 | 0 | 0 | 0 |
+| S4 | 134 | 5 | 1 | 0 | 0 |
 
 <details>
 <summary>Entry template</summary>
@@ -601,6 +634,8 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Update 2026-10-09 (slice 2.2, case 2.2-18):** reproduced on the provider side. Edit Profile, Settings and Help & Support back arrows: no label, 38x38dp. Profile "Back to Feed" is labelled but 38dp; My Services "Back" 38dp; My Portfolio "Back" 44dp. Method: `adb shell uiautomator dump`, clickable nodes, px / 2.625.
 
 - **Also seen (2026-10-12):** the same unlabelled ~38 dp header back arrow on Chat (7.1-29, E2E-134), Notifications (7.2-33, E2E-148) and Leave Review (7.3-07). The Leave Review stars are labelled ("1 star" … "5 stars") at about 45 dp.
+- **Also seen (2026-10-12, 7.4-07):** the complaint filing screen's six reason rows report checkable=false / checked=false, so the selected reason isn't announced.
+- **Also seen (2026-10-12, 7.4-23):** filing screen: the back arrow is unlabelled and the details box has no label (placeholder only). The complaint status screen is labelled correctly (Back, Refresh complaint, radio segments, Case statement, checkbox evidence rows).
 ### E2E-034 — Edit Profile: the Bio field capitalises every word ("sa" saves as "Sa")
 - **Found:** 2026-10-09, slice 2.2, case 2.2-31   **Role:** provider
 - **Category:** ux
@@ -1240,6 +1275,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Evidence:** `evidence/E2E-109-provider-declined-complaint.png`
 - **Suspected cause:** by design in the backend: `raise_job_dispute` accepts `cancelled` jobs with an assigned provider (`backend/supabase/migrations/0041_complaints_and_cancellation_review.sql:53`), and both screens mirror it (`mobile/app/(homeowner)/screens/HOJobDetailScreen.tsx:161-164`, `mobile/app/(provider)/screens/SPJobDetailScreen.tsx:375-380`). Product call: keep it (e.g. a complaint about a late decline), or hide it when the escrow is already `cancelled`/`refunded`.
 
+- **Re-checked 2026-10-12 (7.4-05):** still present on both roles. Cancelled, refunded K3 shows "File a Complaint" as the only client footer action, and the provider (p2) sees "File a Complaint" next to "Booking Cancelled".
 ### E2E-110 — The client who cancelled gets the provider's instructions: "Provider: agree or contest within 48 hours…"
 - **Found:** 2026-10-11, slice 5.2, case 5.2-08   **Role:** client
 - **Category:** backend-bug   **Severity:** S4   **Status:** Open
