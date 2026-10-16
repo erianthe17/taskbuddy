@@ -34,6 +34,7 @@ import {
 import Tap from '../../../src/components/ui/Tap';
 import BottomActionBar from '../../../src/components/ui/BottomActionBar';
 import ContentSkeleton from '../../../src/components/ui/ContentSkeleton';
+import RefreshBar from '../../../src/components/ui/RefreshBar';
 import Silhouette from '../../../src/components/ui/Silhouette';
 import { ArrowLeft, BadgeCheck, CheckCircle2, MessageCircle, ShieldAlert, Star } from 'lucide-react-native';
 import { Spacing } from '../../../src/constants/theme';
@@ -82,6 +83,11 @@ export default function HOProviderProfileScreen({
   useRefreshOnForeground(reload, true);
   const portfolio=useAsyncData(()=>api.providerPortfolio(id),[id]);
   useRefreshOnForeground(portfolio.reload,true);
+  // Approved, unexpired credentials only; a failed load just hides the section.
+  const credentials = useAsyncData(
+    () => Promise.resolve().then(() => api.providerCredentials(id)).catch(() => []),
+    [id],
+  );
   const provider = data?.provider ?? null;
   const reviews: any[] = data?.reviews ?? [];
   const work = data?.work ?? [];
@@ -103,14 +109,16 @@ export default function HOProviderProfileScreen({
         <Text style={styles.headerTitle}>Provider Profile</Text>
       </View>
 
-      {loading && <ContentSkeleton variant="detail" />}
+      {/* The skeleton only stands in for a profile not loaded yet; a reload keeps the profile and shows the bar. */}
+      {loading && !data && <ContentSkeleton variant="detail" />}
+      {loading && !!data && <RefreshBar />}
       {!!error && !loading && (
         <View style={styles.errorWrap}>
           <LoadErrorCard title="Couldn't load this provider" message={error} onRetry={reload} />
         </View>
       )}
 
-      {!loading && provider && (
+      {provider && (
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
           {/* Hero — matches .public-hero */}
           <View style={styles.hero}>
@@ -173,6 +181,17 @@ export default function HOProviderProfileScreen({
             <View style={styles.section}>
               <Text style={styles.sectionTitle} accessibilityRole="header">About</Text>
               <Text style={styles.bio}>{provider.bio}</Text>
+            </View>
+          )}
+
+          {(credentials.data?.length ?? 0) > 0 && (
+            <View style={styles.section} testID="provider-credentials">
+              <Text style={styles.sectionTitle} accessibilityRole="header">Certified</Text>
+              {credentials.data!.map((item) => (
+                <Text key={item.id} style={styles.bio}>
+                  {`${item.title} · ${item.issuer}${item.service_categories ? ` · ${item.service_categories.name}` : ''}`}
+                </Text>
+              ))}
             </View>
           )}
 

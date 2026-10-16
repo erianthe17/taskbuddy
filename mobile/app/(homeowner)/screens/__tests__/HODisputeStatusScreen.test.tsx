@@ -53,8 +53,11 @@ it('allows appeals on closed cases without offering payment reversal', async () 
   (api.jobDispute as jest.Mock).mockResolvedValue({ ...base, status: 'resolved', resolution: 'reviewed', resolution_note: 'Decision documented' });
   show();
   await screen.findByText('Decision documented');
-  await act(async () => { fireEvent.press(screen.getByText('Disagree? Appeal this decision')); });
-  await screen.findByText('Appeal this decision');
+  // The appeal is the only action at the foot of a closed case; there is no duplicate back action.
+  expect(screen.queryByText(/^Back to My/)).toBeNull();
+  expect(screen.queryByText('Disagree? Appeal this decision')).toBeNull();
+  await act(async () => { fireEvent.press(screen.getByText('Appeal this decision')); });
+  await screen.findByLabelText(SHEET_FIELD);
   fireEvent.changeText(screen.getByLabelText(SHEET_FIELD), 'Please reconsider this evidence');
   await act(async () => { fireEvent.press(screen.getByText('Send appeal')); });
   await waitFor(() => expect(api.addDisputeEntry).toHaveBeenCalledWith('case', expect.objectContaining({ kind: 'appeal' })));
@@ -77,7 +80,7 @@ it('asks before agreeing, and sends the answer only once the refund is confirmed
   fireEvent.changeText(screen.getByLabelText('Your note'), 'Agreed, sorry for the trouble');
   fireEvent.press(screen.getByText('Agree to cancel'));
   expect(await screen.findByText('Agree to cancel?')).toBeTruthy();
-  expect(screen.getByText(/₱800.00 goes back to the client's wallet/)).toBeTruthy();
+  expect(screen.getByText(/₱800.00 goes back to the client's payment method/)).toBeTruthy();
   expect(api.respondToCancellation).not.toHaveBeenCalled();
   fireEvent.press(screen.getByLabelText('Go back'));
   await waitFor(() => expect(screen.queryByText('Agree to cancel?')).toBeNull());

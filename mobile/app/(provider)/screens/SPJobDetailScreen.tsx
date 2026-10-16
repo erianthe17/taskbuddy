@@ -31,6 +31,8 @@ import ConfirmationModal from '../../../src/components/ConfirmationModal';
 import { showToast } from '../../../src/components/Toast';
 import BottomActionBar from '../../../src/components/ui/BottomActionBar';
 import ContentSkeleton from '../../../src/components/ui/ContentSkeleton';
+import RefreshBar from '../../../src/components/ui/RefreshBar';
+import { startDateNote } from '../../../src/lib/jobStartDate';
 import MenuSheet, { type MenuSheetItem } from '../../../src/components/ui/MenuSheet';
 import PersonCard from '../../../src/components/ui/PersonCard';
 import ProgressStepper from '../../../src/components/ui/ProgressStepper';
@@ -80,7 +82,7 @@ function labelFor(action: Action, pending: boolean): string {
     case 'startJob': return 'Start job';
     case 'declineBooking': return "Can't make it? Decline booking";
     case 'message': return 'Message client';
-    case 'viewWallet': return 'View in wallet';
+    case 'viewWallet': return 'View payouts';
     case 'reportProblem': return 'Report a problem';
     case 'viewCase': return 'View Complaint Status';
     default: return '';
@@ -156,9 +158,12 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
     avatarUrl: clientConversation?.counterpart_avatar_url ?? null,
   };
   const startAddress = job?.address?.trim();
-  const startMessage = startAddress
+  const startWhere = startAddress
     ? `Do this when you're at ${startAddress}. The client gets a notification that you've started.`
     : "Do this when you're at the job.";
+  // A date more than a day off from now is said first, and the button then reads "Start now".
+  const startNote = startDateNote(job?.scheduled_at, new Date());
+  const startMessage = startNote ? `${startNote}\n\n${startWhere}` : startWhere;
 
   const errorMessage = (e: unknown) =>
     e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
@@ -292,7 +297,7 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
         onNavigate('Chat', current.id);
         return;
       case 'viewWallet':
-        onNavigate('Wallet');
+        onNavigate('Payout Account');
         return;
       case 'reportProblem':
         onNavigate('Dispute Filing', current.id);
@@ -335,7 +340,9 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
         )}
       </View>
 
-      {(loading || applicationsSettling) && <ContentSkeleton variant="detail" />}
+      {/* The skeleton only stands in for a job not loaded yet; a reload keeps the job and shows the bar. */}
+      {((loading && !job) || applicationsSettling) && <ContentSkeleton variant="detail" />}
+      {loading && !!job && <RefreshBar />}
       {/* F7: an unavailable job (e.g. hired by someone else) gets a real
           error card instead of a bare grey line on an empty page. */}
       {!!error && !loading && (
@@ -387,7 +394,7 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
                   <Text style={styles.earnValue}>{releaseDay}</Text>
                 </View>
               )}
-              <Text style={styles.footnote}>A platform fee is taken when it's paid out. The exact amount shows in your Wallet.</Text>
+              <Text style={styles.footnote}>A platform fee is taken when it's paid out to your linked GCash, Maya or bank account.</Text>
             </View>
           )}
 
@@ -534,7 +541,7 @@ export default function SPJobDetailScreen({ jobId, onBack, onNavigate }: SPJobDe
         visible={startOpen}
         title="Start the job now?"
         message={startMessage}
-        confirmLabel="I'm here, start job"
+        confirmLabel={startNote ? 'Start now' : "I'm here, start job"}
         cancelLabel="Not yet"
         busy={busy}
         onConfirm={() => {

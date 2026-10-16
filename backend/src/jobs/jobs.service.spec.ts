@@ -9,6 +9,7 @@ import { IsNotPastInstantConstraint, MineJobsQueryDto } from './dto/jobs.dto';
 import type { SupabaseService } from '../supabase/supabase.service';
 import type { UploadsService } from '../uploads/uploads.service';
 import type { EscrowService } from '../escrow/escrow.service';
+import type { GeocodingService } from '../geocoding/geocoding.service';
 import type { Profile } from '../common/types';
 
 type QueryResult = {
@@ -94,8 +95,13 @@ function createService(resultsByTable: Record<string, QueryResult[]>) {
   const cancelForJob = jest.fn().mockResolvedValue(undefined);
   const releaseIfHeld = jest.fn().mockResolvedValue(undefined);
   const escrow = { cancelForJob, releaseIfHeld } as unknown as EscrowService;
+  const geocoding = {
+    geocode: jest
+      .fn()
+      .mockResolvedValue({ latitude: 14.676, longitude: 121.0437 }),
+  } as unknown as GeocodingService;
   return {
-    service: new JobsService(supabase, uploads, escrow),
+    service: new JobsService(supabase, uploads, escrow, geocoding),
     calls,
     cancelForJob,
     releaseIfHeld,
@@ -334,10 +340,33 @@ describe('JobsService.create', () => {
     address: 'Lipa City',
     latitude: 14,
     longitude: 121,
+    price_tier: 'standard' as const,
   };
+  const rates = () => ({
+    service_categories: [ok({ base_price: 800 })],
+    urgency_settings: [ok({ price_multiplier: 1 })],
+  });
+
+  it('prices the job from the chosen tier, never from the client', async () => {
+    const { service, calls } = createService({
+      ...rates(),
+      jobs: [ok({ id: 'j1' })],
+    });
+
+    await service.create(client, { ...dto, price_tier: 'premium' });
+
+    const jobInsert = calls.find(
+      (c) => c.table === 'jobs' && c.method === 'insert',
+    );
+    expect(jobInsert?.args[0]).toMatchObject({
+      budget: 1500,
+      price_tier: 'premium',
+    });
+  });
 
   it('writes the chosen checklist in the order the client arranged it', async () => {
     const { service, calls } = createService({
+      ...rates(),
       jobs: [ok({ id: 'j1' }), ok({ id: 'j1', job_tasks: [] })],
       job_tasks: [ok(null)],
     });
@@ -346,13 +375,21 @@ describe('JobsService.create', () => {
 
     const insert = calls.find((c) => c.table === 'job_tasks');
     expect(insert?.args[0]).toEqual([
-      { job_id: 'j1', label: 'Sweep', position: 0 },
-      { job_id: 'j1', label: 'Mop', position: 1 },
+      { job_id: 'j1', label: 'Sweep', position: 0, effort: 'moderate' },
+      { job_id: 'j1', label: 'Mop', position: 1, effort: 'moderate' },
     ]);
+    const jobInsert = calls.find(
+      (c) => c.table === 'jobs' && c.method === 'insert',
+    );
+    expect(jobInsert?.args[0]).toMatchObject({
+      latitude: 14.676,
+      longitude: 121.0437,
+    });
   });
 
   it('still returns the job when the checklist write fails', async () => {
     const { service } = createService({
+      ...rates(),
       jobs: [ok({ id: 'j1' })],
       job_tasks: [{ data: null, error: { message: 'boom' } }],
     });
@@ -813,5 +850,70 @@ describe('owned-job query validation', () => {
       limit: 100,
       offset: 1000,
     });
+  });
+});
+
+describe('JobsService.getById escrow summary', () => {
+  const client = { id: 'c1', role: 'client' } as Profile;
+
+  it('adds the held escrow and its funding method for the client', async () => {
+    const { service } = createService({
+      jobs: [ok(job({ status: 'completed' }))],
+      escrow_transactions: [ok({ status: 'held', funding_method: 'wallet' })],
+    });
+    const result = (await service.getById(client, 'j1')) as Record<
+      string,
+      unknown
+    >;
+    expect(result.escrow).toEqual({ status: 'held', funding_method: 'wallet' });
+  });
+
+  it('adds it for the assigned provider', async () => {
+    const { service } = createService({
+      jobs: [ok(job({ status: 'completed' }))],
+      escrow_transactions: [ok({ status: 'held', funding_method: 'card' })],
+    });
+    const result = (await service.getById(provider, 'j1')) as Record<
+      string,
+      unknown
+    >;
+    expect(result.escrow).toEqual({ status: 'held', funding_method: 'card' });
+  });
+
+  it('reports null when the job has no escrow row', async () => {
+    const { service } = createService({
+      jobs: [ok(job({ status: 'open', assigned_provider_id: null }))],
+      escrow_transactions: [ok(null)],
+    });
+    const result = (await service.getById(client, 'j1')) as Record<
+      string,
+      unknown
+    >;
+    expect(result.escrow).toBeNull();
+  });
+
+  it('reports null instead of failing when the lookup errors', async () => {
+    const { service } = createService({
+      jobs: [ok(job({ status: 'completed' }))],
+      escrow_transactions: [{ data: null, error: { message: 'boom' } }],
+    });
+    const result = (await service.getById(client, 'j1')) as Record<
+      string,
+      unknown
+    >;
+    expect(result.escrow).toBeNull();
+  });
+
+  it('never looks up escrow for a provider browsing an open job', async () => {
+    const browsing = { id: 'p9', role: 'provider' } as Profile;
+    const { service, calls } = createService({
+      jobs: [ok(job({ status: 'open', assigned_provider_id: null }))],
+    });
+    const result = (await service.getById(browsing, 'j1')) as Record<
+      string,
+      unknown
+    >;
+    expect(result.escrow).toBeUndefined();
+    expect(calls.some((c) => c.table === 'escrow_transactions')).toBe(false);
   });
 });

@@ -1,18 +1,37 @@
 # TaskBuddy Mobile
 
+## October 2026 revisions (not yet deployed)
+
+- **No wallet.** Hires are paid at a Xendit test-mode checkout (GCash, Maya,
+  card, online banking). Payouts go to the provider's linked GCash/Maya/bank
+  account through Xendit's sandbox, and refunds (simulated) to the original
+  payment method.
+  The Wallet tab is now **Messages** (every job conversation). Older sections
+  below that describe the wallet are history. Needs backend migrations
+  0053–0058 and `XENDIT_SECRET_KEY` / `XENDIT_CALLBACK_TOKEN` on the API.
+- **Price options instead of a budget field.** Step 4 of posting a job shows
+  three tappable prices (`POST /jobs/price-estimate`) based on the service,
+  the tasks' effort and the urgency.
+- **Certifications.** Providers upload TESDA, PRC or trade certificates under
+  Profile → Certifications; approved ones show as a Certified badge on
+  proposals and the provider profile.
+- **Terms v2** cover pricing, holding of funds and payment release; accounts
+  on older terms must accept again.
+
 ## FullTest remediation — 2026-10-02
 
 Bug fixes cover approved skill filtering, job photos and lifecycle, escrow totals, cancellation/warranty dispute access, notification creation, and responsive auth/privacy/job forms. The October 4 follow-up implements shared light/dark palettes and provider photo portfolios; see the current implementation section below.
 
-Migrations **0037 and 0038** are applied to the linked Supabase project. The
-Render API restarted after the fork's `main` push and passed `/health`, but
-that response does not identify its deployed commit. Verify the new API
-contracts and run the Android device flows before releasing this app. See
+All migrations through **0052** are applied to the linked Supabase project
+(verified 2026-10-16), and the matching API is deployed with its contracts
+checked live ([evidence](../test-docs/DEPLOYED_POST_UAT_ACCEPTANCE_EVIDENCE.json)).
+Run the Android device flows before releasing this app. See
 [backend handover](../HANDOFF.md) for remaining checks.
 
 The Expo / React Native app for **TaskBuddy**, a Philippine home-services
 marketplace. Clients post jobs, providers apply and complete them.
-(The `web/` app is an admin console only; it has no client or provider surface.)
+(The `web/` app has a public promo/auth site and an admin console; marketplace
+jobs remain in mobile.)
 
 Everything on screen reads from the real NestJS API — there is no mock data
 layer. See [What's not wired yet](#whats-not-wired-yet) for the honest list of
@@ -141,8 +160,8 @@ per role, plus a selected `jobId` threaded through
 initializing         → SplashScreen
 not authenticated    → Login / Register / Forgot Password
 first login, once    → Onboarding
-role 'homeowner'     → HO tab bar (Home, My Jobs, Wallet, Profile)
-role 'provider'      → SP tab bar (Feed, My Work, Wallet, Profile)
+role 'homeowner'     → HO tab bar (Home, My Jobs, Messages, Profile)
+role 'provider'      → SP tab bar (Feed, My Work, Messages, Profile)
 ```
 
 Each bar has four tabs and no floating button. Profile is a tab on both sides,
@@ -304,13 +323,13 @@ sign-in, and notification rows remain available in the in-app list either way.
 
 | Screen | Key API calls |
 |--------|--------------|
-| `HOHomeScreen` | `GET /wallet`, `GET /jobs/mine`, `GET /categories`, unread notification count |
+| `HOHomeScreen` | `GET /jobs/mine`, `GET /categories`, unread notification count |
 | `HOMyJobs` | `GET /jobs/mine`, filtered client-side by status (All / Open / Awaiting / Confirmed / In Progress / Completed / Cancelled) |
 | `HOCreateJobScreen` | `GET /categories`, `GET /jobs/geocode`, image upload, `POST /jobs`. The guided 5-step flow: service → location → tasks → urgency → review |
 | `HOJobDetailScreen` | `GET /jobs/:id`, `GET /providers/:id`, `POST /jobs/:id/recommendations/trigger`; complete / cancel / chat, review-state gating, manual provider-matching retry, and read-only task checklist |
 | `HOChatScreen` | `POST /conversations` then message listing |
-| `HOJobApplicationsScreen` | `GET /jobs/:id/applications`; Accept opens `HirePaymentModal` — `POST /applications/:id/accept` (wallet) or `POST /payments/hire-checkout-session` (card, then polls for `accepted`); Reject |
-| `HOWalletScreen` | `GET /wallet` + `GET`/`POST /wallet/withdrawals`; Add Money opens Stripe Checkout, and Withdraw files/cancels manual payout requests |
+| `HOJobApplicationsScreen` | `GET /jobs/:id/applications`; Accept opens `HirePaymentModal` — `POST /payments/hire-checkout-session` (Xendit, then polls for `accepted`), or `POST /applications/:id/accept` for a job with no price; Reject |
+| `ConversationsScreen` | Messages tab (both roles): `GET /conversations`; tapping one opens that job's chat |
 | `HODisputeFilingScreen` | `POST /jobs/:jobId/disputes` |
 | `HOProfile` | Displays profile data; menu is Edit Profile / Settings / Help & Support |
 | `HOEditProfileScreen` | `PATCH /profiles/me`, then `refreshProfile()`. The backend geocodes a changed address and rejects the save with a readable message if it can't verify it |
@@ -327,7 +346,8 @@ sign-in, and notification rows remain available in the in-app list either way.
 | `SPJobDetailScreen` | `GET /jobs/:id`; apply to an open job, or start confirmed work and tick off the task checklist once it's theirs |
 | `SPCalendarScreen` | `GET /calendar/bookings?from=&to=` for the current month |
 | `SPChatScreen` | Messaging (same flow as HO) |
-| `SPWalletScreen` | `GET /wallet` + `GET`/`POST /wallet/withdrawals` via `WithdrawModal`; Withdraw files/cancels manual payout requests, same as the homeowner wallet |
+| `SPPayoutAccountScreen` | Profile → Payout account: `GET`/`PUT /payouts/account` (GCash, Maya or bank) and the payouts sent (`GET /payouts/history`) |
+| `SPCredentialsScreen` | Profile → Certifications: `GET`/`POST`/`DELETE /providers/me/credentials` |
 | `SPNotificationsScreen` | `GET /notifications`; tapping one about a job (recommendation invite, application or job update) opens that job's detail screen |
 | `SPVerificationScreen` | 3-step flow — ID upload, face scan, then `POST /verifications/identity-session` (Stripe Identity, opened in a browser); falls back to `POST /verifications` for admin review if Stripe is unavailable |
 | `SPProfileScreen` | Displays profile + provider-specific data + a real verified/unverified badge (`providerProfile.is_verified`); menu is Edit Profile / Get Verified / Settings / Help & Support |
@@ -338,29 +358,24 @@ sign-in, and notification rows remain available in the in-app list either way.
 
 ## Money, Briefly
 
-Hiring holds the job budget in escrow. Accept on a proposal
-(`HOJobApplicationsScreen`) opens `HirePaymentModal`, which offers two ways to pay:
+Hiring holds the job's price in escrow. There is no wallet. Accept on a
+proposal (`HOJobApplicationsScreen`) opens `HirePaymentModal`:
 
-- **Pay from wallet**: `POST /applications/:id/accept` holds the budget from the
-  wallet. It is disabled, with an **add money** link, when the wallet is short.
-  The API refuses with `400 Insufficient wallet balance` anyway.
-- **Pay by card**: `POST /payments/hire-checkout-session` opens Stripe Checkout
-  for the full budget. **The app does not do the hire.** Stripe's webhook
-  credits the payment, holds it in escrow, and accepts the application, so
-  after the browser closes the screen polls the proposal until it reads
-  `accepted`. If the proposal was taken in the meantime, the payment stays in
-  the wallet and the screen says so.
+- **Pay online**: `POST /payments/hire-checkout-session` opens a Xendit
+  test-mode checkout (GCash, Maya, card or online banking) for the full price.
+  **The app does not do the hire.** The payment webhook holds the money in
+  escrow and accepts the application, so after the browser closes the screen
+  polls the proposal until it reads `accepted`. If the proposal was taken in
+  the meantime, the payment is refunded to the payment method.
+- A job with no price (posted before pricing existed) is hired directly with
+  `POST /applications/:id/accept`.
 
 Client completion confirmation starts a **72-hour warranty hold**. Funds release
-after expiry without an open timely complaint. Hired-job cancellations retain
-funds during response/review; an approved refund returns to the **wallet**,
-including card-paid jobs.
-
-Providers who set up **Profile → Payouts** (Stripe Connect Express) have
-card-paid jobs eligible for transfer to their Stripe account after warranty expiry. Everything
-else stays in the TaskBuddy wallet and is withdrawn by request. The wallet ledger
-is the only account of record. Full rules: `backend/BACKEND_SCHEMA.md` §18
-and §29.
+after expiry without an open timely complaint, or earlier if the client
+releases them. A release is sent to the provider's linked account (Profile →
+Payout account; it waits if none is linked), and a refund goes back to the
+client's payment method. Both are simulated in this prototype: no real money
+moves. Full rules: `backend/README.md` → *Payments without a wallet*.
 
 ---
 
@@ -486,9 +501,9 @@ after QA round 2, all shipped on the same branch:
 The current release and operations checklist is [`HANDOFF.md`](../HANDOFF.md)
 at the repo root. The older guides in [`docs/`](../docs/) explain the original
 requests and contracts; use the dated checks here and in `HANDOFF.md` for their
-current status. Stripe Identity configuration still needs a Render check, and
-the recovered webhook delivery still needs fresh wallet, hire and Identity
-end-to-end checks.
+current status. A 2026-10-15 sandbox check found completed wallet credits for
+successful top-ups and card-funded escrow rows for two hires. Card-funded release,
+Connect transfer, Identity completion, and device flows remain unverified.
 
 ### 1. [`docs/backend-handoff-booking-tasks-verification.md`](../docs/backend-handoff-booking-tasks-verification.md)
 
@@ -596,13 +611,14 @@ address or a Metro Manila fallback when the lookup fails.
 
 ### 6. [`docs/backend-handoff-stripe-identity-config.md`](../docs/backend-handoff-stripe-identity-config.md)
 
-**Last observed failure (2026-09-29):** Get Verified step 3 returned `Invalid
-Stripe API version: 2025-21-27`. Check the current Render value of
-`STRIPE_MOBILE_API_VERSION` and retry before assuming the failure persists.
+**2026-10-16 update:** Render's `STRIPE_MOBILE_API_VERSION` is
+`2025-01-27.acacia`, and a sandbox PaymentSheet top-up returned its client
+secret and ephemeral key. The earlier failure (2026-09-29, `Invalid Stripe API
+version: 2025-21-27`) should not recur; retest Get Verified step 3 on a device.
 
 | # | Item | Needs | Status |
 |---|---|---|---|
-| 1 | Check `STRIPE_MOBILE_API_VERSION`; if it still has the invalid value, set it to `2025-01-27.acacia` or remove it | Render dashboard | **Current value unverified** |
+| 1 | Check `STRIPE_MOBILE_API_VERSION`; if it still has the invalid value, set it to `2025-01-27.acacia` or remove it | Render dashboard | **Done** — set to `2025-01-27.acacia` (2026-10-16) |
 | 2 | Confirm the version validation and 503 manual-review fallback on the deployed API | Render | **Deployed behavior unverified** |
 | 3 | Confirm Stripe Identity is activated on the account | Stripe Dashboard | **Open** |
 
@@ -612,19 +628,20 @@ when the API answers 5xx.
 
 ### 7. [`docs/backend-handoff-stripe-webhook-secret.md`](../docs/backend-handoff-stripe-webhook-secret.md)
 
-**Partial recovery (2026-10-02):** earlier `payment_intent.succeeded`
-deliveries returned HTTP 400 because signature verification failed. After the
+**2026-10-15 update:** sandbox PaymentIntents for top-ups have matching completed
+wallet credits, and two card-funded hires have matching escrow rows. The
+earlier **partial recovery (2026-10-02)** followed failed
+`payment_intent.succeeded` deliveries caused by signature verification. After the
 Render signing-secret change, one manual resend returned HTTP 200 with
-`{ "received": true }`. That confirms receipt of that event, not a fresh
-top-up's wallet credit or card-at-hire/Identity completion.
+`{ "received": true }`. That historical resend alone did not prove a credit.
 
 | # | Item | Needs | Status |
 |---|---|---|---|
-| 1 | Verify a fresh sandbox top-up produces a successful delivery and one wallet credit | Stripe Dashboard + mobile | **Pending** |
-| 2 | Verify card-at-hire and Identity webhook outcomes on a development build | Stripe Dashboard + mobile | **Pending** |
+| 1 | Verify a sandbox top-up produces a successful delivery and one wallet credit | Stripe + wallet ledger | **Verified in sandbox**; device flow still pending |
+| 2 | Verify card-at-hire and Identity outcomes on a development build | Stripe Dashboard + mobile | **Card-funded escrow recorded**; release, Identity completion, and device flow pending |
 | 3 | Review any remaining failed historical deliveries before resending them | Stripe Dashboard | **Pending** |
 
-The mobile side is done. After Stripe returns, Add Money shows "Money added" or "Payment received" with a single
+The wallet top-up UI is done. After Stripe returns, Add Money shows "Money added" or "Payment received" with a single
 Done button, so it can no longer start a second charge. The wallet also supports pull-to-refresh.
 
 ---
@@ -637,7 +654,18 @@ acceptance audit raised has since been done (full reasoning in
 open: the Stripe Connect escrow, card-at-hire, and verification as a gate
 (§29, §17). The migration list, including which ones must be applied before an
 API deploy and which must run alone (0022, 0027), is kept in one place:
-`backend/README.md`. It currently runs through **0038**.
+`backend/README.md`. Migrations 0046–0050 and their matching API are merged into
+`upstream/main` by PR #81, and migrations 0051–0052 for web admin APIs by
+PR #84. Migrations 0046–0052 are applied to the linked
+Supabase project, and the matching backend API is deployed. The mobile UI for
+the post-UAT release, change-request, and capacity contracts still needs
+implementation and device verification. Card-funded price changes remain
+unsupported until a separate payment authorization flow exists.
+
+The post-UAT backend request list is [`docs/backend-requests.md`](../docs/backend-requests.md).
+The API contracts cover early release, provider release requests, schedule and
+wallet-funded price change requests, and server capacity rules. The mobile UI for
+these new contracts still needs implementation and device verification.
 
 **2026-10-02 follow-up:** `GET /auth/me` now reports `has_password` via
 the service-role-only migration 0038 RPC. Both roles hide Change Password for
@@ -895,11 +923,11 @@ and restart checks separate.
 
 The selected current-stack behavior is in-app notifications: a stored notice
 for each received message, a live unread bell/list through Render SSE, and
-refresh on app return. The PDF does not request Android OS alerts while closed
-or backgrounded; the user declined adding Firebase. Earlier FCM setup/new-build
-requirements apply only to the optional legacy system-push feature, not this
-implementation's completion gates. No Firebase project or credentials will be
-created. Native bell/list/navigation and app-return checks remain pending.
+refresh on app return. That October 4 PDF scope did not include Android OS
+alerts while closed or backgrounded. The newer post-UAT request in
+[`docs/backend-requests.md`](../docs/backend-requests.md) separately asks for
+Android sound and system push; it needs Firebase credentials and a new native
+build. Native bell/list/navigation and app-return checks remain pending.
 
 
 ### Native emulator verification (October 4, 2026)

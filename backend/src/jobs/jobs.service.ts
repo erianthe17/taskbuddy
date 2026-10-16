@@ -9,15 +9,21 @@ import {
 import { SupabaseService } from '../supabase/supabase.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { EscrowService, WARRANTY_DURATION_MS } from '../escrow/escrow.service';
+import { GeocodingService } from '../geocoding/geocoding.service';
 import {
   AcceptJobDto,
   BrowseJobsQueryDto,
   MineJobsQueryDto,
   CreateJobDto,
   DeclineJobDto,
+  ProposeJobChangeDto,
+  DecideJobChangeDto,
   UpdateJobTaskDto,
+  PriceEstimateDto,
 } from './dto/jobs.dto';
-import type { Profile } from '../common/types';
+import type { JobUrgency, Profile } from '../common/types';
+import { priceFor, priceOptions } from './pricing';
+import type { PriceTier, TaskEffort } from './pricing';
 
 const URGENCY_RANK: Record<string, number> = {
   urgent: 0,
@@ -90,9 +96,66 @@ export class JobsService {
     private readonly supabase: SupabaseService,
     private readonly uploads: UploadsService,
     private readonly escrow: EscrowService,
+    private readonly geocoding: GeocodingService,
   ) {}
 
+  /** Category base rate and urgency multiplier for the pricing formula. */
+  private async pricingRates(categoryId: number, urgency: JobUrgency) {
+    const [category, setting] = await Promise.all([
+      this.supabase.admin
+        .from('service_categories')
+        .select('base_price')
+        .eq('id', categoryId)
+        .maybeSingle(),
+      this.supabase.admin
+        .from('urgency_settings')
+        .select('price_multiplier')
+        .eq('urgency', urgency)
+        .maybeSingle(),
+    ]);
+    if (category.error) throw new BadRequestException(category.error.message);
+    if (!category.data) throw new BadRequestException('Unknown category');
+    return {
+      basePrice: Number(category.data.base_price),
+      urgencyMultiplier: Number(setting.data?.price_multiplier ?? 1),
+    };
+  }
+
+  /** What the job would cost at another tier, from its stored checklist. */
+  private async tierPriceForJob(jobId: string, tier: PriceTier) {
+    const { data: job, error } = await this.supabase.admin
+      .from('jobs')
+      .select('category_id, urgency, job_tasks(effort)')
+      .eq('id', jobId)
+      .maybeSingle();
+    if (error) throw new BadRequestException(error.message);
+    if (!job) throw new NotFoundException('Job not found');
+    const rates = await this.pricingRates(job.category_id, job.urgency);
+    const efforts = (job.job_tasks ?? []).map(
+      (t: { effort: TaskEffort }) => t.effort,
+    );
+    return priceFor({ ...rates, efforts }, tier);
+  }
+
+  async estimatePrice(dto: PriceEstimateDto) {
+    const rates = await this.pricingRates(
+      dto.category_id,
+      dto.urgency ?? 'normal',
+    );
+    return {
+      options: priceOptions({ ...rates, efforts: dto.task_efforts ?? [] }),
+    };
+  }
+
   async create(user: Profile, dto: CreateJobDto) {
+    const tasks = dto.tasks ?? [];
+    const efforts: TaskEffort[] = tasks.map(
+      (_, i) => dto.task_efforts?.[i] ?? 'moderate',
+    );
+    const urgency = dto.urgency ?? 'normal';
+    const rates = await this.pricingRates(dto.category_id, urgency);
+    const budget = priceFor({ ...rates, efforts }, dto.price_tier);
+    const location = await this.geocoding.geocode(dto.address);
     if (dto.photo_urls?.length) {
       this.uploads.assertOwnedPaths(user, dto.photo_urls);
     }
@@ -103,11 +166,12 @@ export class JobsService {
         category_id: dto.category_id,
         title: dto.title,
         description: dto.description,
-        urgency: dto.urgency ?? 'normal',
+        urgency,
         address: dto.address,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        budget: dto.budget ?? null,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        budget,
+        price_tier: dto.price_tier,
         scheduled_at: dto.scheduled_at ?? null,
         photo_urls: dto.photo_urls ?? [],
         // recommendation_deadline is filled in by the DB trigger; the column is
@@ -116,6 +180,7 @@ export class JobsService {
       })
       .select(JOB_SELECT)
       .single();
+    if (error?.code === 'TB409') throw new ConflictException(error.message);
     if (error) throw new BadRequestException(error.message);
 
     if (dto.tasks?.length) {
@@ -127,6 +192,7 @@ export class JobsService {
             job_id: jobId,
             label,
             position,
+            effort: efforts[position],
           })),
         );
       // The job itself posted fine. Failing the whole request now would leave
@@ -279,7 +345,9 @@ export class JobsService {
     if (!isOwner && !isAssigned && !isBrowsable) {
       throw new ForbiddenException('You do not have access to this job');
     }
-    return job;
+    // Only the job's own two people learn about its money.
+    if (!isOwner && !isAssigned) return job;
+    return { ...job, escrow: await this.escrowSummary(jobId) };
   }
 
   /** Client cancels from any pre-completion state. */
@@ -420,6 +488,110 @@ export class JobsService {
     return this.findJob(jobId);
   }
 
+  async releasePayment(user: Profile, jobId: string) {
+    const escrow = await this.escrow.releaseEarly(jobId, user.id);
+    const job = await this.findJob(jobId);
+    return { job, escrow };
+  }
+
+  async requestPaymentRelease(user: Profile, jobId: string) {
+    const { data, error } = await this.supabase.admin.rpc(
+      'request_early_payment_release',
+      { p_job_id: jobId, p_provider_id: user.id },
+    );
+    if (error?.code === 'TB409')
+      throw new ConflictException({
+        message: error.message,
+        next_allowed_at: error.details || null,
+      });
+    if (error?.code === 'TB403') throw new ForbiddenException(error.message);
+    if (error) throw new BadRequestException(error.message);
+    return data;
+  }
+
+  async listPaymentReleaseRequests(user: Profile, jobId: string) {
+    const job = await this.findJob(jobId);
+    if (user.id !== job.client_id && user.id !== job.assigned_provider_id)
+      throw new ForbiddenException('Not a participant in this job');
+    const { data, error } = await this.supabase.admin
+      .from('provider_release_requests')
+      .select('*')
+      .eq('job_id', jobId)
+      .order('created_at', { ascending: false });
+    if (error) throw new BadRequestException(error.message);
+    return data;
+  }
+
+  async listChanges(user: Profile, jobId: string) {
+    const job = await this.findJob(jobId);
+    if (user.id !== job.client_id && user.id !== job.assigned_provider_id)
+      throw new ForbiddenException('Not a participant in this job');
+    const { error: expiryError } = await this.supabase.admin.rpc(
+      'job_change_expire',
+      {
+        p_job_id: jobId,
+      },
+    );
+    if (expiryError) throw new BadRequestException(expiryError.message);
+    const { data, error } = await this.supabase.admin
+      .from('job_change_requests')
+      .select('*')
+      .eq('job_id', jobId)
+      .order('created_at', { ascending: false });
+    if (error) throw new BadRequestException(error.message);
+    return data;
+  }
+
+  async proposeChange(user: Profile, jobId: string, dto: ProposeJobChangeDto) {
+    const newBudget =
+      dto.type === 'price' && dto.new_price_tier
+        ? await this.tierPriceForJob(jobId, dto.new_price_tier)
+        : null;
+    const { data, error } = await this.supabase.admin.rpc(
+      'job_change_propose',
+      {
+        p_job_id: jobId,
+        p_actor: user.id,
+        p_type: dto.type,
+        p_schedule: dto.new_scheduled_at ?? null,
+        p_budget: newBudget,
+        p_reason: dto.reason,
+      },
+    );
+    if (error?.code === 'TB409' || error?.code === '23505')
+      throw new ConflictException(error.message);
+    if (error?.code === 'TB403') throw new ForbiddenException(error.message);
+    if (error) throw new BadRequestException(error.message);
+    return data;
+  }
+
+  async decideChange(
+    user: Profile,
+    requestId: string,
+    dto: DecideJobChangeDto,
+  ) {
+    const { data, error } = await this.supabase.admin.rpc('job_change_decide', {
+      p_request_id: requestId,
+      p_actor: user.id,
+      p_decision: dto.decision,
+    });
+    if (error?.code === 'TB409') throw new ConflictException(error.message);
+    if (error?.code === 'TB403') throw new ForbiddenException(error.message);
+    if (error?.code === 'TB404') throw new NotFoundException(error.message);
+    if (error) throw new BadRequestException(error.message);
+    // A price decrease credited the difference; send it back to the client's
+    // payment method now (migration 0057). A no-op for anything else.
+    const { data: job } = await this.supabase.admin
+      .from('job_change_requests')
+      .select('jobs(client_id)')
+      .eq('id', requestId)
+      .maybeSingle();
+    const clientId = (job as { jobs?: { client_id?: string } } | null)?.jobs
+      ?.client_id;
+    if (clientId) await this.escrow.passThrough([clientId]);
+    return data;
+  }
+
   /**
    * The assigned provider ticks a checklist item off (or back on). Returns the
    * whole job so the caller's screen re-renders from one source of truth
@@ -502,6 +674,27 @@ export class JobsService {
 
   private withReviews<T>(jobs: T[]): T[] {
     return jobs.map((job) => this.withReview(job));
+  }
+
+  /**
+   * Is a payment held for this job, and was it paid from the wallet or by card?
+   * Job Details needs both: early release is offered only while money is held,
+   * and price changes only for wallet-funded jobs. A failed lookup reads as
+   * unknown (null) rather than failing the whole job read.
+   */
+  private async escrowSummary(
+    jobId: string,
+  ): Promise<{ status: string; funding_method: 'wallet' | 'card' } | null> {
+    const { data, error } = await this.supabase.admin
+      .from('escrow_transactions')
+      .select('status, funding_method')
+      .eq('job_id', jobId)
+      .maybeSingle();
+    if (error) {
+      this.logger.warn(`escrow summary for job ${jobId}: ${error.message}`);
+      return null;
+    }
+    return data ?? null;
   }
 
   private async findJob(jobId: string) {

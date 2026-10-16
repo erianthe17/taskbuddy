@@ -3,7 +3,10 @@ import React from 'react';
 import { BackHandler, ScrollView, TextInput } from 'react-native';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { BrushCleaning, Footprints, Hammer, Wrench } from 'lucide-react-native';
 import HOCreateJobScreen from '../HOCreateJobScreen';
+import ServiceTile from '../../../../src/components/post/ServiceTile';
+import NailPolishIcon from '../../../../src/components/ui/icons/NailPolishIcon';
 import { api } from '../../../../src/lib/api';
 import { showToast } from '../../../../src/components/Toast';
 import { isBackBlockedByScreen } from '../../../../src/hooks/useLeaveGuard';
@@ -11,7 +14,16 @@ import { expectSavedCopyIgnored } from '../../../../src/testing/savedCopy';
 
 jest.mock('../../../../src/lib/api', () => ({ api: {
   categories: jest.fn(), createJob: jest.fn(), uploadImage: jest.fn(),
+  estimatePrice: jest.fn(),
 } }));
+const PRICE_OPTIONS = [
+  { tier: 'basic', amount: 1250, min: 1150, max: 1400 },
+  { tier: 'standard', amount: 1500, min: 1350, max: 1650 },
+  { tier: 'premium', amount: 1900, min: 1700, max: 2100 },
+];
+beforeEach(() => {
+  (api.estimatePrice as jest.Mock).mockResolvedValue({ options: PRICE_OPTIONS });
+});
 jest.mock('../../../../src/components/Toast', () => ({ showToast: jest.fn() }));
 const DEFAULT_PROFILE = { address: 'Quezon City', latitude: 14.6, longitude: 121 };
 let mockProfile: { address: string | null; latitude: number | null; longitude: number | null } = { ...DEFAULT_PROFILE };
@@ -39,7 +51,7 @@ it('keeps the urgency step visible and reports missing required fields when Next
   await screen.findByText('Pick a date');
   fireEvent.press(screen.getByText('Next'));
   await waitFor(() => expect(screen.getAllByText('Please select a preferred date.').length).toBeGreaterThan(0));
-  expect(screen.getByText('Please set a budget for this job.')).toBeTruthy();
+  expect(screen.getByText('Please pick a price for this job.')).toBeTruthy();
   expect(screen.queryByTestId('create-job-review')).toBeNull();
 });
 
@@ -59,7 +71,7 @@ it('posts from review without another terms acceptance and retains form state af
   fireEvent.press(screen.getByText('Pick a time'));
   fireEvent.press(screen.getByText('Choose test time'));
   if (screen.queryByText('Done')) fireEvent.press(screen.getByText('Done'));
-  fireEvent.changeText(screen.getByPlaceholderText('0.00'), '1500');
+  fireEvent.press(await screen.findByTestId('price-option-standard'));
   fireEvent.press(screen.getByText('Next'));
   fireEvent.press(await screen.findByLabelText('Open selected photo 2'));
   expect(screen.getByTestId('full-photo').props.source.uri).toBe('file:///landscape');
@@ -67,7 +79,7 @@ it('posts from review without another terms acceptance and retains form state af
   expect(screen.getByTestId('create-job-review')).toBeTruthy();
   expect(screen.queryByText(/I agree to the/)).toBeNull();
   await act(async () => fireEvent.press(screen.getByText('Post job')));
-  expect(api.createJob).toHaveBeenCalledWith(expect.objectContaining({budget: 1500, tasks: ['Fix leaking faucet']}));
+  expect(api.createJob).toHaveBeenCalledWith(expect.objectContaining({price_tier: 'standard', tasks: ['Fix leaking faucet'], task_efforts: ['moderate']}));
   expect(await screen.findByText('Post another job')).toBeTruthy();
 });
 
@@ -105,7 +117,7 @@ it('clears an error as soon as its field is fixed, and keeps it while the edit i
   expect(screen.queryByText(tooShort)).toBeNull();
 });
 
-it('clears a budget error as soon as a valid amount is typed, and leaves other errors alone', async () => {
+it('clears the price error as soon as a price is picked, and leaves other errors alone', async () => {
   (api.categories as jest.Mock).mockResolvedValue([{ id: 1, name: 'Plumbing' }]);
   render(<HOCreateJobScreen initialCategoryId={1} onBack={jest.fn()} onSuccess={jest.fn()} />);
   await screen.findByText('Location confirmed');
@@ -115,9 +127,9 @@ it('clears a budget error as soon as a valid amount is typed, and leaves other e
   await screen.findByText('Pick a date');
   fireEvent.press(screen.getByText('Next'));
 
-  const budgetMessage = 'Please set a budget for this job.';
+  const budgetMessage = 'Please pick a price for this job.';
   expect(await screen.findByText(budgetMessage)).toBeTruthy();
-  fireEvent.changeText(screen.getByPlaceholderText('0.00'), '1500');
+  fireEvent.press(await screen.findByTestId('price-option-standard'));
   expect(screen.queryByText(budgetMessage)).toBeNull();
   expect(screen.getByText('Please select a preferred date.')).toBeTruthy();
 });
@@ -134,7 +146,7 @@ it('the review lists everything entered, and each Edit link goes back to its ste
   fireEvent.press(screen.getByText('Pick a time'));
   fireEvent.press(screen.getByText('Choose test time'));
   if (screen.queryByText('Done')) fireEvent.press(screen.getByText('Done'));
-  fireEvent.changeText(screen.getByPlaceholderText('0.00'), '1500');
+  fireEvent.press(await screen.findByTestId('price-option-standard'));
   fireEvent.press(screen.getByText('Next'));
 
   const review = await screen.findByTestId('create-job-review');
@@ -157,7 +169,7 @@ async function postTheJob() {
   fireEvent.press(screen.getByText('Pick a time'));
   fireEvent.press(screen.getByText('Choose test time'));
   if (screen.queryByText('Done')) fireEvent.press(screen.getByText('Done'));
-  fireEvent.changeText(screen.getByPlaceholderText('0.00'), '1500');
+  fireEvent.press(await screen.findByTestId('price-option-standard'));
   fireEvent.press(screen.getByText('Next'));
   await act(async () => fireEvent.press(screen.getByText('Post job')));
 }
@@ -229,7 +241,7 @@ it('while posting shows only the steps that really run, and a failed post return
   fireEvent.press(screen.getByText('Pick a time'));
   fireEvent.press(screen.getByText('Choose test time'));
   if (screen.queryByText('Done')) fireEvent.press(screen.getByText('Done'));
-  fireEvent.changeText(screen.getByPlaceholderText('0.00'), '1500');
+  fireEvent.press(await screen.findByTestId('price-option-standard'));
   fireEvent.press(screen.getByText('Next'));
   await act(async () => fireEvent.press(screen.getByText('Post job')));
 
@@ -254,7 +266,7 @@ async function reachReview() {
   fireEvent.press(screen.getByText('Pick a time'));
   fireEvent.press(screen.getByText('Choose test time'));
   if (screen.queryByText('Done')) fireEvent.press(screen.getByText('Done'));
-  fireEvent.changeText(screen.getByPlaceholderText('0.00'), '1500');
+  fireEvent.press(await screen.findByTestId('price-option-standard'));
   fireEvent.press(screen.getByText('Next'));
   await screen.findByTestId('create-job-review');
 }
@@ -309,6 +321,22 @@ it('every control has an accessible name on the first step: back, the service an
   expect(findUnnamedControls(screen.UNSAFE_root)).toEqual([]);
 });
 
+it('the Manicure tile shows the nail polish icon, and the other service tiles keep theirs', async () => {
+  (api.categories as jest.Mock).mockResolvedValue([
+    { id: 1, name: 'Plumbing' }, { id: 2, name: 'Cleaning' }, { id: 3, name: 'Handyman' },
+    { id: 4, name: 'Manicure' }, { id: 5, name: 'Pedicure' },
+  ]);
+  render(<HOCreateJobScreen onBack={jest.fn()} onSuccess={jest.fn()} />);
+  await screen.findByRole('radio', { name: 'Manicure' });
+
+  const iconFor = (name: string) => screen.UNSAFE_getAllByType(ServiceTile).find((tile) => tile.props.name === name)?.props.icon;
+  expect(iconFor('Manicure')).toBe(NailPolishIcon);
+  expect(iconFor('Plumbing')).toBe(Wrench);
+  expect(iconFor('Cleaning')).toBe(BrushCleaning);
+  expect(iconFor('Handyman')).toBe(Hammer);
+  expect(iconFor('Pedicure')).toBe(Footprints);
+});
+
 describe('HOCreateJobScreen — fields are checked against the backend limits', () => {
   beforeEach(() => {
     (api.createJob as jest.Mock).mockClear();
@@ -334,71 +362,13 @@ describe('HOCreateJobScreen — fields are checked against the backend limits', 
     await screen.findByText('Pick a date');
   };
 
-  it('keeps letters out of the budget and cuts a third decimal place', async () => {
+  it('shows the estimated prices instead of a budget field', async () => {
     await openBudgetStep();
-    const budget = () => screen.getByPlaceholderText('0.00');
-
-    fireEvent.changeText(budget(), 'pesos');
-    expect(budget().props.value).toBe('');
-
-    fireEvent.changeText(budget(), '1500.999');
-    expect(budget().props.value).toBe('1500.99');
-  });
-
-  it('focusing the budget scrolls the form so the field clears the keyboard and the footer', async () => {
-    await openBudgetStep();
-    fireEvent(screen.getByTestId('create-job-form-scroll'), 'layout', {
-      nativeEvent: { layout: { x: 0, y: 0, width: 375, height: 400 } },
+    expect(await screen.findByText('₱1,500.00')).toBeTruthy();
+    expect(api.estimatePrice).toHaveBeenLastCalledWith({
+      category_id: 1, urgency: 'normal', task_efforts: ['moderate'],
     });
-    // Measured the way the KeyboardAwareScrollView tests measure: the view's window top is 100, the budget's is 600.
-    type MeasureCallback = (x: number, y: number, width: number, height: number) => void;
-    const scroll = screen.UNSAFE_getAllByType(ScrollView)
-      .find((node) => node.props.testID === 'create-job-form-scroll')!.instance;
-    // The ScrollView and TextInput mocks share one jest.fn per method across instances, so clear the earlier step calls.
-    const scrollTo = jest.spyOn(scroll, 'scrollTo');
-    scrollTo.mockClear();
-    const measureScroller = jest.spyOn(scroll, 'getNativeScrollRef').mockReturnValue({
-      measureInWindow: (callback: MeasureCallback) => callback(0, 100, 375, 400),
-    } as never);
-    const budget: { measureInWindow: (callback: MeasureCallback) => void } = screen.UNSAFE_getAllByType(TextInput)
-      .find((node) => node.props.placeholder === '0.00')!.instance;
-    const measureBudget = jest.spyOn(budget, 'measureInWindow').mockImplementation((callback) => callback(0, 600, 375, 48));
-
-    fireEvent(screen.getByPlaceholderText('0.00'), 'focus');
-
-    // The budget is 500 dp into a 400 dp view; its bottom plus the 24 dp margin is 172 past the view's bottom edge.
-    expect(scrollTo).toHaveBeenCalledWith({ y: 172, animated: true });
-
-    // Those mocks are shared by every instance in this file, so put them back to the defaults the other tests get.
-    measureScroller.mockReset();
-    measureBudget.mockReset();
-  });
-
-  it('a pasted 1e3 or -1000 leaves the budget as it was, instead of 13 or 1000', async () => {
-    await openBudgetStep();
-    const budget = () => screen.getByPlaceholderText('0.00');
-
-    fireEvent.changeText(budget(), '1500');
-    fireEvent.changeText(budget(), '1e3');
-    expect(budget().props.value).toBe('1500');
-
-    fireEvent.changeText(budget(), '-1000');
-    expect(budget().props.value).toBe('1500');
-  });
-
-  it('refuses a budget above the ₱100,000 a card can pay once Next is pressed', async () => {
-    await openBudgetStep();
-    fireEvent.press(screen.getByText('Pick a date'));
-    fireEvent.press(screen.getByText('Choose test date'));
-    fireEvent.press(screen.getByText('Pick a time'));
-    fireEvent.press(screen.getByText('Choose test time'));
-    if (screen.queryByText('Done')) fireEvent.press(screen.getByText('Done'));
-    fireEvent.changeText(screen.getByPlaceholderText('0.00'), '100001');
-
-    fireEvent.press(screen.getByText('Next'));
-
-    expect(await screen.findByText("Budgets above ₱100,000 can't be paid by card. Keep it at ₱100,000 or less.")).toBeTruthy();
-    expect(api.createJob).not.toHaveBeenCalled();
+    expect(screen.queryByPlaceholderText('0.00')).toBeNull();
   });
 
   it('refuses an address shorter than 5 characters, before it is checked with the geocoder', async () => {
@@ -487,7 +457,7 @@ describe('HOCreateJobScreen — back and exit', () => {
     fireEvent.press(screen.getByText('Pick a time'));
     fireEvent.press(screen.getByText('Choose test time'));
     if (screen.queryByText('Done')) fireEvent.press(screen.getByText('Done'));
-    fireEvent.changeText(screen.getByPlaceholderText('0.00'), '1500');
+    fireEvent.press(await screen.findByTestId('price-option-standard'));
     fireEvent.press(screen.getByText('Next'));
     await screen.findByTestId('create-job-review');
   };
@@ -506,6 +476,18 @@ describe('HOCreateJobScreen — back and exit', () => {
 
     expect(screen.getByText('What needs doing?')).toBeTruthy();
     expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it('after the first step the footer has Next alone: the header arrow is the one way back', async () => {
+    render(<HOCreateJobScreen initialCategoryId={1} onBack={jest.fn()} onSuccess={jest.fn()} />);
+    await screen.findByText('Location confirmed');
+    fireEvent.press(screen.getByText('Next'));
+    await screen.findByText('Fix leaking faucet');
+
+    expect(screen.queryByText('Back')).toBeNull();
+    expect(screen.queryByLabelText('Back to the previous step')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Previous step' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeTruthy();
   });
 
   it('the header arrow goes back a step too, and is announced as going back', async () => {

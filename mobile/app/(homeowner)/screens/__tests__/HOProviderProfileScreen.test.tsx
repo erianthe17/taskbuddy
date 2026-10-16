@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import HOProviderProfileScreen from '../HOProviderProfileScreen';
+import ContentSkeleton from '../../../../src/components/ui/ContentSkeleton';
 import { api } from '../../../../src/lib/api';
 import { clearAsyncDataCache } from '../../../../src/hooks/useAsyncData';
 
@@ -10,6 +11,7 @@ jest.mock('../../../../src/lib/api', () => ({
     getProviderReviews: jest.fn(),
     getProviderWork: jest.fn(),
     providerPortfolio: jest.fn(),
+    providerCredentials: jest.fn(),
   },
 }));
 
@@ -48,6 +50,7 @@ beforeEach(() => {
   (api.getProvider as jest.Mock).mockResolvedValue(provider);
   (api.getProviderReviews as jest.Mock).mockResolvedValue([]);
   (api.getProviderWork as jest.Mock).mockResolvedValue([]);
+  (api.providerCredentials as jest.Mock).mockResolvedValue([]);
   (api.providerPortfolio as jest.Mock).mockResolvedValue([]);
 });
 
@@ -169,4 +172,43 @@ describe('HOProviderProfileScreen: opened without a proposal', () => {
     expect(screen.queryByText('Back to proposals')).toBeNull();
     expect(screen.queryByText(/Their offer/)).toBeNull();
   });
+});
+
+describe('HOProviderProfileScreen — a reload keeps the profile on screen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    clearAsyncDataCache();
+    (api.getProvider as jest.Mock).mockResolvedValue(provider);
+    (api.getProviderReviews as jest.Mock).mockResolvedValue([]);
+    (api.getProviderWork as jest.Mock).mockResolvedValue([]);
+    (api.providerPortfolio as jest.Mock).mockResolvedValue([]);
+  });
+
+  it('shows the skeleton only while no profile has loaded yet', () => {
+    (api.getProvider as jest.Mock).mockReturnValue(new Promise(() => {}));
+    render(<HOProviderProfileScreen id="prov-1" onBack={jest.fn()} />);
+
+    expect(screen.UNSAFE_queryByType(ContentSkeleton)).toBeTruthy();
+    expect(screen.queryByTestId('refresh-bar')).toBeNull();
+  });
+
+  it('keeps the profile under a thin progress line while it reloads, with no skeleton', async () => {
+    const { rerender } = render(<HOProviderProfileScreen id="prov-1" onBack={jest.fn()} />);
+    await waitFor(() => expect(screen.getByText('Alex Reyes')).toBeTruthy());
+
+    (api.getProvider as jest.Mock).mockReturnValue(new Promise(() => {}));
+    rerender(<HOProviderProfileScreen id="prov-2" onBack={jest.fn()} />);
+
+    expect(screen.getByText('Alex Reyes')).toBeTruthy();
+    expect(screen.getByTestId('refresh-bar')).toBeTruthy();
+    expect(screen.UNSAFE_queryByType(ContentSkeleton)).toBeNull();
+  });
+});
+
+it('lists approved credentials under Certified', async () => {
+  (api.providerCredentials as jest.Mock).mockResolvedValue([
+    { id: 'c1', title: 'Plumbing NC II', issuer: 'TESDA', service_categories: { id: 1, name: 'Plumbing' } },
+  ]);
+  render(<HOProviderProfileScreen id="prov-1" onBack={jest.fn()} />);
+  expect(await screen.findByText('Plumbing NC II · TESDA · Plumbing')).toBeTruthy();
 });

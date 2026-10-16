@@ -4,6 +4,7 @@ import { isExternallyScheduled } from '../common/cron-driver';
 import { SupabaseService } from '../supabase/supabase.service';
 import { EscrowService, WARRANTY_DURATION_MS } from './escrow.service';
 import { ConnectPayoutsService } from '../payments/connect/connect-payouts.service';
+import { XenditService } from '../payments/xendit.service';
 
 /** Cancelled jobs retain their existing two-minute reconciliation delay. */
 const CANCEL_RECONCILE_AFTER_MS = 2 * 60 * 1000;
@@ -20,6 +21,7 @@ export class PaymentsScheduler {
     private readonly supabase: SupabaseService,
     private readonly escrow: EscrowService,
     private readonly payouts: ConnectPayoutsService,
+    private readonly xendit: XenditService,
   ) {}
 
   @Cron(CronExpression.EVERY_5_MINUTES)
@@ -38,12 +40,33 @@ export class PaymentsScheduler {
       );
       if (error)
         throw new Error(`Cancellation expiry failed: ${error.message}`);
+      const { data: expiredChanges, error: changeError } =
+        await this.supabase.admin.rpc('job_change_expire_all');
+      if (changeError)
+        throw new Error(`Job change expiry failed: ${changeError.message}`);
       const reconciled = await this.reconcileSettledJobs();
       const transfers = await this.payouts.sweep();
-      if (expired || reconciled || transfers.transferred || transfers.failed) {
+      // Anything a settlement left on the ledger (a dispute resolved in SQL,
+      // a payout waiting for a linked account) is sent on here (0056).
+      const { data: passedThrough, error: passError } =
+        await this.supabase.admin.rpc('pass_through_balances', {
+          p_profile_id: null,
+          p_queue_provider_payouts: this.xendit.configured,
+        });
+      if (passError)
+        this.logger.error(`Pass-through failed: ${passError.message}`);
+      await this.escrow.sendQueuedPayouts();
+      if (
+        expired ||
+        expiredChanges ||
+        reconciled ||
+        passedThrough ||
+        transfers.transferred ||
+        transfers.failed
+      ) {
         this.logger.log(
-          `Payments tick: ${expired} cancellation(s) expired, ${reconciled} escrow(s) reconciled, ` +
-            `${transfers.transferred} transfer(s) sent, ${transfers.failed} failed`,
+          `Payments tick: ${expired} cancellation(s) expired, ${expiredChanges} job change(s) expired, ${reconciled} escrow(s) reconciled, ` +
+            `${transfers.transferred} transfer(s) sent, ${transfers.failed} failed, ${passedThrough ?? 0} payout(s)/refund(s) passed through`,
         );
       }
     } catch (err) {

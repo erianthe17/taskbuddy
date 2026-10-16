@@ -64,6 +64,21 @@ function isStripeError(e: unknown): boolean {
 const PROFILE_MISSING_FOR_APPROVAL =
   'This provider has not set up their service profile yet, so there is nothing to mark verified. Ask them to complete Edit Profile, then approve.';
 
+const nameParts = (name: string) =>
+  name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter(Boolean);
+
+/** Every part of the verified name appears among the profile name's parts. */
+export function namesMatch(verified: string, profile: string): boolean {
+  const wanted = nameParts(verified);
+  const have = new Set(nameParts(profile));
+  return wanted.length > 0 && wanted.every((part) => have.has(part));
+}
+
 @Injectable()
 export class VerificationsService {
   private readonly logger = new Logger(VerificationsService.name);
@@ -272,6 +287,18 @@ export class VerificationsService {
       );
       return;
     }
+    if (
+      approved &&
+      !(await this.identityNameMatches(sessionId, verification.provider_id))
+    ) {
+      // The document is genuine but names someone else (or Stripe returned no
+      // name). Auto-approving would put a verified badge on the wrong person,
+      // so the row stays pending for an admin to compare by hand.
+      this.logger.warn(
+        `Identity session ${sessionId} verified a name that does not match provider ${verification.provider_id}; left pending for manual review`,
+      );
+      return;
+    }
     await this.review(verification.id, {
       status: approved ? 'approved' : 'rejected',
       reviewed_at: new Date().toISOString(),
@@ -288,6 +315,44 @@ export class VerificationsService {
       approved
         ? 'Your ID has been verified. Your profile now shows a verified badge.'
         : (reason ?? 'We could not verify your ID. You can try again.'),
+    );
+  }
+
+  /**
+   * Whether the name Stripe read off the document is the account's name: every
+   * part of the verified first and last name must appear in the profile's
+   * full name, ignoring case, accents and punctuation. Middle names and the
+   * order of parts are allowed to differ.
+   */
+  private async identityNameMatches(
+    sessionId: string,
+    providerId: string,
+  ): Promise<boolean> {
+    let outputs: {
+      first_name?: string | null;
+      last_name?: string | null;
+    } | null;
+    try {
+      const session =
+        await this.stripe.stripe.identity.verificationSessions.retrieve(
+          sessionId,
+          { expand: ['verified_outputs'] },
+        );
+      outputs = session.verified_outputs ?? null;
+    } catch (e) {
+      this.logger.error(
+        `Could not read verified outputs for ${sessionId}: ${(e as Error).message}`,
+      );
+      return false;
+    }
+    const { data: profile } = await this.supabase.admin
+      .from('profiles')
+      .select('full_name')
+      .eq('id', providerId)
+      .maybeSingle();
+    return namesMatch(
+      `${outputs?.first_name ?? ''} ${outputs?.last_name ?? ''}`,
+      (profile as { full_name?: string } | null)?.full_name ?? '',
     );
   }
 
@@ -331,10 +396,24 @@ export class VerificationsService {
 
     const rows = (data ?? []) as VerificationRow[];
     const emails = await this.emailsFor(rows.map((r) => r.provider_id));
+    const includeDocuments = query.include_documents !== 'false';
     const verifications = await Promise.all(
-      rows.map((row) => this.shape(row, emails)),
+      rows.map((row) => this.shape(row, emails, includeDocuments)),
     );
     return { verifications, total: count ?? 0 };
+  }
+
+  async getForAdmin(id: string) {
+    const { data, error } = await this.supabase.admin
+      .from('provider_verifications')
+      .select('*, profiles!provider_verifications_provider_id_fkey(full_name)')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw new BadRequestException(error.message);
+    if (!data) throw new NotFoundException('Verification not found');
+    const row = data as VerificationRow;
+    const emails = await this.emailsFor([row.provider_id]);
+    return this.shape(row, emails, true);
   }
 
   async approve(admin: Profile, id: string) {
@@ -493,6 +572,7 @@ export class VerificationsService {
   private async shape(
     row: VerificationRow,
     emails: Map<string, string | null>,
+    includeDocuments: boolean,
   ) {
     // Stripe Identity rows carry no paths — their documents were collected and
     // retained by Stripe — so `documents` is legitimately empty for them and
@@ -500,13 +580,15 @@ export class VerificationsService {
     const paths = [row.id_document_path, row.selfie_path].filter(
       (p): p is string => p !== null,
     );
-    const documents = (
-      await Promise.all(
-        paths.map((p) =>
-          this.uploads.signedDownloadUrl(VERIFICATION_DOCS_BUCKET, p),
-        ),
-      )
-    ).filter((url): url is string => url !== null);
+    const documents = !includeDocuments
+      ? []
+      : (
+          await Promise.all(
+            paths.map((p) =>
+              this.uploads.signedDownloadUrl(VERIFICATION_DOCS_BUCKET, p),
+            ),
+          )
+        ).filter((url): url is string => url !== null);
 
     return {
       id: row.id,

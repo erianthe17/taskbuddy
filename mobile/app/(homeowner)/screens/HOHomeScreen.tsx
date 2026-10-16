@@ -4,13 +4,14 @@ import { useNotifications } from '../../../src/context/NotificationsContext';
  * HOHomeScreen.tsx
  *
  * Figma "Home · final (Variation A)": a light header (avatar, greeting and
- * name, wallet chip, bell), a "What do you need done?" field, the hero card for
+ * name, bell), a "What do you need done?" field, the hero card for
  * the one thing that needs the homeowner, service chips, and every active job.
  */
 
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,20 +24,18 @@ import {
   ClipboardList,
   Hand,
   Plus,
-  Wallet,
 } from 'lucide-react-native';
 import { Spacing } from '../../../src/constants/theme';
 import { HOScreen } from '../../../src/types/navigation';
 import { useAuth } from '../../../src/context/AuthContext';
 import { useAsyncData } from '../../../src/hooks/useAsyncData';
 import { useHeaderTop } from '../../../src/hooks/useHeaderTop';
-import { isHomeWallet, isList } from '../../../src/lib/savedShapes';
+import { isList } from '../../../src/lib/savedShapes';
 import { SEVEN_DAYS_MS } from '../../../src/lib/persistentCache';
 import { useSlowLoad } from '../../../src/hooks/useSlowLoad';
 import { api, type Job } from '../../../src/lib/api';
-import { formatPesoShort, initials, peso } from '../../../src/lib/format';
+import { initials, peso } from '../../../src/lib/format';
 import {
-  heroMayAppear,
   pendingApplicants,
   pickHomeHero,
   proposalCandidates,
@@ -53,7 +52,6 @@ import SectionHeader from '../../../src/components/ui/SectionHeader';
 import StaleHint from '../../../src/components/ui/StaleHint';
 import SlowLoadNote from '../../../src/components/ui/SlowLoadNote';
 import JobRow from '../../../src/components/ui/JobRow';
-import Banner from '../../../src/components/ui/Banner';
 import EmptyCard from '../../../src/components/ui/EmptyCard';
 import EmptyRow from '../../../src/components/ui/EmptyRow';
 import LoadErrorCard from '../../../src/components/ui/LoadErrorCard';
@@ -95,8 +93,9 @@ function shortMonthDay(value: string | Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-/** "Oct 12 · 9:00 AM · Juan Dela Cruz" */
-function bookingLine(when: Date, providerName: string | null): string {
+/** "Oct 12 · 9:00 AM · Juan Dela Cruz". A booking with no time shows only the provider. */
+function bookingLine(when: Date | null, providerName: string | null): string {
+  if (when === null) return providerName ?? '';
   const time = when.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   return [shortMonthDay(when), time, ...(providerName ? [providerName] : [])].join(' · ');
 }
@@ -107,27 +106,84 @@ interface HOHomeScreenProps {
   tourOffer?: { onStart: () => void; onDismiss: () => void };
 }
 
-/** The one thing that needs the homeowner: proposals to review, or the next booking. */
+interface SimpleHeroCopy {
+  chip: string;
+  title: string;
+  line: string;
+  button: string;
+  label: string;
+  onPress: () => void;
+}
+
+/** The chip, text and button of every hero kind except proposals. */
+function simpleHeroCopy(hero: Exclude<HomeHero, { kind: 'proposals' }>, onNavigate: HOHomeScreenProps['onNavigate']): SimpleHeroCopy {
+  if (hero.kind === 'empty') {
+    return {
+      chip: 'Ready when you are',
+      title: hero.hasPastJobs ? 'Need something done?' : 'Post your first job',
+      line: 'It takes about a minute.',
+      button: 'Post a job',
+      label: 'Post a job',
+      onPress: () => onNavigate('Create Job'),
+    };
+  }
+  const { job } = hero;
+  const button = 'View';
+  const label = `View ${job.title}`;
+  const onPress = () => onNavigate('Job Detail', job.id);
+  switch (hero.kind) {
+    case 'working':
+      return {
+        chip: hero.needsConfirmation ? 'Needs your confirmation' : 'In progress',
+        title: job.title,
+        line: hero.needsConfirmation ? 'Check the work, then confirm.' : `${hero.providerName ?? 'Your provider'} is working on it`,
+        button,
+        label,
+        onPress,
+      };
+    case 'booking':
+      return {
+        chip: hero.upcoming ? 'Next booking' : 'Booked',
+        title: job.title,
+        line: bookingLine(hero.when, hero.providerName),
+        button,
+        label,
+        onPress,
+      };
+    case 'searching':
+      return {
+        chip: 'Waiting for offers',
+        title: "We're finding providers",
+        line: `${job.title} · posted ${shortMonthDay(job.posted_at)}`,
+        button,
+        label,
+        onPress,
+      };
+  }
+}
+
+/** The one thing that needs the homeowner. Proposals keep their own layout; the other kinds share the booking's. */
 function HomeHeroCard({ hero, onNavigate }: { hero: HomeHero; onNavigate: HOHomeScreenProps['onNavigate'] }) {
   const { Colors, styles } = useThemedStyles(createThemedStyles);
-  // The hero is always sky blue: the proposals and the booking cards share one layout.
-  if (hero.kind === 'booking') {
+  // The hero is always sky blue: every kind shares one layout.
+  if (hero.kind !== 'proposals') {
+    const copy = simpleHeroCopy(hero, onNavigate);
     return (
-      <View testID="home-hero-booking" style={styles.attentionCard}>
+      <View testID={`home-hero-${hero.kind}`} style={styles.attentionCard}>
         <View style={styles.attentionChip}>
-          <Text style={styles.attentionChipText}>Next booking</Text>
+          <Text style={styles.attentionChipText}>{copy.chip}</Text>
         </View>
-        <Text style={styles.attentionTitle} numberOfLines={2}>{hero.job.title}</Text>
-        <Text style={styles.attentionLine} numberOfLines={1}>{bookingLine(hero.when, hero.providerName)}</Text>
+        <Text style={styles.attentionTitle} numberOfLines={2}>{copy.title}</Text>
+        {copy.line !== '' && <Text style={styles.attentionLine} numberOfLines={1}>{copy.line}</Text>}
         <View style={[styles.attentionFooter, styles.attentionFooterEnd]}>
           <Tap
             style={styles.attentionButton}
             hitSlop={5}
             accessibilityRole="button"
-            accessibilityLabel={`View ${hero.job.title}`}
-            onPress={() => onNavigate('Job Detail', hero.job.id)}
+            accessibilityLabel={copy.label}
+            onPress={copy.onPress}
           >
-            <Text style={styles.attentionButtonText}>View</Text>
+            <Text style={styles.attentionButtonText}>{copy.button}</Text>
           </Tap>
         </View>
       </View>
@@ -177,7 +233,6 @@ export default function HOHomeScreen({ onNavigate, tourOffer }: HOHomeScreenProp
   const { dark } = useTheme();
   const headerTop = useHeaderTop();
   const { profile } = useAuth();
-  const wallet = useAsyncData(() => api.wallet(), [], 'ho-home-wallet', { persist: true, validate: isHomeWallet });
   const jobs = useAsyncData(() => api.myJobs(), [], 'ho-home-jobs', { persist: true, validate: isList });
   const categories = useAsyncData(() => api.categories(), [], 'categories', {
     persist: true,
@@ -185,14 +240,15 @@ export default function HOHomeScreen({ onNavigate, tourOffer }: HOHomeScreenProp
     validate: isList,
   });
   const notifications = useNotifications();
-  // The welcome tour points at these three controls (the post field, the wallet chip and the bell).
+  // The welcome tour points at these controls (the post field and the bell).
   const postTour = useTourAnchor('home.post');
-  const walletTour = useTourAnchor('home.wallet');
   const bellTour = useTourAnchor('home.bell');
   const [proposalLookup, setProposalLookup] = useState<{ jobs: Job[] | null; byJob: ApplicationsByJob }>({
     jobs: null,
     byJob: {},
   });
+  // A pull to refresh asks for the proposal lookups again, even when the jobs list comes back unchanged.
+  const [proposalRound, setProposalRound] = useState(0);
 
   useEffect(() => {
     const list = jobs.data;
@@ -202,7 +258,20 @@ export default function HOHomeScreen({ onNavigate, tourOffer }: HOHomeScreenProp
       if (active) setProposalLookup({ jobs: list, byJob });
     });
     return () => { active = false; };
-  }, [jobs.data]);
+  }, [jobs.data, proposalRound]);
+
+  // Pull to refresh reloads what Home loads: the jobs, the services and, after the jobs, the proposal lookups.
+  // The spinner stops when the jobs request settles, the one Home's content is built from.
+  const [pulling, setPulling] = useState(false);
+  useEffect(() => {
+    if (!jobs.loading && !jobs.refreshing) setPulling(false);
+  }, [jobs.loading, jobs.refreshing]);
+  const onRefresh = () => {
+    setPulling(true);
+    categories.reload();
+    jobs.reload();
+    setProposalRound((round) => round + 1);
+  };
 
   // The hero and the proposal counts on job rows wait for the lookups made for
   // the jobs they are computed from, so nothing flips from "waiting" to "to
@@ -211,9 +280,10 @@ export default function HOHomeScreen({ onNavigate, tourOffer }: HOHomeScreenProp
   const hero = proposalsReady && jobs.data ? pickHomeHero(jobs.data, proposalLookup.byJob, new Date()) : null;
   const pendingCountFor = (jobId: string): number | undefined =>
     proposalsReady ? pendingApplicants(proposalLookup.byJob[jobId]).length : undefined;
-  // The placeholder holds the hero's place while the jobs load for the first time, or
-  // while a hero may still appear. A failed jobs request holds none, so nothing hangs.
-  const heroPending = !jobs.error && (jobs.data === null ? jobs.loading : heroMayAppear(jobs.data, proposalsReady, new Date()));
+  // The placeholder holds the hero's place while the jobs load for the first time, and until the
+  // proposal lookups for the loaded jobs are in, since the hero can change kind on their answer.
+  // A failed jobs request holds none, so nothing hangs and no card claims anything.
+  const heroPending = !jobs.error && (jobs.data === null ? jobs.loading : !proposalsReady);
 
   const name = profile?.full_name ?? '';
   const activeJobs = (jobs.data ?? []).filter((j) => ACTIVE_STATUSES.includes(j.status));
@@ -222,11 +292,11 @@ export default function HOHomeScreen({ onNavigate, tourOffer }: HOHomeScreenProp
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   // A first load with nothing to show yet: after a while, say the server is probably waking up.
-  const hasHomeData = wallet.data !== null || jobs.data !== null || categories.data !== null;
-  const homeSlow = useSlowLoad(wallet.loading || jobs.loading || categories.loading, hasHomeData);
+  const hasHomeData = jobs.data !== null || categories.data !== null;
+  const homeSlow = useSlowLoad(jobs.loading || categories.loading, hasHomeData);
 
   // One hint for the screen: a saved copy says it is being updated, and a failed refresh of one says so, with Try again.
-  const sources = [wallet, jobs, categories];
+  const sources = [jobs, categories];
   const hintStale = sources.some((source) => source.stale);
   const hintRefreshing = sources.some((source) => source.stale && source.refreshing);
   const hintError = sources.find((source) => source.stale && source.error)?.error ?? null;
@@ -236,7 +306,7 @@ export default function HOHomeScreen({ onNavigate, tourOffer }: HOHomeScreenProp
     }
   };
 
-  if (wallet.loading && jobs.loading && categories.loading && notifications.loading) {
+  if (jobs.loading && categories.loading && notifications.loading) {
     return (
       <View style={styles.screen}>
         {homeSlow && <SlowLoadNote />}
@@ -251,8 +321,11 @@ export default function HOHomeScreen({ onNavigate, tourOffer }: HOHomeScreenProp
       <ScrollView
         style={styles.flex}
         showsVerticalScrollIndicator={false}
+        refreshControl={(
+          <RefreshControl refreshing={pulling} onRefresh={onRefresh} tintColor={Colors.primary} colors={[Colors.primary]} />
+        )}
       >
-        {/* Header: the avatar opens Profile, the wallet chip opens Wallet, the bell opens Notifications. */}
+        {/* Header: the avatar opens Profile, the bell opens Notifications. */}
         <View style={[styles.header, { paddingTop: headerTop }]}>
           <View style={styles.headerRow}>
             <Tap
@@ -282,27 +355,6 @@ export default function HOHomeScreen({ onNavigate, tourOffer }: HOHomeScreenProp
               </Text>
             </View>
             <View testID="hero-actions" style={styles.headerActions}>
-              <Tap
-                testID="home-wallet"
-                {...walletTour}
-                style={styles.walletChip}
-                hitSlop={6}
-                accessibilityRole="button"
-                accessibilityLabel={wallet.data ? `Wallet balance ${peso(wallet.data.balance)}. Opens Wallet` : 'Wallet. Opens Wallet'}
-                onPress={() => onNavigate('Wallet')}
-              >
-                <Wallet size={16} color={Colors.link} strokeWidth={2.2} />
-                {/* A short form from ₱100,000, so the name keeps its room; the label above keeps the full amount. */}
-                <Text
-                  style={styles.walletAmount}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.7}
-                  maxFontSizeMultiplier={1.2}
-                >
-                  {wallet.data ? formatPesoShort(wallet.data.balance) : '—'}
-                </Text>
-              </Tap>
               <View>
                 <Tap
                   testID="home-bell"
@@ -323,7 +375,6 @@ export default function HOHomeScreen({ onNavigate, tourOffer }: HOHomeScreenProp
               </View>
             </View>
           </View>
-          {wallet.error && !wallet.data && <Banner tone="error" message="Couldn't load your wallet" actionLabel="Try again" onAction={wallet.reload} />}
         </View>
 
         {/* Body */}
@@ -457,12 +508,6 @@ function createThemedStyles(theme: ThemePalette) {
     greeting: { color: C.ink500, fontSize: 13, fontWeight: '400', fontFamily: 'Inter', lineHeight: 18 },
     userName: { color: C.ink900, fontSize: 18, fontWeight: '700', fontFamily: 'Inter', lineHeight: 24 },
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
-    walletChip: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      paddingLeft: 10, paddingRight: 12, paddingVertical: 8,
-      borderRadius: 999, backgroundColor: C.surface, borderWidth: 1, borderColor: C.line,
-    },
-    walletAmount: { color: C.ink900, fontSize: 14, fontWeight: '600', fontFamily: 'Inter', lineHeight: 18 },
     bell: {
       width: 44, height: 44, borderRadius: 22,
       backgroundColor: C.surface, borderWidth: 1, borderColor: C.line,

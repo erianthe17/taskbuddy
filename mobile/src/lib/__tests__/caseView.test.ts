@@ -360,7 +360,7 @@ describe('caseView: actions copy', () => {
     const view = caseView(pending, PROVIDER, BEFORE_DEADLINE);
     expect(view.agree).toEqual({
       title: 'Agree to cancel?',
-      message: "₱800.00 goes back to the client's wallet.\nThe booking is removed from your schedule.\nThis can't be undone.",
+      message: "₱800.00 goes back to the client's payment method.\nThe booking is removed from your schedule.\nThis can't be undone.",
       confirmLabel: 'Agree and refund ₱800.00',
     });
   });
@@ -392,8 +392,6 @@ describe('caseView: actions copy', () => {
   it('names the other party in the back label and the message link', () => {
     expect(caseView(base, CLIENT, BEFORE_DEADLINE).counterpartName).toBe('TaskBuddyProvider');
     expect(caseView(base, PROVIDER, BEFORE_DEADLINE).counterpartName).toBe('Maria Client');
-    expect(caseView({ ...base, status: 'resolved', resolved_at: RESOLVED, resolution: 'reviewed' }, PROVIDER, BEFORE_DEADLINE).closedBackLabel).toBe('Back to My Work');
-    expect(caseView({ ...base, status: 'resolved', resolved_at: RESOLVED, resolution: 'reviewed' }, CLIENT, BEFORE_DEADLINE).closedBackLabel).toBe('Back to My Jobs');
   });
 
   it('gives the provider the reason as "No reason given" for a cancellation, and the reason for a complaint', () => {
@@ -439,8 +437,8 @@ describe('caseView: where the money goes, worded for each viewer', () => {
   });
 
   it.each([
-    { viewer: 'the homeowner', me: CLIENT, money: "₱800.00 goes back to your wallet.", noMoney: 'The payment goes back to your wallet.' },
-    { viewer: 'the provider', me: PROVIDER, money: "₱800.00 goes back to the client's wallet.", noMoney: "The payment goes back to the client's wallet." },
+    { viewer: 'the homeowner', me: CLIENT, money: "₱800.00 goes back to your payment method.", noMoney: 'The payment goes back to your payment method.' },
+    { viewer: 'the provider', me: PROVIDER, money: "₱800.00 goes back to the client's payment method.", noMoney: "The payment goes back to the client's payment method." },
   ])('says where the held money goes for $viewer', ({ me, money, noMoney }) => {
     expect(caseView(pending, me, BEFORE_DEADLINE).agree.message).toBe(
       `${money}\nThe booking is removed from your schedule.\nThis can't be undone.`,
@@ -470,7 +468,7 @@ describe('caseView: plain words', () => {
   function visibleStrings(view: CaseView): string[] {
     return [
       view.heading, view.jobChip, view.status.overline, view.status.title, view.status.body, view.theirReason,
-      view.counterpartName, view.closedBackLabel, view.agree.title, view.agree.message, view.agree.confirmLabel,
+      view.counterpartName, view.agree.title, view.agree.message, view.agree.confirmLabel,
       view.contest.title, view.contest.message, view.contest.confirmLabel, view.sheetTitle, view.sheetIntro,
       ...view.steps.flatMap((step) => [step.title, step.detail, step.meta, step.chatNote]),
     ].filter((text): text is string => typeof text === 'string');

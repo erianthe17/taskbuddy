@@ -2,6 +2,7 @@ import { PaymentsScheduler } from './payments.scheduler';
 import type { EscrowService } from './escrow.service';
 import type { ConnectPayoutsService } from '../payments/connect/connect-payouts.service';
 import type { SupabaseService } from '../supabase/supabase.service';
+import type { XenditService } from '../payments/xendit.service';
 
 function build(rows: unknown[], error: { message: string } | null = null) {
   const calls: { method: string; args: unknown[] }[] = [];
@@ -49,6 +50,7 @@ function build(rows: unknown[], error: { message: string } | null = null) {
     supabase,
     escrow as unknown as EscrowService,
     payouts as unknown as ConnectPayoutsService,
+    { configured: false } as unknown as XenditService,
   );
   jest.spyOn(scheduler['logger'], 'warn').mockImplementation(() => {});
   jest.spyOn(scheduler['logger'], 'error').mockImplementation(() => {});
@@ -95,6 +97,13 @@ describe('PaymentsScheduler.reconcileSettledJobs', () => {
 });
 
 describe('PaymentsScheduler.tick', () => {
+  it('expires pending job changes on the payments tick', async () => {
+    const { scheduler } = build([]);
+    await scheduler.tick();
+    const rpcCalls = (scheduler['supabase'].admin.rpc as jest.Mock).mock.calls;
+    expect(rpcCalls).toContainEqual(['job_change_expire_all']);
+  });
+
   it('reconciles, then sweeps transfers, and survives a failing read', async () => {
     const { scheduler, payouts } = build([], { message: 'db down' });
 

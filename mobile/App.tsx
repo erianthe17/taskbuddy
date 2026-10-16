@@ -1,3 +1,4 @@
+import TermsUpdatePrompt from './src/components/TermsUpdatePrompt';
 import { ThemeProvider, useTheme, useThemedStyles, type Palette as ThemePalette } from './src/context/ThemeContext';
 import { NotificationsProvider } from './src/context/NotificationsContext';
 /**
@@ -33,7 +34,7 @@ if (__DEV__) {
 }
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import * as WebBrowser from 'expo-web-browser';
-import { ClipboardList, Home, Search, User, Wallet } from 'lucide-react-native';
+import { ClipboardList, Home, MessageCircle, Search, User } from 'lucide-react-native';
 import RootLayout from './app/layout';
 
 // ── Auth screens ──────────────────────────────────────────────────────────────
@@ -49,7 +50,7 @@ import GoogleSPDetailsScreen from './app/(auth)/screens/GoogleSPDetailsScreen';
 import HOHomeScreen from './app/(homeowner)/screens/HOHomeScreen';
 import MyJobs from './app/(homeowner)/screens/HOMyJobs';
 import Profile from './app/(homeowner)/screens/HOProfile';
-import HOWalletScreen from './app/(homeowner)/screens/HOWalletScreen';
+import ConversationsScreen from './src/components/ConversationsScreen';
 import HOCalendarScreen from './app/(homeowner)/screens/HOCalendarScreen';
 import HOCreateJobScreen from './app/(homeowner)/screens/HOCreateJobScreen';
 import HOJobDetailScreen from './app/(homeowner)/screens/HOJobDetailScreen';
@@ -67,16 +68,16 @@ import HODisputeStatusScreen from './app/(homeowner)/screens/HODisputeStatusScre
 import SPHomeScreen from './app/(provider)/screens/SPHomeScreen';
 import SPMyJobsScreen from './app/(provider)/screens/SPMyJobsScreen';
 import SPProfileScreen from './app/(provider)/screens/SPProfileScreen';
-import SPWalletScreen from './app/(provider)/screens/SPWalletScreen';
 import SPCalendarScreen from './app/(provider)/screens/SPCalendarScreen';
 import SPJobDetailScreen from './app/(provider)/screens/SPJobDetailScreen';
 import SPChatScreen from './app/(provider)/screens/SPChatScreen';
 import SPNotificationsScreen from './app/(provider)/screens/SPNotificationsScreen';
 import SPEditProfileScreen from './app/(provider)/screens/SPEditProfileScreen';
 import SPVerificationScreen from './app/(provider)/screens/SPVerificationScreen';
-import SPPayoutsScreen from './app/(provider)/screens/SPPayoutsScreen';
+import SPPayoutAccountScreen from './app/(provider)/screens/SPPayoutAccountScreen';
 import SPSettingsScreen from './app/(provider)/screens/SPSettingsScreen';
 import SPPortfolioScreen from './app/(provider)/screens/SPPortfolioScreen';
+import SPCredentialsScreen from './app/(provider)/screens/SPCredentialsScreen';
 import SPSkillRequestScreen from './app/(provider)/screens/SPSkillRequestScreen';
 
 // ── Shared navigation components ──────────────────────────────────────────────
@@ -108,11 +109,12 @@ import { api } from './src/lib/api';
 import { consumeLastNotificationTap, subscribeToNotificationTaps } from './src/lib/pushNotifications';
 import { resolveNotificationTarget } from './src/lib/notificationRouting';
 import { warmUpServer } from './src/lib/warmUp';
+import { profileReadyToVerify } from './src/lib/verifyReady';
 
 export const HOMEOWNER_TABS: readonly BottomNavItem<HOScreen>[] = [
   { key: 'Home', label: 'Home', icon: Home },
   { key: 'My Jobs', label: 'My Jobs', icon: ClipboardList, tourId: 'jobs' },
-  { key: 'Wallet', label: 'Wallet', icon: Wallet },
+  { key: 'Messages', label: 'Messages', icon: MessageCircle },
   { key: 'Profile', label: 'Profile', icon: User },
 ];
 
@@ -121,7 +123,7 @@ export const HOMEOWNER_TABS: readonly BottomNavItem<HOScreen>[] = [
 export const PROVIDER_TABS: readonly BottomNavItem<SPScreen>[] = [
   { key: 'Dashboard', label: 'Feed', icon: Search },
   { key: 'My Jobs', label: 'My Work', icon: ClipboardList, tourId: 'work' },
-  { key: 'Wallet', label: 'Wallet', icon: Wallet },
+  { key: 'Messages', label: 'Messages', icon: MessageCircle },
   { key: 'Profile', label: 'Profile', icon: User },
 ];
 
@@ -167,7 +169,7 @@ function AppFlow() {
   const { V6Colors, styles } = useThemedStyles(createThemedStyles);
   const {
     initializing, isAuthenticated, isGoogleSignupPending,
-    role, profile, isVerified,
+    role, profile, providerProfile, isVerified,
     signIn, signUp, signOut, signInWithGoogle, completeGoogleProfile,
     refreshProfile, authError, clearAuthError,
   } = useAuth();
@@ -221,8 +223,8 @@ function AppFlow() {
   const [spStack, setSPStack] = useState<SPStackEntry[]>([]); // non-tab screens navigated away from
   const [spJobsView, setSPJobsView] = useState<JobsView>('list'); // My Work: list or calendar
 
-  const HO_TAB_SCREENS: HOScreen[] = ['Home', 'My Jobs', 'Wallet', 'Profile'];
-  const SP_TAB_SCREENS: SPScreen[] = ['Dashboard', 'My Jobs', 'Wallet', 'Profile'];
+  const HO_TAB_SCREENS: HOScreen[] = ['Home', 'My Jobs', 'Messages', 'Profile'];
+  const SP_TAB_SCREENS: SPScreen[] = ['Dashboard', 'My Jobs', 'Messages', 'Profile'];
 
   // ── HO helpers ────────────────────────────────────────────────────────────
   // Jumping to a tab is a "root" navigation — it clears the back stack rather
@@ -557,6 +559,7 @@ function AppFlow() {
     endTourFlow();
     if (action === 'postJob' && role === 'homeowner') hoNavigate('Create Job');
     if (action === 'getVerified' && role === 'provider') spNavigate('Verification');
+    if (action === 'setupProfile' && role === 'provider') spNavigate('Edit Profile');
   };
 
   // Home is on screen: the tour is due once Home's real content is up (its controls rendered, not still behind the
@@ -564,7 +567,7 @@ function AppFlow() {
   const onHome = showOnboarding === false && !!role && (role === 'homeowner' ? hoScreen === 'Home' : spScreen === 'Dashboard');
   useEffect(() => {
     if (tourFlow.phase !== 'waiting' || !onHome || !role) return;
-    const steps = tourSteps(role);
+    const steps = tourSteps(role, isVerified);
     const waitedFrom = Date.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const check = () => {
@@ -585,7 +588,7 @@ function AppFlow() {
   useEffect(() => {
     if (tourFlow.phase !== 'touring' || !role) return;
     startTour({
-      steps: tourSteps(role),
+      steps: tourSteps(role, isVerified),
       onFinish: () => setTourFlow((flow) => nextTourFlow(flow, { type: 'tourFinished' })),
       onSkip: endTourFlow,
     });
@@ -598,6 +601,7 @@ function AppFlow() {
     <TourFinishCard
       role={role}
       verified={isVerified}
+      hasServiceProfile={profileReadyToVerify(profile, providerProfile)}
       firstName={firstName}
       firstRun={tourFlow.firstRun}
       onAction={handleFinishAction}
@@ -867,8 +871,8 @@ function AppFlow() {
           return hoJobsView === 'calendar'
             ? <HOCalendarScreen title="My Jobs" headerRight={hoJobsSwitch} onNavigate={hoNavigate} />
             : <MyJobs headerRight={hoJobsSwitch} onNavigate={hoNavigate} />;
-        case 'Wallet':
-          return <HOWalletScreen />;
+        case 'Messages':
+          return <ConversationsScreen onOpenChat={(jobId) => hoNavigate('Chat', jobId)} />;
         case 'Profile':
           // No onBack: the Profile tab has no back arrow. Edit Profile and the
           // other pushed screens still return here through the back stack.
@@ -987,6 +991,8 @@ function AppFlow() {
             void refreshProfile();
             spBack();
           }}
+          // The same destination as the finish card's "Finish my profile" (setupProfile).
+          onEditProfile={() => spNavigate('Edit Profile')}
           onVerified={async () => {
             await refreshProfile();
             spBack();
@@ -996,6 +1002,7 @@ function AppFlow() {
     );
   }
   if (spScreen === 'Portfolio') return wrap(<ScreenFrame bottomColor={V6Colors.surface}><SPPortfolioScreen onBack={spBack}/></ScreenFrame>);
+  if (spScreen === 'Credentials') return wrap(<ScreenFrame bottomColor={V6Colors.surface}><SPCredentialsScreen onBack={spBack}/></ScreenFrame>);
   if (spScreen === 'My Services') {
     return wrap(
       <ScreenFrame bottomColor={V6Colors.surface}>
@@ -1003,10 +1010,10 @@ function AppFlow() {
       </ScreenFrame>
     );
   }
-  if (spScreen === 'Payouts') {
+  if (spScreen === 'Payout Account') {
     return wrap(
       <ScreenFrame bottomColor={V6Colors.surface}>
-        <SPPayoutsScreen onBack={spBack} />
+        <SPPayoutAccountScreen onBack={spBack} />
       </ScreenFrame>
     );
   }
@@ -1024,8 +1031,8 @@ function AppFlow() {
         return spJobsView === 'calendar'
           ? <SPCalendarScreen title="My Work" headerRight={spJobsSwitch} onNavigate={spNavigate} />
           : <SPMyJobsScreen headerRight={spJobsSwitch} onNavigate={spNavigate} />;
-      case 'Wallet':
-        return <SPWalletScreen onNavigate={spNavigate} />;
+      case 'Messages':
+        return <ConversationsScreen onOpenChat={(jobId) => spNavigate('Chat', jobId)} />;
       case 'Profile':
         // No onBack: the Profile tab has no back arrow. Edit Profile and the
         // other pushed screens still return here through the back stack.
@@ -1059,6 +1066,7 @@ export default function App() {
               <BottomSheetModalProvider>
                 <RootLayout>
                   <AppContent />
+                  <TermsUpdatePrompt />
                   <ToastHost />
                 </RootLayout>
               </BottomSheetModalProvider>

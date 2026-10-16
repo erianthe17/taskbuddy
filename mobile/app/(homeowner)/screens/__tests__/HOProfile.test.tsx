@@ -10,7 +10,7 @@ import { useAuth } from '../../../../src/context/AuthContext';
 import { clearAsyncDataCache } from '../../../../src/hooks/useAsyncData';
 
 jest.mock('../../../../src/lib/api', () => ({
-  api: { myJobs: jest.fn(), wallet: jest.fn() },
+  api: { myJobs: jest.fn() },
 }));
 
 jest.mock('../../../../src/context/AuthContext', () => ({
@@ -38,7 +38,6 @@ beforeEach(() => {
   (useAuth as jest.Mock).mockReturnValue({ profile: homeownerProfile });
   // Left pending: the stats loader would otherwise update state after each test ends.
   (api.myJobs as jest.Mock).mockReturnValue(new Promise(() => {}));
-  (api.wallet as jest.Mock).mockReturnValue(new Promise(() => {}));
 });
 
 it('has no back arrow on the Profile tab, where onBack is not passed', () => {
@@ -123,6 +122,24 @@ it('shows a long email with no line limit, so it wraps instead of being cut off'
   render(<Profile onNavigate={jest.fn()} onLogout={jest.fn()} />);
 
   expect(screen.getByText(longEmail).props.numberOfLines).toBeUndefined();
+});
+
+it('an empty location is an Add location link to Edit Profile, not a dash', () => {
+  (useAuth as jest.Mock).mockReturnValue({ profile: { ...homeownerProfile, address: null, city: null } });
+  const onNavigate = jest.fn();
+  render(<Profile onNavigate={onNavigate} onLogout={jest.fn()} />);
+
+  fireEvent.press(screen.getByRole('button', { name: 'Add location' }));
+
+  expect(onNavigate).toHaveBeenCalledWith('Edit Profile');
+});
+
+it('shows the location, and no Add location link, once there is one', () => {
+  (useAuth as jest.Mock).mockReturnValue({ profile: { ...homeownerProfile, address: 'Arturo Tanco Drive, Lipa', city: 'Lipa' } });
+  render(<Profile onNavigate={jest.fn()} onLogout={jest.fn()} />);
+
+  expect(screen.getByText('Arturo Tanco Drive, Lipa')).toBeTruthy();
+  expect(screen.queryByText('Add location')).toBeNull();
 });
 
 it('shows the phone number, and no Add phone number link, once there is one', () => {

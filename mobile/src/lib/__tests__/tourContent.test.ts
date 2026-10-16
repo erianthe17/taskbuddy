@@ -62,34 +62,59 @@ describe('introCards', () => {
 });
 
 describe('tourSteps', () => {
-  it('points the client at the post field, Jobs tab, wallet chip and bell, in order', () => {
+  it('points the client at the post field, Jobs tab and bell, in order', () => {
     const steps = tourSteps('homeowner');
 
-    expect(steps.map((step) => step.anchorId)).toEqual(['home.post', 'tab.jobs', 'home.wallet', 'home.bell']);
+    expect(steps.map((step) => step.anchorId)).toEqual(['home.post', 'tab.jobs', 'home.bell']);
     expect(steps[0]).toEqual({ anchorId: 'home.post', title: 'Start here', body: 'Pick a service and describe the job. It takes about a minute.' });
-    expect(steps[3].title).toBe('Never miss an offer');
+    expect(steps[2].title).toBe('Never miss an offer');
   });
 
-  it('points the provider at the availability toggle, feed search, My Work tab and Wallet tab, in order', () => {
+  it('points the provider at the availability toggle, feed search, My Work tab and Messages tab, in order', () => {
     const steps = tourSteps('provider');
 
-    expect(steps.map((step) => step.anchorId)).toEqual(['home.availability', 'home.feed', 'tab.work', 'tab.Wallet']);
+    expect(steps.map((step) => step.anchorId)).toEqual(['home.availability', 'home.feed', 'tab.work', 'tab.Messages']);
     expect(steps[0]).toEqual({ anchorId: 'home.availability', title: 'Be seen', body: 'Turn this on to get invited to jobs near you.' });
   });
 
-  it('describes withdrawals only as GCash or bank, the two rails the app offers', () => {
-    const wallet = tourSteps('provider')[3];
+  it('keeps the four Home steps for a verified provider, whether or not the flag is passed', () => {
+    expect(tourSteps('provider', true).map((step) => step.anchorId)).toEqual(tourSteps('provider').map((step) => step.anchorId));
+  });
 
-    expect(wallet.body).toBe('Withdraw to your GCash or bank account once money is released.');
-    expect(wallet.body).not.toMatch(/Maya/);
+  it('starts an unverified provider at the setup panel on Home, then the work, messages and profile tabs', () => {
+    const steps = tourSteps('provider', false);
+
+    expect(steps.map((step) => step.anchorId)).toEqual(['home.setup', 'tab.work', 'tab.Messages', 'tab.Profile']);
+    expect(steps[0]).toEqual({
+      anchorId: 'home.setup',
+      title: 'Finish setting up',
+      body: 'Add your details and ID so clients can find you.',
+    });
+    expect(steps[1].title).toBe('Your work');
+    expect(steps[2].title).toBe('Your messages');
+  });
+
+  it('never points an unverified provider at a Home control that only a verified provider has', () => {
+    const anchors = tourSteps('provider', false).map((step) => step.anchorId);
+
+    expect(anchors.filter((anchorId) => anchorId.startsWith('home.'))).toEqual(['home.setup']);
+  });
+
+  it('points the provider at the Messages tab, never at a wallet', () => {
+    expect(tourSteps('provider')[3]).toEqual({ anchorId: 'tab.Messages', title: 'Your messages', body: 'Chat with your clients about each job here.' });
+    expect(tourSteps('provider', false)[2].anchorId).toBe('tab.Messages');
+    expect(JSON.stringify([tourSteps('provider'), tourSteps('provider', false), tourSteps('homeowner')])).not.toMatch(/wallet|withdraw/i);
   });
 
   it('gives every step a title and a body', () => {
-    for (const role of ['homeowner', 'provider'] as const) {
-      for (const step of tourSteps(role)) {
-        expect(step.title.trim()).not.toBe('');
-        expect(step.body.trim()).not.toBe('');
-      }
+    const all = [
+      ...tourSteps('homeowner'),
+      ...tourSteps('provider'),
+      ...tourSteps('provider', false),
+    ];
+    for (const step of all) {
+      expect(step.title.trim()).not.toBe('');
+      expect(step.body.trim()).not.toBe('');
     }
   });
 });
@@ -121,6 +146,26 @@ describe('finishCard', () => {
     });
   });
 
+  it('sends an unverified provider whose profile is not ready to add the address and bio first', () => {
+    expect(finishCard({ role: 'provider', verified: false, firstName: 'Ana', hasServiceProfile: false })).toEqual({
+      title: "You're all set, Ana",
+      checklist: [
+        { label: 'Account created', state: 'done' },
+        { label: 'Add your address and bio', state: 'next' },
+        { label: 'Get verified', state: 'later' },
+      ],
+      primary: { label: 'Finish my profile', action: 'setupProfile' },
+      secondary: { label: 'Look around first', action: 'close' },
+    });
+  });
+
+  it('treats a provider whose profile is ready as before: verification comes first', () => {
+    expect(finishCard({ role: 'provider', verified: false, firstName: 'Ana', hasServiceProfile: true }).primary)
+      .toEqual({ label: 'Get verified', action: 'getVerified' });
+    expect(finishCard({ role: 'provider', verified: false, firstName: 'Ana' }).primary)
+      .toEqual({ label: 'Get verified', action: 'getVerified' });
+  });
+
   it('sends a verified provider to their first job, with no second button', () => {
     expect(finishCard({ role: 'provider', verified: true, firstName: 'Ana' })).toEqual({
       title: "You're all set, Ana",
@@ -131,6 +176,13 @@ describe('finishCard', () => {
       ],
       primary: { label: 'Find my first job', action: 'close' },
     });
+  });
+
+  it('ignores the profile readiness for a verified provider and for a client', () => {
+    expect(finishCard({ role: 'provider', verified: true, firstName: 'Ana', hasServiceProfile: false }).primary.action)
+      .toBe('close');
+    expect(finishCard({ role: 'homeowner', verified: false, firstName: 'Juan', hasServiceProfile: false }).primary.action)
+      .toBe('postJob');
   });
 
   it('greets "there" when the name is missing', () => {
