@@ -1514,3 +1514,13 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** the row is reachable.   **Actual:** the redesigned provider profile (Account Info card plus a menu list) pushes Log Out below the fold, so `Tap on "Log Out"` failed with "Element not found".
 - **Evidence:** screenshot `~/.taskbuddy-e2e/logs/tmp-a1.png` (not committed)
 - **Solution:** added `scrollUntilVisible: "Log Out"` before the tap. Re-run on build `fbe63d63`: passes.
+
+## Superseded by PR #90 (2026-10-17)
+
+PR #90 (merged 2026-10-16, not yet deployed) removes the in-app wallet: hires are paid at a Xendit
+checkout, payouts go to a linked GCash/Maya/bank account, and the Wallet, Payouts, Withdraw and
+top-up screens are deleted. Findings that only concern those screens or the wallet ledger are
+**Obsolete** and will not be fixed: E2E-105, E2E-119, E2E-120, E2E-128, E2E-129, E2E-130 (money-screen
+fix approvals), E2E-131 (Stripe Connect payouts). Ledger state recorded in handoffs 030/031 and the
+deferred auto-release checks (5.3-15; R4, R5, R10) are void: balances were emptied at cut-over.
+Any finding not listed here stays open and is re-checked in slice 9 on the new build.

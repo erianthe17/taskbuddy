@@ -624,6 +624,15 @@ redacted**. Never probe non-test accounts.
 
 ### Phase 9 — Consolidation
 
+**Slice 9 re-scope (2026-10-17, PR #90).** Slice 9 starts only when: (a) `GET /health` reports a
+`commit` at or after `2ee8243` (main with #89 and #90); (b) Render has `XENDIT_SECRET_KEY` and
+`XENDIT_CALLBACK_TOKEN`; (c) a new dev build from that main is installed. Wallet, top-up, withdrawal
+and ledger flows are dropped. Add instead: price-tier posting (`POST /jobs/price-estimate`), hire via
+Xendit test checkout and the webhook accept, payout-account link (`/payouts/account`, `/payouts/banks`),
+release after warranty to the linked account, refund to payment method, credential upload and
+Certified chip, task tick with proof photos, complaint photos, Terms v2 re-accept, Messages tab.
+Re-run 8.3-16..22 and redraft the obsolete 8.4 rows on the new build.
+
 **9.1 Full regression run.** Every flow in `mobile/maestro/flows/` (excluding `_helpers`), one per
 invocation, **run twice**. Any flow failing once out of two runs is `harness` flaky: fix it or tag it
 `flaky` in its header. Update `mobile/maestro/README.md` "What's covered" and the selector traps with
