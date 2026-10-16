@@ -56,7 +56,7 @@ Handoff is the `docs/handoff/` number, filled in when the slice completes.
 | 7.4 | Disputes / complaints | Complete (row 31 deferred) | 028 |
 | 8.1 | Double-tap / race sweep | Complete | 029 |
 | 8.2 | Network & server states | Complete (row 18 needs user OK) | 030 |
-| 8.3 | Device & OS | Not started | — |
+| 8.3 | Device & OS | In progress — last case 8.3-15 | — |
 | 8.4 | Account-state matrix | Not started | — |
 | 8.5 | Authorization & API abuse probes (curl, test accounts only) | Not started | — |
 | 9.1 | Full regression run | Not started | — |

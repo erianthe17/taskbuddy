@@ -33,6 +33,7 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** 403 "You are not a participant of this chat".   **Actual:** 400 "Message must have text or an attachment." for both. Nothing is created and nothing leaks (non-empty bodies get 403, 7.1-21), so this is a check-order note only.
 - **Evidence:** `~/.taskbuddy-e2e/logs/7.1/7.1-22.log`
 - **Suspected cause:** `backend/src/chat/chat.service.ts:199-202` validates the body before `assertParticipant` at :203. Suggested fix: call `assertParticipant` first.
+- **Also seen (2026-10-12, 8.5-16):** a non-party adding a dispute entry (`POST /disputes/<id>/entries` as maestro.provider2) gets 400 "Not your job" (Bad Request) rather than 403. Refused with no state change; status-code consistency only.
 
 ### E2E-136 — Reading a chat leaves its "New message" notifications unread
 - **Found:** 2026-10-12, slice 7.1, case 7.1-20   **Role:** both
@@ -1493,6 +1494,14 @@ Ids are `E2E-###`, numbered across the whole sweep. Solved items move from `## O
 - **Expected:** Stripe's hosted Connect onboarding opens (sandbox) so the provider can link a bank.   **Actual:** no Stripe page; red line "Card payout setup is unavailable for this platform. Contact TaskBuddy support."; `GET /payments/connect` stays `not_started`.
 - **Evidence:** `evidence/E2E-131-payouts-connect-unavailable.png`
 - **Suspected cause:** Stripe rejects the Express account create with "You can only create new accounts if you've signed up for Connect" — the app maps exactly that message to this copy (`mobile/app/(provider)/screens/SPPayoutsScreen.tsx:130-135`). The platform's Stripe **sandbox** account needs Connect enabled (Stripe Dashboard → Connect → Get started), no code change. Impact for UAT: card-funded job payouts cannot be transferred to provider banks (they still land in the provider's TaskBuddy wallet, and the manual wallet withdrawal works, 6.2). Wallet top-ups via Stripe Checkout work (6.3-16).
+
+### E2E-169 — Verification selfie: the first camera denial gives no message
+- **Found:** 2026-10-12, slice 8.3, case 8.3-15   **Role:** provider
+- **Category:** ux   **Severity:** S4   **Status:** Open
+- **Steps:** 1. Unverified provider (burner N3), Get Verified, pick an ID, Next to Step 2 Face Scan. 2. Tap "Take a selfie"; on the system dialog tap Don't allow. 3. Tap it again and choose "Don't allow" (don't ask again).
+- **Expected:** the first denial explains why the camera is needed or points to "Choose from gallery".   **Actual:** step 2 returns to Step 2 Face Scan with no message at all; only after the permanent denial does the alert "camera access required … You can allow it in Settings." (CANCEL / OPEN SETTINGS) appear. "Choose from gallery" stays available, so the user isn't stuck.
+- **Evidence:** `evidence/E2E-169-first-denial-silent.png`, `evidence/E2E-169-settings-alert.png`
+- **Suspected cause:** `requestAppPermission` returns false with no feedback when `canAskAgain` is true (`mobile/src/lib/permissions.ts:30-38`), and `takeSelfie` just returns (`mobile/app/(provider)/screens/SPVerificationScreen.tsx:150`). The location path shows an inline notice in the same case (AddressField). Fix idea: show a one-line notice on the first denial.
 
 ## Found & solved
 
